@@ -1,0 +1,9 @@
+body { font-family: system-ui, Arial, sans-serif; margin:0; padding:0; background:#f4f4f4; }
+header { background:#0066cc; color:white; padding:1rem; text-align:center; }
+header input { width:90%; max-width:400px; padding:12px; margin:10px 0; border:none; border-radius:8px; font-size:1.1rem; }
+#news-container { padding:1rem; }
+.article { background:white; margin-bottom:1rem; padding:1rem; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+.article h2 { margin:0 0 8px 0; }
+.article a { color:#0066cc; text-decoration:none; }
+footer { text-align:center; padding:1rem; background:#eee; }
+button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; color:white; border:none; border-radius:8px; }
