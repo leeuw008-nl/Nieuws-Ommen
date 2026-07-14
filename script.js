@@ -9,62 +9,78 @@ let allArticles = [];
 
 async function fetchRSS(url) {
     try {
-        console.log("Ophalen:", url);
+        console.log("Start ophalen:", url);
         
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000); // 15 seconden max
-
-        const res = await fetch(PROXY + encodeURIComponent(url), { 
-            signal: controller.signal 
-        });
-        clearTimeout(timeout);
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const res = await fetch(PROXY + encodeURIComponent(url));
+        if (!res.ok) throw new Error("Netwerk fout");
 
         const text = await res.text();
-        console.log(url, "response lengte:", text.length);
+        console.log(url, "→ gelukt, lengte:", text.length);
 
         const xml = new DOMParser().parseFromString(text, "text/xml");
-        if (xml.querySelector("parsererror")) {
-            console.error("XML parse error bij", url);
-            return [];
-        }
+        if (xml.querySelector("parsererror")) throw new Error("XML fout");
 
-        return Array.from(xml.querySelectorAll("item, entry"))
-            .slice(0, 8)
-            .map(item => {
-                let link = "#";
-                const linkEl = item.querySelector("link");
-                if (linkEl) {
-                    link = (linkEl.getAttribute("href") || linkEl.textContent || "").trim();
-                }
-                link = link.replace(/\\/g, '');
+        const items = Array.from(xml.querySelectorAll("item")).slice(0, 6);
 
-                return {
-                    title: item.querySelector("title")?.textContent.trim() || "Geen titel",
-                    link: link,
-                    description: (item.querySelector("description, summary, content")?.textContent || "")
-                        .replace(/<[^>]+>/g, "").trim(),
-                    pubDate: item.querySelector("pubDate")?.textContent || ""
-                };
-            });
-    } catch(e) {
+        return items.map(item => ({
+            title: item.querySelector("title")?.textContent.trim() || "Geen titel",
+            link: (item.querySelector("link")?.getAttribute("href") || item.querySelector("link")?.textContent || "").replace(/\\/g, ''),
+            description: (item.querySelector("description")?.textContent || "").replace(/<[^>]+>/g, "").trim(),
+            pubDate: item.querySelector("pubDate")?.textContent || "",
+            source: ""
+        }));
+    } catch (e) {
         console.error("Fout bij", url, e.message);
         return [];
     }
 }
 
-function isRelevantToOmmen(article) {
-    const text = (article.title + " " + article.description).toLowerCase();
-    return text.includes("ommen") || 
-           text.includes("laarbos") ||
-           text.includes(" in ommen");
-}
-
 async function loadNews() {
     const container = document.getElementById("news-container");
-    container.innerHTML = "<p>Laden van nieuws uit Ommen...</p>";
+    container.innerHTML = "<p>Laden van nieuws...</p>";
 
     try {
-        const promises = feeds.map(feed => 
-            fetchRSS(feed.url).then(arts => arts.map(a => ({
+        const results = await Promise.all(feeds.map(feed => 
+            fetchRSS(feed.url).then(arts => arts.map(a => ({...a, source: feed.name})))
+        ));
+
+        let raw = results.flat();
+        console.log("Totaal opgehaald:", raw.length);
+
+        allArticles = raw.filter(a => {
+            const txt = (a.title + " " + a.description).toLowerCase();
+            return txt.includes("ommen") || txt.includes("laarbos");
+        });
+
+        console.log("Na filter:", allArticles.length);
+
+        allArticles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+
+        renderArticles(allArticles);
+    } catch (e) {
+        console.error("LoadNews error:", e);
+        container.innerHTML = `<p>Kon nieuws niet laden.<br><small>Probeer refresh (F5 of swipe down).</small></p>`;
+    }
+}
+
+function renderArticles(articles) {
+    const container = document.getElementById("news-container");
+    if (!articles.length) {
+        container.innerHTML = "<p>Geen artikelen gevonden.</p>";
+        return;
+    }
+    container.innerHTML = articles.map(a => `
+        <div class="article">
+            <h2><a href="\( {a.link}" target="_blank"> \){a.title}</a></h2>
+            <small>${a.source}</small>
+            <p>${a.description}</p>
+        </div>
+    `).join('');
+}
+
+function refreshNews() { loadNews(); }
+
+window.addEventListener("DOMContentLoaded", () => {
+    console.log("Script gestart");
+    loadNews();
+});
