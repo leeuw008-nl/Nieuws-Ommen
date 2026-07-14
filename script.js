@@ -1,4 +1,4 @@
-const PROXY = 'https://corsproxy.io/?';  // Betrouwbaarder alternatief voor AllOrigins
+const PROXY = 'https://corsproxy.io/?';
 
 const feeds = [
     { name: 'Ommen City', url: 'https://ommencity.nl/feed/' },
@@ -21,15 +21,13 @@ async function fetchRSS(url) {
         const text = await res.text();
         console.log("Response start:", text.substring(0, 300));
 
-        // Check of het echt XML is (geen HTML-foutpagina)
         if (!text.includes('<rss') && !text.includes('<feed')) {
-            console.warn("Geen geldige RSS:", text.substring(0, 200));
+            console.warn("Geen geldige RSS");
             return [];
         }
 
         const xml = new DOMParser().parseFromString(text, "text/xml");
         
-        // Error check van parser
         const parserError = xml.querySelector("parsererror");
         if (parserError) {
             console.error("XML parse error:", parserError.textContent);
@@ -37,7 +35,7 @@ async function fetchRSS(url) {
         }
 
         return Array.from(xml.querySelectorAll("item, entry"))
-            .slice(0, 6)  // iets meer per feed
+            .slice(0, 8)
             .map(item => {
                 const titleEl = item.querySelector("title");
                 const linkEl = item.querySelector("link");
@@ -47,7 +45,6 @@ async function fetchRSS(url) {
                 let link = linkEl ? (linkEl.getAttribute("href") || linkEl.textContent.trim()) : "#";
                 let description = descEl ? descEl.textContent.replace(/<[^>]+>/g, "").trim() : "";
 
-                // Truncate lange descriptions
                 if (description.length > 300) {
                     description = description.substring(0, 297) + "...";
                 }
@@ -57,7 +54,7 @@ async function fetchRSS(url) {
                     link: link,
                     description: description,
                     pubDate: pubDateEl?.textContent.trim() || "",
-                    source: "" // later toegevoegd
+                    source: "" 
                 };
             });
 
@@ -65,6 +62,12 @@ async function fetchRSS(url) {
         console.error("RSS fout:", url, e);
         return [];
     }
+}
+
+// Nieuwe filter functie
+function containsOmmen(text) {
+    if (!text) return false;
+    return text.toLowerCase().includes("ommen");
 }
 
 async function loadNews() {
@@ -76,15 +79,24 @@ async function loadNews() {
 
     const promises = feeds.map(async feed => {
         const arts = await fetchRSS(feed.url);
-        return arts.map(a => ({ ...a, source: feed.name }));
+        return arts.map(a => ({ 
+            ...a, 
+            source: feed.name 
+        }));
     });
 
     const results = await Promise.all(promises);
-    allArticles = results.flat().filter(a => a.title && a.link !== "#");
+    let rawArticles = results.flat();
 
-    console.log("Aantal artikelen:", allArticles.length);
+    // === FILTER OP OMMEN ===
+    allArticles = rawArticles.filter(article => 
+        containsOmmen(article.title) || 
+        containsOmmen(article.description)
+    );
 
-    // Sorteer op datum (nieuwste eerst)
+    console.log("Artikelen na Ommen-filter:", allArticles.length);
+
+    // Sorteer op datum
     allArticles.sort((a, b) => {
         const dateA = new Date(a.pubDate || 0);
         const dateB = new Date(b.pubDate || 0);
@@ -98,7 +110,7 @@ function renderArticles(articles) {
     const container = document.getElementById("news-container");
 
     if (articles.length === 0) {
-        container.innerHTML = "<p>Geen nieuws gevonden. Probeer later opnieuw.</p>";
+        container.innerHTML = "<p>Geen nieuws uit Ommen gevonden op dit moment.</p>";
         return;
     }
 
@@ -111,14 +123,17 @@ function renderArticles(articles) {
             </h2>
             <small>
                 ${article.source}
-                ${article.pubDate ? " — " + new Date(article.pubDate).toLocaleDateString('nl-NL', { year: 'numeric', month: 'long', day: 'numeric' }) : ""}
+                ${article.pubDate ? " — " + new Date(article.pubDate).toLocaleDateString('nl-NL', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                }) : ""}
             </small>
             <p>${article.description}</p>
         </div>
     `).join('');
 }
 
-// Zoekfunctie en refresh blijven hetzelfde
 function searchNews(query) {
     if (!query) {
         renderArticles(allArticles);
