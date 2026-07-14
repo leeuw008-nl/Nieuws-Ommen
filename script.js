@@ -27,88 +27,148 @@ const ommenKeywords = [
     "stegeren",
     "vilsteren",
     "witharen",
-    "varsen"
+    "varsen",
+    "ommermars"
 ];
+
+const defaultSearch =
+    ommenKeywords.join(" ");
 
 let allArticles = [];
 
 
 async function fetchRSS(url) {
+
     try {
-        const res = await fetch(PROXY + encodeURIComponent(url));
+
+        const res =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
 
         if (!res.ok) {
             throw new Error("Netwerkfout");
         }
 
-        const text = await res.text();
 
-        const xml = new DOMParser()
-            .parseFromString(text, "text/xml");
+        const text =
+            await res.text();
+
+
+        const xml =
+            new DOMParser()
+                .parseFromString(
+                    text,
+                    "text/xml"
+                );
+
 
         if (xml.querySelector("parsererror")) {
             return [];
         }
 
 
-        return Array.from(xml.querySelectorAll("item, entry"))
-            .slice(0, 25)
-            .map(item => {
-
-                let link = "#";
-
-                const linkEl = item.querySelector("link");
-
-                if (linkEl) {
-                    link =
-                        linkEl.getAttribute("href") ||
-                        linkEl.textContent ||
-                        "";
-                }
-
-                link = link.trim().replace(/\\/g, "");
+        return Array.from(
+            xml.querySelectorAll("item, entry")
+        )
+        .slice(0, 25)
+        .map(item => {
 
 
-                const dateString =
-                    item.querySelector("pubDate")?.textContent?.trim() ||
-                    item.querySelector("published")?.textContent?.trim() ||
-                    item.querySelector("updated")?.textContent?.trim() ||
+            let link = "#";
+
+            const linkEl =
+                item.querySelector("link");
+
+
+            if (linkEl) {
+
+                link =
+                    linkEl.getAttribute("href") ||
+                    linkEl.textContent ||
                     "";
 
+            }
 
-                const timestamp = Date.parse(dateString);
+
+            link =
+                link
+                .trim()
+                .replace(/\\/g, "");
 
 
-                return {
-                    title:
-                        item.querySelector("title")
-                            ?.textContent
-                            .trim()
-                        || "Geen titel",
 
-                    link: link,
+            const dateString =
 
-                    description:
-                        (
-                            item.querySelector(
-                                "description, summary, content"
-                            )?.textContent || ""
+                item.querySelector("pubDate")
+                    ?.textContent
+                    ?.trim()
+
+                ||
+
+                item.querySelector("published")
+                    ?.textContent
+                    ?.trim()
+
+                ||
+
+                item.querySelector("updated")
+                    ?.textContent
+                    ?.trim()
+
+                ||
+
+                "";
+
+
+
+            const timestamp =
+                Date.parse(dateString);
+
+
+
+            return {
+
+                title:
+                    item.querySelector("title")
+                        ?.textContent
+                        .trim()
+                    ||
+                    "Geen titel",
+
+
+                link: link,
+
+
+                description:
+
+                    (
+                        item.querySelector(
+                            "description, summary, content"
                         )
-                        .replace(/<[^>]+>/g, "")
-                        .trim(),
-
-                    pubDate: dateString,
-
-                    timestamp:
-                        isNaN(timestamp)
-                            ? 0
-                            : timestamp
-                };
-
-            });
+                        ?.textContent
+                        ||
+                        ""
+                    )
+                    .replace(/<[^>]+>/g, "")
+                    .trim(),
 
 
-    } catch (e) {
+                pubDate: dateString,
+
+
+                timestamp:
+                    isNaN(timestamp)
+                        ? 0
+                        : timestamp
+
+            };
+
+        });
+
+
+    }
+    catch (e) {
 
         console.error(
             "Fout bij ophalen:",
@@ -117,6 +177,7 @@ async function fetchRSS(url) {
         );
 
         return [];
+
     }
 }
 
@@ -124,7 +185,9 @@ async function fetchRSS(url) {
 
 function relevantForOmmen(article) {
 
+
     const text =
+
         (
             article.title +
             " " +
@@ -133,118 +196,18 @@ function relevantForOmmen(article) {
         .toLowerCase();
 
 
+
     return ommenKeywords.some(keyword =>
         text.includes(keyword)
     );
+
 }
+
 
 
 
 async function loadNews() {
 
-    const container =
-        document.getElementById("news-container");
-
-
-    container.innerHTML =
-        "<p>Laden van nieuws uit Ommen...</p>";
-
-
-    try {
-
-        const promises =
-            feeds.map(feed =>
-
-                fetchRSS(feed.url)
-                    .then(articles =>
-
-                        articles
-                            .filter(article =>
-
-                                !feed.filter ||
-                                relevantForOmmen(article)
-
-                            )
-                            .map(article => ({
-                                ...article,
-                                source: feed.name
-                            }))
-
-                    )
-
-            );
-
-
-        const results =
-            await Promise.all(promises);
-
-
-        allArticles =
-            results.flat();
-
-
-
-        // dubbele artikelen verwijderen
-
-        const seen = new Set();
-
-        allArticles =
-            allArticles.filter(article => {
-
-                if (seen.has(article.link)) {
-                    return false;
-                }
-
-                seen.add(article.link);
-
-                return true;
-            });
-
-
-
-        // nieuwste eerst
-
-        allArticles.sort((a, b) =>
-            b.timestamp - a.timestamp
-        );
-
-
-        console.log(
-            "Totaal artikelen:",
-            allArticles.length
-        );
-
-
-        const searchInput =
-            document.getElementById(
-                "search-input"
-            );
-
-
-        if (searchInput) {
-            searchInput.value = "Ommen";
-        }
-
-
-        searchNews("Ommen");
-
-
-    } catch (e) {
-
-        console.error(
-            "Load error:",
-            e
-        );
-
-        container.innerHTML =
-            "<p>Kon nieuws niet laden.</p>";
-    }
-}
-
-
-
-
-function renderArticles(articles) {
 
     const container =
         document.getElementById(
@@ -252,19 +215,176 @@ function renderArticles(articles) {
         );
 
 
+    container.innerHTML =
+        "<p>Laden van nieuws uit Ommen...</p>";
+
+
+
+    allArticles = [];
+
+
+
+    // feeds onafhankelijk ophalen
+
+    for (const feed of feeds) {
+
+
+        try {
+
+
+            const articles =
+                await fetchRSS(feed.url);
+
+
+
+            const processed =
+
+                articles
+
+                .filter(article =>
+                    !feed.filter ||
+                    relevantForOmmen(article)
+                )
+
+
+                .map(article => ({
+
+                    ...article,
+
+                    source:
+                        feed.name
+
+                }));
+
+
+
+            allArticles.push(
+                ...processed
+            );
+
+
+
+            console.log(
+                feed.name,
+                "geladen:",
+                processed.length,
+                "artikelen"
+            );
+
+
+        }
+        catch(error) {
+
+
+            console.error(
+                "Feed mislukt:",
+                feed.name,
+                error
+            );
+
+        }
+
+    }
+
+
+
+    // dubbele artikelen verwijderen
+
+    const seen =
+        new Set();
+
+
+
+    allArticles =
+
+        allArticles.filter(article => {
+
+
+            if (seen.has(article.link)) {
+
+                return false;
+
+            }
+
+
+            seen.add(article.link);
+
+
+            return true;
+
+        });
+
+
+
+    // nieuwste eerst
+
+    allArticles.sort(
+        (a,b) =>
+            b.timestamp - a.timestamp
+    );
+
+
+
+    console.log(
+        "Totaal artikelen:",
+        allArticles.length
+    );
+
+
+
+    const searchInput =
+        document.getElementById(
+            "search-input"
+        );
+
+
+
+    if (searchInput) {
+
+        searchInput.value =
+            defaultSearch;
+
+    }
+
+
+
+    searchNews(defaultSearch);
+
+}
+
+
+
+
+function renderArticles(articles) {
+
+
+    const container =
+        document.getElementById(
+            "news-container"
+        );
+
+
+
     let html =
+
         `<p><strong>${articles.length} artikelen gevonden</strong></p>`;
+
 
 
     if (articles.length === 0) {
 
+
         html +=
             "<p>Geen artikelen gevonden.</p>";
 
-    } else {
+
+    }
+    else {
 
 
-        html += articles.map(article => `
+        html +=
+
+        articles.map(article => `
 
             <div class="article">
 
@@ -280,19 +400,25 @@ function renderArticles(articles) {
 
 
                 <small>
-                    ${article.source} —
+
+                    ${article.source}
+
+                    —
+
                     ${
                         article.timestamp
                         ? new Date(article.timestamp)
                             .toLocaleDateString('nl-NL')
                         : ""
                     }
+
                 </small>
 
 
                 <p>
                     ${article.description}
                 </p>
+
 
             </div>
 
@@ -301,7 +427,10 @@ function renderArticles(articles) {
     }
 
 
-    container.innerHTML = html;
+
+    container.innerHTML =
+        html;
+
 }
 
 
@@ -312,40 +441,64 @@ function searchNews(query) {
 
     if (!query || query.trim() === "") {
 
+
         renderArticles(allArticles);
 
         return;
+
     }
 
 
 
-    const q =
-        query.toLowerCase().trim();
+    const keywords =
+
+        query
+
+        .toLowerCase()
+
+        .split(/\s+/)
+
+        .map(word => word.trim())
+
+        .filter(word =>
+            word.length > 0
+        );
 
 
 
     const filtered =
-        allArticles
-            .filter(article =>
 
-                article.title
-                    .toLowerCase()
-                    .includes(q)
 
-                ||
+        allArticles.filter(article => {
 
-                article.description
-                    .toLowerCase()
-                    .includes(q)
 
-            )
-            .sort((a,b) =>
-                b.timestamp - a.timestamp
+            const text =
+
+                (
+                    article.title +
+                    " " +
+                    article.description
+                )
+                .toLowerCase();
+
+
+
+            return keywords.some(keyword =>
+                text.includes(keyword)
             );
+
+
+        })
+
+
+        .sort((a,b) =>
+            b.timestamp - a.timestamp
+        );
 
 
 
     renderArticles(filtered);
+
 }
 
 
