@@ -16,7 +16,7 @@ async function fetchRSS(url) {
         if (xml.querySelector("parsererror")) return [];
 
         return Array.from(xml.querySelectorAll("item, entry"))
-            .slice(0, 15)   // Veel meer ophalen
+            .slice(0, 20)   // Nog meer ophalen
             .map(item => {
                 let link = "#";
                 const linkEl = item.querySelector("link");
@@ -43,9 +43,15 @@ function isRelevantToOmmen(article, source) {
     if (source === 'Ommen City') return true;
 
     const text = (article.title + " " + article.description).toLowerCase();
-    return text.includes("ommen") || 
-           text.includes("laarbos") ||
-           text.includes(" in ommen");
+    
+    // Zeer los filter
+    if (text.includes("ommen") || text.includes("laarbos")) return true;
+    
+    // Laat bijna alles van Stentor door (behalve hele duidelijke andere plaatsen)
+    if (text.includes("zwolle") && !text.includes("ommen")) return false;
+    if (text.includes("raalte") && !text.includes("ommen")) return false;
+    
+    return true; // meeste Stentor artikelen doorlaten
 }
 
 async function loadNews() {
@@ -64,7 +70,6 @@ async function loadNews() {
     allArticles = raw.filter(article => isRelevantToOmmen(article, article.source));
 
     console.log("Na filter:", allArticles.length);
-    console.log("Bronnen:", [...new Set(allArticles.map(a => a.source))]);
 
     allArticles.sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
 
@@ -83,7 +88,7 @@ function renderArticles(articles) {
             <small>${article.source} — ${article.pubDate ? new Date(article.pubDate).toLocaleDateString('nl-NL') : ""}</small>
             <p>${article.description}</p>
         </div>
-    `).join('') : "<p>Geen Ommen-artikelen gevonden op dit moment.</p>";
+    `).join('') : "<p>Geen artikelen gevonden.</p>";
 }
 
 function searchNews(query) {
