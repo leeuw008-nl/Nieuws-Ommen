@@ -16,7 +16,7 @@ async function fetchRSS(url) {
         if (xml.querySelector("parsererror")) return [];
 
         return Array.from(xml.querySelectorAll("item, entry"))
-            .slice(0, 25)   // nog meer ophalen
+            .slice(0, 20)
             .map(item => {
                 let link = "#";
                 const linkEl = item.querySelector("link");
@@ -42,10 +42,12 @@ async function fetchRSS(url) {
 function isRelevantToOmmen(article, source) {
     if (source === 'Ommen City') return true;
 
-    // Zeer los voor Stentor
     const text = (article.title + " " + article.description).toLowerCase();
-    if (text.includes("zwolle") && !text.includes("ommen")) return false; // alleen Zwolle zonder Ommen filteren
-    return true; // bijna alles doorlaten
+    
+    return text.includes("ommen") || 
+           text.includes("laarbos") ||
+           text.includes(" in ommen") ||
+           text.includes("ommen,");
 }
 
 async function loadNews() {
@@ -76,7 +78,7 @@ function renderArticles(articles) {
     let html = `<p><strong>${articles.length} artikelen gevonden</strong></p>`;
 
     if (articles.length === 0) {
-        html += "<p>Geen artikelen gevonden.</p>";
+        html += "<p>Geen relevante Ommen-artikelen gevonden.</p>";
     } else {
         html += articles.map(article => `
             <div class="article">
@@ -97,10 +99,9 @@ function renderArticles(articles) {
 function searchNews(query) {
     if (!query) return renderArticles(allArticles);
     const q = query.toLowerCase();
-    const filtered = allArticles.filter(a => 
+    renderArticles(allArticles.filter(a => 
         a.title.toLowerCase().includes(q) || a.description.toLowerCase().includes(q)
-    );
-    renderArticles(filtered);
+    ));
 }
 
 function refreshNews() {
