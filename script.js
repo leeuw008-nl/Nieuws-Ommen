@@ -11,16 +11,11 @@ let allArticles = [];
 async function fetchRSS(url) {
     try {
         console.log("Ophalen:", url);
-
         const res = await fetch(PROXY + encodeURIComponent(url));
         const text = await res.text();
 
         const xml = new DOMParser().parseFromString(text, "text/xml");
-
-        if (xml.querySelector("parsererror")) {
-            console.error("XML parse error voor", url);
-            return [];
-        }
+        if (xml.querySelector("parsererror")) return [];
 
         return Array.from(xml.querySelectorAll("item, entry"))
             .slice(0, 8)
@@ -29,56 +24,43 @@ async function fetchRSS(url) {
                 link: item.querySelector("link")?.textContent?.trim() || 
                       item.querySelector("link")?.getAttribute("href") || "#",
                 description: (item.querySelector("description, summary, content")?.textContent || "")
-                    .replace(/<[^>]+>/g,"")
-                    .trim(),
+                    .replace(/<[^>]+>/g,"").trim(),
                 pubDate: item.querySelector("pubDate")?.textContent ||
-                         item.querySelector("dc\\:date")?.textContent ||
-                         item.querySelector("updated")?.textContent || ""
+                         item.querySelector("dc\\:date")?.textContent || ""
             }));
-
     } catch(e) {
-        console.error("RSS fout:", url, e);
+        console.error("Fout bij", url, e);
         return [];
     }
 }
 
-// Mildere filter voor Ommen
+// Zeer milde filter
 function isRelevantToOmmen(article) {
-    const text = (article.title + " " + article.description).toLowerCase();
-    
-    return text.includes("ommen") || 
-           text.includes("ommon") ||
-           text.includes("laarbos") ||
-           text.includes("markt ommen") ||
-           text.includes("ommen ") ||        // extra ruimte om false positives te verminderen
-           text.includes(" in ommen");
+    const text = (article.title + " " + (article.description || "")).toLowerCase();
+    return text.includes("ommen") || text.includes("laarbos");
 }
 
 async function loadNews() {
-    console.log("loadNews gestart");
-
     const container = document.getElementById("news-container");
-    container.innerHTML = "<p>Laden van nieuws uit Ommen...</p>";
+    container.innerHTML = "<p>Laden...</p>";
 
-    allArticles = [];
-
-    const promises = feeds.map(async feed => {
-        const arts = await fetchRSS(feed.url);
-        return arts.map(a => ({ ...a, source: feed.name }));
-    });
+    const promises = feeds.map(feed => fetchRSS(feed.url).then(arts => 
+        arts.map(a => ({...a, source: feed.name}))
+    ));
 
     const results = await Promise.all(promises);
-    let rawArticles = results.flat();
+    let raw = results.flat();
 
-    console.log("Totaal opgehaald:", rawArticles.length);
+    console.log("Totaal opgehaald:", raw.length);
 
-    allArticles = rawArticles.filter(article => {
-        const relevant = isRelevantToOmmen(article);
-        if (!relevant) console.log("Gefilterd:", article.title);
-        return relevant;
+    allArticles = raw.filter(article => {
+        const ok = isRelevantToOmmen(article);
+        if (!ok) console.log("Gefilterd:", article.title);
+        return ok;
     });
 
-    console.log("Artikelen na filter:", allArticles.length);
+    console.log("Na filter over:", allArticles.length);
+    console.log("Bronnen:", [...new Set(allArticles.map(a => a.source))]);
 
     allArticles.sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
 
@@ -87,42 +69,28 @@ async function loadNews() {
 
 function renderArticles(articles) {
     const container = document.getElementById("news-container");
-
     if (articles.length === 0) {
-        container.innerHTML = "<p>Geen nieuws gevonden. Probeer opnieuw te laden.</p>";
+        container.innerHTML = "<p>Geen artikelen gevonden.</p>";
         return;
     }
 
-    container.innerHTML = articles.map(article => `
+    container.innerHTML = articles.map(a => `
         <div class="article">
-            <h2>
-                <a href="${article.link}" target="_blank">
-                    ${article.title}
-                </a>
-            </h2>
-            <small>
-                ${article.source}
-                ${article.pubDate ? " — " + new Date(article.pubDate).toLocaleDateString('nl-NL') : ""}
-            </small>
-            <p>${article.description}</p>
+            <h2><a href="\( {a.link}" target="_blank"> \){a.title}</a></h2>
+            <small>${a.source} — ${a.pubDate ? new Date(a.pubDate).toLocaleDateString('nl-NL') : ''}</small>
+            <p>${a.description}</p>
         </div>
     `).join('');
 }
 
 function searchNews(query) {
-    if (!query) {
-        renderArticles(allArticles);
-        return;
-    }
+    if (!query) return renderArticles(allArticles);
     const q = query.toLowerCase();
-    const filtered = allArticles.filter(a =>
+    renderArticles(allArticles.filter(a => 
         a.title.toLowerCase().includes(q) || a.description.toLowerCase().includes(q)
-    );
-    renderArticles(filtered);
+    ));
 }
 
-function refreshNews() {
-    loadNews();
-}
+function refreshNews() { loadNews(); }
 
 window.addEventListener("DOMContentLoaded", loadNews);
