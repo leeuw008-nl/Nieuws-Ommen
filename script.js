@@ -16,7 +16,7 @@ async function fetchRSS(url) {
         if (xml.querySelector("parsererror")) return [];
 
         return Array.from(xml.querySelectorAll("item, entry"))
-            .slice(0, 25)   // maximaal aantal
+            .slice(0, 25)
             .map(item => {
                 let link = "#";
                 const linkEl = item.querySelector("link");
@@ -48,13 +48,14 @@ async function loadNews() {
     );
 
     const results = await Promise.all(promises);
-    let raw = results.flat();
+    allArticles = results.flat();
 
-    console.log("Totaal opgehaald:", raw.length);
+    console.log("Totaal opgehaald:", allArticles.length);
 
-    allArticles = raw;   // alles opslaan
+    // Default zoeken op "Ommen"
+    const searchInput = document.getElementById("search-input");
+    if (searchInput) searchInput.value = "Ommen";
 
-    // Default filter op "Ommen"
     searchNews("Ommen");
 }
 
@@ -75,25 +76,4 @@ function renderArticles(articles) {
         </div>
     `).join('');
 
-    container.innerHTML = html || "<p>Geen artikelen gevonden.</p>";
-}
-
-function searchNews(query) {
-    if (!query || query.trim() === "") {
-        renderArticles(allArticles);           // alles tonen als zoekveld leeg is
-        return;
-    }
-
-    const q = query.toLowerCase().trim();
-    const filtered = allArticles.filter(a => 
-        a.title.toLowerCase().includes(q) || 
-        a.description.toLowerCase().includes(q)
-    );
-    renderArticles(filtered);
-}
-
-function refreshNews() {
-    loadNews();
-}
-
-window.addEventListener("DOMContentLoaded", loadNews);
+    container.innerHTML = html || "<p>Geen artikelen
