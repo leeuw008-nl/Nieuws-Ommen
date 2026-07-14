@@ -39,15 +39,12 @@ async function fetchRSS(url) {
     }
 }
 
+// Losse filter (zoals de versie die wel Stentor toonde)
 function isRelevantToOmmen(article, source) {
     if (source === 'Ommen City') return true;
-
-    const text = (article.title + " " + article.description).toLowerCase();
     
-    return text.includes("ommen") || 
-           text.includes("laarbos") ||
-           text.includes(" in ommen") ||
-           text.includes("ommen,");
+    const text = (article.title + " " + article.description).toLowerCase();
+    return text.includes("ommen") || text.includes("laarbos") || true; // bijna alles van Stentor
 }
 
 async function loadNews() {
@@ -77,21 +74,17 @@ function renderArticles(articles) {
     
     let html = `<p><strong>${articles.length} artikelen gevonden</strong></p>`;
 
-    if (articles.length === 0) {
-        html += "<p>Geen relevante Ommen-artikelen gevonden.</p>";
-    } else {
-        html += articles.map(article => `
-            <div class="article">
-                <h2>
-                    <a href="${article.link}" target="_blank" rel="noopener">
-                        ${article.title}
-                    </a>
-                </h2>
-                <small>${article.source} — ${article.pubDate ? new Date(article.pubDate).toLocaleDateString('nl-NL') : ""}</small>
-                <p>${article.description}</p>
-            </div>
-        `).join('');
-    }
+    html += articles.map(article => `
+        <div class="article">
+            <h2>
+                <a href="${article.link}" target="_blank" rel="noopener">
+                    ${article.title}
+                </a>
+            </h2>
+            <small>${article.source} — ${article.pubDate ? new Date(article.pubDate).toLocaleDateString('nl-NL') : ""}</small>
+            <p>${article.description}</p>
+        </div>
+    `).join('');
 
     container.innerHTML = html;
 }
