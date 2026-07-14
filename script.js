@@ -16,7 +16,7 @@ async function fetchRSS(url) {
         if (xml.querySelector("parsererror")) return [];
 
         return Array.from(xml.querySelectorAll("item, entry"))
-            .slice(0, 8)
+            .slice(0, 15)   // Veel meer ophalen
             .map(item => {
                 let link = "#";
                 const linkEl = item.querySelector("link");
@@ -40,14 +40,12 @@ async function fetchRSS(url) {
 }
 
 function isRelevantToOmmen(article, source) {
-    if (source === 'Ommen City') return true; // Alles van Ommen City
+    if (source === 'Ommen City') return true;
 
-    // Zeer losse filter voor Stentor
     const text = (article.title + " " + article.description).toLowerCase();
     return text.includes("ommen") || 
            text.includes("laarbos") ||
-           text.includes(" in ommen") || 
-           text.length > 20; // bijna alles tonen van Stentor
+           text.includes(" in ommen");
 }
 
 async function loadNews() {
@@ -85,7 +83,7 @@ function renderArticles(articles) {
             <small>${article.source} — ${article.pubDate ? new Date(article.pubDate).toLocaleDateString('nl-NL') : ""}</small>
             <p>${article.description}</p>
         </div>
-    `).join('') : "<p>Geen artikelen gevonden.</p>";
+    `).join('') : "<p>Geen Ommen-artikelen gevonden op dit moment.</p>";
 }
 
 function searchNews(query) {
