@@ -7,7 +7,6 @@ const feeds = [
 ];
 
 let allArticles = [];
-let showAllMode = false;
 
 async function fetchRSS(url) {
     try {
@@ -20,14 +19,12 @@ async function fetchRSS(url) {
         return Array.from(xml.querySelectorAll("item, entry"))
             .slice(0, 8)
             .map(item => {
-                // Betere link extractie
                 let link = "#";
                 const linkEl = item.querySelector("link");
                 if (linkEl) {
                     link = (linkEl.getAttribute("href") || linkEl.textContent || "").trim();
                 }
-                // Verwijder eventuele backslashes
-                link = link.replace(/\\/g, '');
+                link = link.replace(/\\/g, ''); // backslashes verwijderen
 
                 return {
                     title: item.querySelector("title")?.textContent.trim() || "Geen titel",
@@ -43,6 +40,9 @@ async function fetchRSS(url) {
     }
 }
 
+// Tijdelijk alles tonen om te testen
+const showAllMode = true;
+
 function isRelevantToOmmen(article) {
     if (showAllMode) return true;
     const text = (article.title + " " + article.description).toLowerCase();
@@ -51,7 +51,7 @@ function isRelevantToOmmen(article) {
 
 async function loadNews() {
     const container = document.getElementById("news-container");
-    container.innerHTML = "<p>Laden...</p>";
+    container.innerHTML = "<p>Laden van nieuws uit Ommen...</p>";
 
     const promises = feeds.map(feed => 
         fetchRSS(feed.url).then(arts => arts.map(a => ({...a, source: feed.name})))
@@ -87,20 +87,16 @@ function renderArticles(articles) {
     `).join('') : "<p>Geen artikelen gevonden.</p>";
 }
 
-// Debug knop
-function addDebugButton() {
-    const btn = document.createElement("button");
-    btn.textContent = "Toon ALLE artikelen (debug)";
-    btn.style.margin = "10px 0";
-    btn.onclick = () => {
-        showAllMode = !showAllMode;
-        btn.textContent = showAllMode ? "Terug naar Ommen-filter" : "Toon ALLE artikelen (debug)";
-        loadNews();
-    };
-    document.body.insertBefore(btn, document.getElementById("news-container"));
+function searchNews(query) {
+    if (!query) return renderArticles(allArticles);
+    const q = query.toLowerCase();
+    renderArticles(allArticles.filter(a => 
+        a.title.toLowerCase().includes(q) || a.description.toLowerCase().includes(q)
+    ));
 }
 
-window.addEventListener("DOMContentLoaded", () => {
-    addDebugButton();
+function refreshNews() {
     loadNews();
-});
+}
+
+window.addEventListener("DOMContentLoaded", loadNews);
