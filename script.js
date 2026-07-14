@@ -1,44 +1,65 @@
-const PROXY = 'https://corsproxy.io/?';
+const PROXY = 'https://corsproxy.io/?';  // Betrouwbaarder alternatief voor AllOrigins
 
 const feeds = [
     { name: 'Ommen City', url: 'https://ommencity.nl/feed/' },
     { name: 'De Stentor', url: 'https://www.destentor.nl/ommen/rss.xml' },
-    { name: 'RTV Oost', url: 'http://rss.rtvoost.nl/' },           // Algemeen Overijssel
 ];
 
 let allArticles = [];
 
 async function fetchRSS(url) {
     try {
+        console.log("Ophalen:", url);
+        
         const proxyUrl = PROXY + encodeURIComponent(url);
-        const res = await fetch(proxyUrl);
+        const res = await fetch(proxyUrl, {
+            headers: { 'Accept': 'application/xml, text/xml' }
+        });
+
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const text = await res.text();
-        const xml = new DOMParser().parseFromString(text, "text/xml");
+        console.log("Response start:", text.substring(0, 300));
 
-        if (xml.querySelector("parsererror")) {
-            console.error("XML parse error voor", url);
+        // Check of het echt XML is (geen HTML-foutpagina)
+        if (!text.includes('<rss') && !text.includes('<feed')) {
+            console.warn("Geen geldige RSS:", text.substring(0, 200));
             return [];
         }
 
-        return Array.from(xml.querySelectorAll("item, entry")).slice(0, 7).map(item => {
-            const title = item.querySelector("title")?.textContent.trim() || "Geen titel";
-            const linkEl = item.querySelector("link");
-            const link = linkEl ? (linkEl.getAttribute("href") || linkEl.textContent.trim()) : "#";
-            let description = (item.querySelector("description, summary, content")?.textContent || "")
-                              .replace(/<[^>]+>/g, "").trim();
+        const xml = new DOMParser().parseFromString(text, "text/xml");
+        
+        // Error check van parser
+        const parserError = xml.querySelector("parsererror");
+        if (parserError) {
+            console.error("XML parse error:", parserError.textContent);
+            return [];
+        }
 
-            if (description.length > 280) description = description.substring(0, 277) + "...";
+        return Array.from(xml.querySelectorAll("item, entry"))
+            .slice(0, 6)  // iets meer per feed
+            .map(item => {
+                const titleEl = item.querySelector("title");
+                const linkEl = item.querySelector("link");
+                const descEl = item.querySelector("description, summary, content");
+                const pubDateEl = item.querySelector("pubDate, dc\\:date, updated, published");
 
-            return {
-                title,
-                link,
-                description,
-                pubDate: item.querySelector("pubDate, dc\\:date, updated, published")?.textContent.trim() || "",
-                source: ""
-            };
-        });
+                let link = linkEl ? (linkEl.getAttribute("href") || linkEl.textContent.trim()) : "#";
+                let description = descEl ? descEl.textContent.replace(/<[^>]+>/g, "").trim() : "";
+
+                // Truncate lange descriptions
+                if (description.length > 300) {
+                    description = description.substring(0, 297) + "...";
+                }
+
+                return {
+                    title: titleEl?.textContent.trim() || "Geen titel",
+                    link: link,
+                    description: description,
+                    pubDate: pubDateEl?.textContent.trim() || "",
+                    source: "" // later toegevoegd
+                };
+            });
 
     } catch (e) {
         console.error("RSS fout:", url, e);
@@ -46,15 +67,12 @@ async function fetchRSS(url) {
     }
 }
 
-function containsOmmen(text) {
-    if (!text) return false;
-    const lower = text.toLowerCase();
-    return lower.includes("ommen") || lower.includes("ommon");
-}
-
 async function loadNews() {
+    console.log("loadNews gestart");
     const container = document.getElementById("news-container");
-    container.innerHTML = "<p>Laden van nieuws uit Ommen en omgeving...</p>";
+    container.innerHTML = "<p>Laden van nieuws uit Ommen...</p>";
+
+    allArticles = [];
 
     const promises = feeds.map(async feed => {
         const arts = await fetchRSS(feed.url);
@@ -62,20 +80,16 @@ async function loadNews() {
     });
 
     const results = await Promise.all(promises);
-    let rawArticles = results.flat();
+    allArticles = results.flat().filter(a => a.title && a.link !== "#");
 
-    console.log("Totaal opgehaald:", rawArticles.length);
+    console.log("Aantal artikelen:", allArticles.length);
 
-    // Filter alleen artikelen met "Ommen"
-    allArticles = rawArticles.filter(article => {
-        const relevant = containsOmmen(article.title) || containsOmmen(article.description);
-        if (!relevant) console.log("Gefilterd:", article.title.substring(0, 80));
-        return relevant;
+    // Sorteer op datum (nieuwste eerst)
+    allArticles.sort((a, b) => {
+        const dateA = new Date(a.pubDate || 0);
+        const dateB = new Date(b.pubDate || 0);
+        return dateB - dateA;
     });
-
-    console.log("Artikelen na Ommen-filter:", allArticles.length);
-
-    allArticles.sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
 
     renderArticles(allArticles);
 }
@@ -84,27 +98,38 @@ function renderArticles(articles) {
     const container = document.getElementById("news-container");
 
     if (articles.length === 0) {
-        container.innerHTML = `<p>Geen artikelen met "Ommen" gevonden op dit moment.<br><small>Probeer te refreshen.</small></p>`;
+        container.innerHTML = "<p>Geen nieuws gevonden. Probeer later opnieuw.</p>";
         return;
     }
 
     container.innerHTML = articles.map(article => `
         <div class="article">
-            <h2><a href="${article.link}" target="_blank" rel="noopener">
+            <h2>
+                <a href="${article.link}" target="_blank" rel="noopener">
                     ${article.title}
-                </a></h2>
-            <small>${article.source} — ${article.pubDate ? new Date(article.pubDate).toLocaleDateString('nl-NL') : ""}</small>
+                </a>
+            </h2>
+            <small>
+                ${article.source}
+                ${article.pubDate ? " — " + new Date(article.pubDate).toLocaleDateString('nl-NL', { year: 'numeric', month: 'long', day: 'numeric' }) : ""}
+            </small>
             <p>${article.description}</p>
         </div>
     `).join('');
 }
 
+// Zoekfunctie en refresh blijven hetzelfde
 function searchNews(query) {
-    if (!query) return renderArticles(allArticles);
+    if (!query) {
+        renderArticles(allArticles);
+        return;
+    }
     const q = query.toLowerCase();
-    renderArticles(allArticles.filter(a => 
-        a.title.toLowerCase().includes(q) || a.description.toLowerCase().includes(q)
-    ));
+    const filtered = allArticles.filter(a =>
+        a.title.toLowerCase().includes(q) || 
+        (a.description && a.description.toLowerCase().includes(q))
+    );
+    renderArticles(filtered);
 }
 
 function refreshNews() {
