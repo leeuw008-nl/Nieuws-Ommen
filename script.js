@@ -3,6 +3,7 @@ const PROXY = 'https://corsproxy.io/?';
 const feeds = [
     { name: 'Ommen City', url: 'https://ommencity.nl/feed/' },
     { name: 'De Stentor', url: 'https://www.destentor.nl/ommen/rss.xml' },
+    { name: 'RTV Oost',   url: 'http://rss.rtvoost.nl/' }
 ];
 
 let allArticles = [];
@@ -14,23 +15,21 @@ async function fetchRSS(url) {
         const res = await fetch(PROXY + encodeURIComponent(url));
         const text = await res.text();
 
-        console.log("Response start:", text.substring(0, 250));
-
         const xml = new DOMParser().parseFromString(text, "text/xml");
 
-        // Parser error check
         if (xml.querySelector("parsererror")) {
-            console.error("XML parse error");
+            console.error("XML parse error voor", url);
             return [];
         }
 
-        return Array.from(xml.querySelectorAll("item"))
+        return Array.from(xml.querySelectorAll("item, entry"))
             .slice(0, 8)
             .map(item => ({
                 title: item.querySelector("title")?.textContent.trim() || "Geen titel",
-                link: item.querySelector("link")?.textContent.trim() || "#",
-                description: (item.querySelector("description")?.textContent || "")
-                    .replace(/<[^>]+>/g, "")
+                link: item.querySelector("link")?.textContent?.trim() || 
+                      item.querySelector("link")?.getAttribute("href") || "#",
+                description: (item.querySelector("description, summary, content")?.textContent || "")
+                    .replace(/<[^>]+>/g,"")
                     .trim(),
                 pubDate: item.querySelector("pubDate")?.textContent ||
                          item.querySelector("dc\\:date")?.textContent ||
@@ -43,31 +42,29 @@ async function fetchRSS(url) {
     }
 }
 
+// Mildere filter voor Ommen
 function isRelevantToOmmen(article) {
     const text = (article.title + " " + article.description).toLowerCase();
     
-    // Sterkere voorwaarden voor relevantie
-    return text.includes("ommen") ||
+    return text.includes("ommen") || 
            text.includes("ommon") ||
-           text.includes("laarbos") ||      // bekende locatie
+           text.includes("laarbos") ||
            text.includes("markt ommen") ||
-           text.includes(" centrum ommen");
+           text.includes("ommen ") ||        // extra ruimte om false positives te verminderen
+           text.includes(" in ommen");
 }
 
 async function loadNews() {
     console.log("loadNews gestart");
 
     const container = document.getElementById("news-container");
-    container.innerHTML = "<p>Laden van relevant nieuws uit Ommen...</p>";
+    container.innerHTML = "<p>Laden van nieuws uit Ommen...</p>";
 
     allArticles = [];
 
     const promises = feeds.map(async feed => {
         const arts = await fetchRSS(feed.url);
-        return arts.map(a => ({
-            ...a,
-            source: feed.name
-        }));
+        return arts.map(a => ({ ...a, source: feed.name }));
     });
 
     const results = await Promise.all(promises);
@@ -75,20 +72,15 @@ async function loadNews() {
 
     console.log("Totaal opgehaald:", rawArticles.length);
 
-    // Filter alleen relevante artikelen
     allArticles = rawArticles.filter(article => {
         const relevant = isRelevantToOmmen(article);
-        if (!relevant) {
-            console.log("🚫 Gefilterd:", article.title);
-        }
+        if (!relevant) console.log("Gefilterd:", article.title);
         return relevant;
     });
 
-    console.log("✅ Artikelen na filter:", allArticles.length);
+    console.log("Artikelen na filter:", allArticles.length);
 
-    allArticles.sort((a, b) => {
-        return new Date(b.pubDate || 0) - new Date(a.pubDate || 0);
-    });
+    allArticles.sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
 
     renderArticles(allArticles);
 }
@@ -97,7 +89,7 @@ function renderArticles(articles) {
     const container = document.getElementById("news-container");
 
     if (articles.length === 0) {
-        container.innerHTML = "<p>Geen relevant nieuws uit Ommen gevonden op dit moment.</p>";
+        container.innerHTML = "<p>Geen nieuws gevonden. Probeer opnieuw te laden.</p>";
         return;
     }
 
@@ -124,8 +116,7 @@ function searchNews(query) {
     }
     const q = query.toLowerCase();
     const filtered = allArticles.filter(a =>
-        a.title.toLowerCase().includes(q) ||
-        a.description.toLowerCase().includes(q)
+        a.title.toLowerCase().includes(q) || a.description.toLowerCase().includes(q)
     );
     renderArticles(filtered);
 }
