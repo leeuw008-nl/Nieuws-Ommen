@@ -40,15 +40,14 @@ async function fetchRSS(url) {
 }
 
 function isRelevantToOmmen(article, source) {
-    const text = (article.title + " " + article.description).toLowerCase();
-    
-    if (source === 'Ommen City') return true; // Alles van Ommen City tonen
+    if (source === 'Ommen City') return true; // Alles van Ommen City
 
-    // Voor Stentor iets milder
+    // Zeer losse filter voor Stentor
+    const text = (article.title + " " + article.description).toLowerCase();
     return text.includes("ommen") || 
            text.includes("laarbos") ||
-           text.includes(" in ommen") ||
-           text.includes("ommen,");
+           text.includes(" in ommen") || 
+           text.length > 20; // bijna alles tonen van Stentor
 }
 
 async function loadNews() {
