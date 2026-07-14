@@ -39,15 +39,16 @@ async function fetchRSS(url) {
     }
 }
 
-function isRelevantToOmmen(article) {
+function isRelevantToOmmen(article, source) {
     const text = (article.title + " " + article.description).toLowerCase();
     
-    // Goede balans voor Stentor
+    if (source === 'Ommen City') return true; // Alles van Ommen City tonen
+
+    // Voor Stentor iets milder
     return text.includes("ommen") || 
            text.includes("laarbos") ||
            text.includes(" in ommen") ||
-           text.includes("ommen,") ||
-           text.includes("markt ommen");
+           text.includes("ommen,");
 }
 
 async function loadNews() {
@@ -63,9 +64,9 @@ async function loadNews() {
 
     console.log("Totaal opgehaald:", raw.length);
 
-    allArticles = raw.filter(isRelevantToOmmen);
+    allArticles = raw.filter(article => isRelevantToOmmen(article, article.source));
 
-    console.log("Na Ommen-filter:", allArticles.length);
+    console.log("Na filter:", allArticles.length);
     console.log("Bronnen:", [...new Set(allArticles.map(a => a.source))]);
 
     allArticles.sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
@@ -85,7 +86,7 @@ function renderArticles(articles) {
             <small>${article.source} — ${article.pubDate ? new Date(article.pubDate).toLocaleDateString('nl-NL') : ""}</small>
             <p>${article.description}</p>
         </div>
-    `).join('') : "<p>Geen relevante Ommen-artikelen gevonden.</p>";
+    `).join('') : "<p>Geen artikelen gevonden.</p>";
 }
 
 function searchNews(query) {
