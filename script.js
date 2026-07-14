@@ -1,6 +1,7 @@
 const PROXY = 'https://corsproxy.io/?';
 
 const feeds = [
+    { name: 'RTV Oost', url: 'http://rss.rtvoost.nl/' },           // Algemeen Overijssel
     { name: 'Ommen City', url: 'https://ommencity.nl/feed/' },
     { name: 'De Stentor', url: 'https://www.destentor.nl/ommen/rss.xml' },
 ];
