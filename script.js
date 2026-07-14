@@ -16,7 +16,7 @@ async function fetchRSS(url) {
         if (xml.querySelector("parsererror")) return [];
 
         return Array.from(xml.querySelectorAll("item, entry"))
-            .slice(0, 20)   // Nog meer ophalen
+            .slice(0, 25)   // nog meer ophalen
             .map(item => {
                 let link = "#";
                 const linkEl = item.querySelector("link");
@@ -42,16 +42,10 @@ async function fetchRSS(url) {
 function isRelevantToOmmen(article, source) {
     if (source === 'Ommen City') return true;
 
+    // Zeer los voor Stentor
     const text = (article.title + " " + article.description).toLowerCase();
-    
-    // Zeer los filter
-    if (text.includes("ommen") || text.includes("laarbos")) return true;
-    
-    // Laat bijna alles van Stentor door (behalve hele duidelijke andere plaatsen)
-    if (text.includes("zwolle") && !text.includes("ommen")) return false;
-    if (text.includes("raalte") && !text.includes("ommen")) return false;
-    
-    return true; // meeste Stentor artikelen doorlaten
+    if (text.includes("zwolle") && !text.includes("ommen")) return false; // alleen Zwolle zonder Ommen filteren
+    return true; // bijna alles doorlaten
 }
 
 async function loadNews() {
@@ -78,25 +72,35 @@ async function loadNews() {
 
 function renderArticles(articles) {
     const container = document.getElementById("news-container");
-    container.innerHTML = articles.length ? articles.map(article => `
-        <div class="article">
-            <h2>
-                <a href="${article.link}" target="_blank" rel="noopener">
-                    ${article.title}
-                </a>
-            </h2>
-            <small>${article.source} — ${article.pubDate ? new Date(article.pubDate).toLocaleDateString('nl-NL') : ""}</small>
-            <p>${article.description}</p>
-        </div>
-    `).join('') : "<p>Geen artikelen gevonden.</p>";
+    
+    let html = `<p><strong>${articles.length} artikelen gevonden</strong></p>`;
+
+    if (articles.length === 0) {
+        html += "<p>Geen artikelen gevonden.</p>";
+    } else {
+        html += articles.map(article => `
+            <div class="article">
+                <h2>
+                    <a href="${article.link}" target="_blank" rel="noopener">
+                        ${article.title}
+                    </a>
+                </h2>
+                <small>${article.source} — ${article.pubDate ? new Date(article.pubDate).toLocaleDateString('nl-NL') : ""}</small>
+                <p>${article.description}</p>
+            </div>
+        `).join('');
+    }
+
+    container.innerHTML = html;
 }
 
 function searchNews(query) {
     if (!query) return renderArticles(allArticles);
     const q = query.toLowerCase();
-    renderArticles(allArticles.filter(a => 
+    const filtered = allArticles.filter(a => 
         a.title.toLowerCase().includes(q) || a.description.toLowerCase().includes(q)
-    ));
+    );
+    renderArticles(filtered);
 }
 
 function refreshNews() {
