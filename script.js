@@ -16,7 +16,7 @@ async function fetchRSS(url) {
         if (xml.querySelector("parsererror")) return [];
 
         return Array.from(xml.querySelectorAll("item, entry"))
-            .slice(0, 20)
+            .slice(0, 25)   // maximaal aantal
             .map(item => {
                 let link = "#";
                 const linkEl = item.querySelector("link");
@@ -39,14 +39,6 @@ async function fetchRSS(url) {
     }
 }
 
-// Losse filter (zoals de versie die wel Stentor toonde)
-function isRelevantToOmmen(article, source) {
-    if (source === 'Ommen City') return true;
-    
-    const text = (article.title + " " + article.description).toLowerCase();
-    return text.includes("ommen") || text.includes("laarbos") || true; // bijna alles van Stentor
-}
-
 async function loadNews() {
     const container = document.getElementById("news-container");
     container.innerHTML = "<p>Laden van nieuws uit Ommen...</p>";
@@ -60,13 +52,10 @@ async function loadNews() {
 
     console.log("Totaal opgehaald:", raw.length);
 
-    allArticles = raw.filter(article => isRelevantToOmmen(article, article.source));
+    allArticles = raw;   // alles opslaan
 
-    console.log("Na filter:", allArticles.length);
-
-    allArticles.sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
-
-    renderArticles(allArticles);
+    // Default filter op "Ommen"
+    searchNews("Ommen");
 }
 
 function renderArticles(articles) {
@@ -86,15 +75,21 @@ function renderArticles(articles) {
         </div>
     `).join('');
 
-    container.innerHTML = html;
+    container.innerHTML = html || "<p>Geen artikelen gevonden.</p>";
 }
 
 function searchNews(query) {
-    if (!query) return renderArticles(allArticles);
-    const q = query.toLowerCase();
-    renderArticles(allArticles.filter(a => 
-        a.title.toLowerCase().includes(q) || a.description.toLowerCase().includes(q)
-    ));
+    if (!query || query.trim() === "") {
+        renderArticles(allArticles);           // alles tonen als zoekveld leeg is
+        return;
+    }
+
+    const q = query.toLowerCase().trim();
+    const filtered = allArticles.filter(a => 
+        a.title.toLowerCase().includes(q) || 
+        a.description.toLowerCase().includes(q)
+    );
+    renderArticles(filtered);
 }
 
 function refreshNews() {
