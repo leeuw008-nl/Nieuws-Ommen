@@ -23,7 +23,7 @@ async function fetchRSS(url) {
                 if (linkEl) {
                     link = (linkEl.getAttribute("href") || linkEl.textContent || "").trim();
                 }
-                link = link.replace(/\\/g, ''); // backslashes verwijderen
+                link = link.replace(/\\/g, '');
 
                 return {
                     title: item.querySelector("title")?.textContent.trim() || "Geen titel",
@@ -39,13 +39,15 @@ async function fetchRSS(url) {
     }
 }
 
-// Tijdelijk alles tonen om te testen
-const showAllMode = true;
-
 function isRelevantToOmmen(article) {
-    if (showAllMode) return true;
     const text = (article.title + " " + article.description).toLowerCase();
-    return text.includes("ommen") || text.includes("laarbos");
+    
+    // Goede balans voor Stentor
+    return text.includes("ommen") || 
+           text.includes("laarbos") ||
+           text.includes(" in ommen") ||
+           text.includes("ommen,") ||
+           text.includes("markt ommen");
 }
 
 async function loadNews() {
@@ -63,7 +65,7 @@ async function loadNews() {
 
     allArticles = raw.filter(isRelevantToOmmen);
 
-    console.log("Na filter:", allArticles.length);
+    console.log("Na Ommen-filter:", allArticles.length);
     console.log("Bronnen:", [...new Set(allArticles.map(a => a.source))]);
 
     allArticles.sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
@@ -83,7 +85,7 @@ function renderArticles(articles) {
             <small>${article.source} — ${article.pubDate ? new Date(article.pubDate).toLocaleDateString('nl-NL') : ""}</small>
             <p>${article.description}</p>
         </div>
-    `).join('') : "<p>Geen artikelen gevonden.</p>";
+    `).join('') : "<p>Geen relevante Ommen-artikelen gevonden.</p>";
 }
 
 function searchNews(query) {
