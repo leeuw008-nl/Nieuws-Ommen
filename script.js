@@ -76,7 +76,9 @@ function renderArticles(articles) {
     } else {
         html += articles.map(article => `
             <div class="article">
-                <h2><a href="\( {article.link}" target="_blank" rel="noopener"> \){article.title}</a></h2>
+                <h2><a href="${article.link}" target="_blank" rel="noopener">
+                        ${article.title}
+                    </a></h2>
                 <small>${article.source} — ${article.pubDate ? new Date(article.pubDate).toLocaleDateString('nl-NL') : ""}</small>
                 <p>${article.description}</p>
             </div>
