@@ -501,12 +501,16 @@ function setupSearch() {
 
 
     switchOmmen.addEventListener(
-        "change",
-        searchNews
-    );
+    "change",
+    function() {
 
+        // zoekveld leegmaken bij wisselen filter
+        searchInput.value = "";
 
-}
+        searchNews();
+
+    }
+);
 
 
 
