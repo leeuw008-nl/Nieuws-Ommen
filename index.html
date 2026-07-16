@@ -1,57 +1,85 @@
 <!DOCTYPE html>
 <html lang="nl">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Ommen Nieuws</title>
 
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" href="icon-192.png" type="image/png">
+
 </head>
 
+
 <body>
+
 
 <header>
 
     <h1>📰 Ommen Nieuws</h1>
+
     <p>Dagelijks nieuws uit Ommen</p>
 
+
     <div class="search-row">
+
 
         <input
             type="text"
             id="search-input"
             placeholder="Zoek in nieuws...">
 
+
+
         <label class="show-all-label">
+
             <input
                 type="checkbox"
-                id="show-all">
-            Alles
+                id="only-ommen"
+                checked>
+
+            Alleen Ommen
+
         </label>
+
 
     </div>
 
+
 </header>
+
+
 
 <main>
 
     <div id="news-container">
+
         Bezig met laden...
+
     </div>
 
 </main>
 
+
+
 <footer>
 
     <button onclick="refreshNews()">
+
         🔄 Vernieuwen
+
     </button>
 
 </footer>
 
+
+
 <script src="script.js"></script>
 
+
 </body>
+
 </html>
