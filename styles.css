@@ -41,13 +41,13 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
 }
 
 
-/* standaard checkbox verbergen */
+/* checkbox verbergen */
 .switch-label input {
     display: none;
 }
 
 
-/* vaste achtergrond van de schuif */
+/* achtergrond schuif */
 .slider {
 
     width: 52px;
@@ -59,13 +59,14 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
 
     position: relative;
 
-    border: 2px solid #999;
+    border: 1px solid #999;
 
-    transition: 0.3s;
+    box-sizing: border-box;
+
 }
 
 
-/* rond knopje */
+/* knop */
 .slider::before {
 
     content: "";
@@ -73,29 +74,31 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
     width: 22px;
     height: 22px;
 
-    background-color: #f6bcbc;   /* lichtrood = uit */
+    background-color: #f6bcbc;
 
     border-radius: 50%;
 
     position: absolute;
 
     left: 2px;
-    top: 1px;
+
+    top: 50%;
+
+    transform: translateY(-50%);
+
+    border: 1px solid #aaa;
 
     transition: 0.3s;
+
 }
 
 
 /* Alleen Ommen actief */
 .switch-label input:checked + .slider::before {
 
-    background-color: #bff0bf;   /* lichtgroen = aan */
+    background-color: #bff0bf;
 
-    transform: translateX(22px);
-
-}
-.switch-label input:checked + .slider::before {
-
-    transform: translateX(22px);
+    transform:
+        translate(24px, -50%);
 
 }
