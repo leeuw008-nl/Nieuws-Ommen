@@ -9,6 +9,7 @@ footer { text-align:center; padding:1rem; background:#eee; }
 button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; color:white; border:none; border-radius:8px; }
 .search-row {
     width: 100%;
+    display: block;
 }
 
 .search-row input[type="text"] {
@@ -21,5 +22,7 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
     align-items: center;
     gap: 6px;
     margin-top: 8px;
-    font-size: 0.95em;
+    margin-left: 0;
+    width: fit-content;
+    white-space: nowrap;
 }
