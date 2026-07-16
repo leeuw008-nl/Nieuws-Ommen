@@ -31,4 +31,68 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
     width: fit-content;
     white-space: nowrap;
 }
+.switch-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    font-size: 0.95em;
+    cursor: pointer;
+}
 
+
+/* verberg standaard checkbox */
+
+.switch-label input {
+    display: none;
+}
+
+
+/* de schakelaar */
+
+.slider {
+    width: 46px;
+    height: 24px;
+    background-color: #ccc;
+    border-radius: 24px;
+    position: relative;
+    transition: 0.3s;
+}
+
+
+/* het rondje */
+
+.slider::before {
+
+    content: "";
+
+    width: 20px;
+    height: 20px;
+
+    background: white;
+
+    border-radius: 50%;
+
+    position: absolute;
+
+    left: 2px;
+    top: 2px;
+
+    transition: 0.3s;
+}
+
+
+/* ingeschakeld */
+
+.switch-label input:checked + .slider {
+
+    background-color: #0066cc;
+
+}
+
+
+.switch-label input:checked + .slider::before {
+
+    transform: translateX(22px);
+
+}
