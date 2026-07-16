@@ -47,27 +47,33 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
 }
 
 
-/* achtergrond schuif */
+/* vaste achtergrond van de schuif */
 .slider {
-    width: 46px;
-    height: 24px;
-    background-color: #e0e0e0;
-    border-radius: 24px;
+
+    width: 52px;
+    height: 28px;
+
+    background-color: #d0d0d0;
+
+    border-radius: 28px;
+
     position: relative;
+
+    border: 2px solid #999;
+
     transition: 0.3s;
-    border: 1px solid #bbb;
 }
 
 
-/* knopje */
+/* rond knopje */
 .slider::before {
 
     content: "";
 
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
 
-    background-color: #f8cccc;   /* lichtrood = uit */
+    background-color: #f6bcbc;   /* lichtrood = uit */
 
     border-radius: 50%;
 
@@ -83,18 +89,11 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
 /* Alleen Ommen actief */
 .switch-label input:checked + .slider::before {
 
-    background-color: #c8f2c8;   /* lichtgroen = aan */
+    background-color: #bff0bf;   /* lichtgroen = aan */
 
     transform: translateX(22px);
 
 }
-.switch-label input:checked + .slider {
-
-    background-color: #0066cc;
-
-}
-
-
 .switch-label input:checked + .slider::before {
 
     transform: translateX(22px);
