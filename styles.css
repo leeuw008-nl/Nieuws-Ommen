@@ -41,28 +41,25 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
 }
 
 
-/* verberg standaard checkbox */
-
+/* standaard checkbox verbergen */
 .switch-label input {
     display: none;
 }
 
 
-/* de schakelaar */
-
+/* achtergrond schuif */
 .slider {
     width: 46px;
     height: 24px;
-    background-color: #888;
+    background-color: #e0e0e0;
     border-radius: 24px;
     position: relative;
     transition: 0.3s;
-    border: 1px solid #666;
+    border: 1px solid #bbb;
 }
 
 
-/* het rondje */
-
+/* knopje */
 .slider::before {
 
     content: "";
@@ -70,21 +67,27 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
     width: 20px;
     height: 20px;
 
-    background: white;
+    background-color: #f8cccc;   /* lichtrood = uit */
 
     border-radius: 50%;
 
     position: absolute;
 
     left: 2px;
-    top: 2px;
+    top: 1px;
 
     transition: 0.3s;
 }
 
 
-/* ingeschakeld */
+/* Alleen Ommen actief */
+.switch-label input:checked + .slider::before {
 
+    background-color: #c8f2c8;   /* lichtgroen = aan */
+
+    transform: translateX(22px);
+
+}
 .switch-label input:checked + .slider {
 
     background-color: #0066cc;
