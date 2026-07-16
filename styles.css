@@ -11,7 +11,12 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
     width: 100%;
     display: block;
 }
-
+.show-all-label {
+    position: relative;
+    left: 0;
+    display: flex;
+    justify-content: flex-start;
+}
 .search-row input[type="text"] {
     width: 100%;
     box-sizing: border-box;
@@ -26,3 +31,4 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
     width: fit-content;
     white-space: nowrap;
 }
+
