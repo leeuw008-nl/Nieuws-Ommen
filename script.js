@@ -7,6 +7,11 @@ const feeds = [
         filter: false
     },
     {
+        name: 'OudOmmen',
+        url: 'https://weblog.oudommen.nl/feed/',
+        filter: false
+    },
+    {
         name: 'De Stentor',
         url: 'https://www.destentor.nl/ommen/rss.xml',
         filter: false
