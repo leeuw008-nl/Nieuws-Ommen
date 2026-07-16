@@ -3,20 +3,18 @@ const PROXY = 'https://corsproxy.io/?';
 const feeds = [
     {
         name: 'Ommen City',
-        url: 'https://ommencity.nl/feed/',
-        filter: false
+        url: 'https://ommencity.nl/feed/'
     },
     {
         name: 'OudOmmen',
-        url: 'https://weblog.oudommen.nl/feed/',
-        filter: false
+        url: 'https://weblog.oudommen.nl/feed/'
     },
     {
         name: 'De Stentor',
-        url: 'https://www.destentor.nl/ommen/rss.xml',
-        filter: false
+        url: 'https://www.destentor.nl/ommen/rss.xml'
     }
 ];
+
 
 const ommenKeywords = [
     "ommen",
@@ -36,28 +34,41 @@ const ommenKeywords = [
     "ommermars"
 ];
 
+
 let allArticles = [];
+
+
 
 async function fetchRSS(url) {
 
     try {
 
-        const res = await fetch(
+        const response = await fetch(
             PROXY + encodeURIComponent(url)
         );
 
-        if (!res.ok) {
-            throw new Error("Netwerkfout");
+
+        if (!response.ok) {
+            throw new Error("RSS fout");
         }
 
-        const text = await res.text();
 
-        const xml = new DOMParser()
-            .parseFromString(text, "text/xml");
+        const text = await response.text();
+
+
+        const xml =
+            new DOMParser()
+                .parseFromString(
+                    text,
+                    "text/xml"
+                );
+
 
         if (xml.querySelector("parsererror")) {
             return [];
         }
+
+
 
         return Array.from(
             xml.querySelectorAll("item, entry")
@@ -65,71 +76,99 @@ async function fetchRSS(url) {
         .slice(0, 25)
         .map(item => {
 
-            let link = "#";
 
-            const linkEl = item.querySelector("link");
+            let link = "";
 
-            if (linkEl) {
+
+            const linkElement =
+                item.querySelector("link");
+
+
+            if (linkElement) {
 
                 link =
-                    linkEl.getAttribute("href") ||
-                    linkEl.textContent ||
+                    linkElement.getAttribute("href")
+                    ||
+                    linkElement.textContent
+                    ||
                     "";
 
             }
 
-            link = link.trim().replace(/\\/g, "");
 
-            const dateString =
-                item.querySelector("pubDate")?.textContent?.trim()
+            const date =
+                item.querySelector("pubDate")
+                    ?.textContent
+                    ?.trim()
+
                 ||
-                item.querySelector("published")?.textContent?.trim()
+
+                item.querySelector("published")
+                    ?.textContent
+                    ?.trim()
+
                 ||
-                item.querySelector("updated")?.textContent?.trim()
+
+                item.querySelector("updated")
+                    ?.textContent
+                    ?.trim()
+
                 ||
+
                 "";
 
-            const timestamp = Date.parse(dateString);
+
+
+            const timestamp =
+                Date.parse(date);
+
+
 
             return {
 
                 title:
                     item.querySelector("title")
                         ?.textContent
-                        .trim()
+                        ?.trim()
                     ||
                     "Geen titel",
 
-                link: link,
 
                 description:
                     (
                         item.querySelector(
                             "description, summary, content"
-                        )?.textContent
-                        || ""
+                        )
+                        ?.textContent
+                        ||
+                        ""
                     )
                     .replace(/<[^>]+>/g, "")
                     .trim(),
 
-                pubDate: dateString,
+
+                link:
+                    link.trim(),
+
 
                 timestamp:
                     isNaN(timestamp)
-                        ? 0
-                        : timestamp
+                    ? 0
+                    : timestamp
 
             };
 
+
         });
 
+
     }
-    catch (e) {
+    catch(error) {
 
         console.error(
-            "Fout bij ophalen:",
+            "RSS ophalen mislukt:",
             url,
-            e
+            error
         );
 
         return [];
@@ -138,14 +177,23 @@ async function fetchRSS(url) {
 
 }
 
-function relevantForOmmen(article) {
+
+
+function isOmmenNieuws(article) {
+
 
     const text =
+
         (
-            article.title +
-            " " +
+            article.title
+            +
+            " "
+            +
             article.description
-        ).toLowerCase();
+        )
+        .toLowerCase();
+
+
 
     return ommenKeywords.some(keyword =>
         text.includes(keyword)
@@ -153,76 +201,113 @@ function relevantForOmmen(article) {
 
 }
 
+
+
+
 async function loadNews() {
 
+
     const container =
-        document.getElementById("news-container");
+        document.getElementById(
+            "news-container"
+        );
+
 
     container.innerHTML =
-        "<p>Laden van nieuws...</p>";
+        "<p>Nieuws laden...</p>";
+
+
 
     allArticles = [];
 
-    for (const feed of feeds) {
 
-        try {
 
-            const articles =
-                await fetchRSS(feed.url);
+    // Alle feeds tegelijk ophalen
 
-            const processed =
-                articles
-                .filter(article =>
-                    !feed.filter ||
-                    relevantForOmmen(article)
-                )
-                .map(article => ({
-                    ...article,
-                    source: feed.name
-                }));
+    const results =
+        await Promise.all(
 
-            allArticles.push(...processed);
+            feeds.map(feed =>
+                fetchRSS(feed.url)
+                    .then(articles => ({
 
-        }
-        catch(error) {
+                        source:
+                            feed.name,
 
-            console.error(
-                "Feed mislukt:",
-                feed.name,
-                error
-            );
+                        articles:
+                            articles
 
-        }
+                    }))
+            )
 
-    }
+        );
 
-    const seen = new Set();
 
-    allArticles = allArticles.filter(article => {
 
-        if (seen.has(article.link)) {
-            return false;
-        }
+    results.forEach(result => {
 
-        seen.add(article.link);
 
-        return true;
+        result.articles.forEach(article => {
+
+
+            allArticles.push({
+
+                ...article,
+
+                source:
+                    result.source
+
+            });
+
+
+        });
+
 
     });
 
+
+
+    // dubbele artikelen verwijderen
+
+    const seen = new Set();
+
+
+    allArticles =
+        allArticles.filter(article => {
+
+
+            if (seen.has(article.link)) {
+
+                return false;
+
+            }
+
+
+            seen.add(article.link);
+
+
+            return true;
+
+
+        });
+
+
+
+    // nieuwste eerst
+
     allArticles.sort(
-        (a, b) => b.timestamp - a.timestamp
+        (a,b) =>
+            b.timestamp - a.timestamp
     );
 
-    document.getElementById("search-input").value = "";
 
-    document
-        .getElementById("search-input")
-        .addEventListener("input", searchNews);
 
-    document
-        .getElementById("show-all")
-        .addEventListener("change", searchNews);
+    console.log(
+        "Aantal artikelen:",
+        allArticles.length
+    );
+
+
 
     searchNews();
 
@@ -230,16 +315,25 @@ async function loadNews() {
 function renderArticles(articles) {
 
     const container =
-        document.getElementById("news-container");
+        document.getElementById(
+            "news-container"
+        );
+
 
     let html =
+
         `<p><strong>${articles.length} artikelen gevonden</strong></p>`;
+
 
     if (articles.length === 0) {
 
-        html += "<p>Geen artikelen gevonden.</p>";
+        html +=
+            "<p>Geen artikelen gevonden.</p>";
 
-    } else {
+    }
+
+    else {
+
 
         html += articles.map(article => `
 
@@ -254,6 +348,7 @@ function renderArticles(articles) {
 
                     </a>
                 </h2>
+
 
                 <small>
 
@@ -270,89 +365,150 @@ function renderArticles(articles) {
 
                 </small>
 
+
                 <p>
 
                     ${article.description}
 
                 </p>
 
+
             </div>
+
 
         `).join("");
 
     }
+
 
     container.innerHTML = html;
 
 }
 
 
+
+
 function searchNews() {
 
+
     const searchInput =
-        document.getElementById("search-input");
-
-    const showAll =
-        document.getElementById("show-all").checked;
-
-    let keywords = [];
-
-    // gebruiker typt zelf een zoekterm
-
-    if (searchInput.value.trim() !== "") {
-
-        keywords =
-            searchInput.value
-                .toLowerCase()
-                .split(/\s+/)
-                .filter(word => word.length > 0);
-
-    }
-
-    // geen zoekterm én "Toon alles" uit:
-    // automatisch filteren op Ommen
-
-    else if (!showAll) {
-
-        keywords = ommenKeywords;
-
-    }
-
-    // Toon alles aan en geen zoekterm
-
-    if (keywords.length === 0) {
-
-        renderArticles(allArticles);
-
-        return;
-
-    }
-
-    const filtered =
-
-        allArticles.filter(article => {
-
-            const text =
-
-                (
-                    article.title +
-                    " " +
-                    article.description
-                ).toLowerCase();
-
-            return keywords.some(keyword =>
-                text.includes(keyword)
-            );
-
-        })
-
-        .sort((a, b) =>
-            b.timestamp - a.timestamp
+        document.getElementById(
+            "search-input"
         );
 
-    renderArticles(filtered);
+
+    const alleenOmmen =
+        document.getElementById(
+            "only-ommen"
+        ).checked;
+
+
+
+    const zoekterm =
+        searchInput.value
+            .toLowerCase()
+            .trim();
+
+
+
+    let articles =
+        [...allArticles];
+
+
+
+    // Eerst eventueel filter op Ommen
+
+    if (alleenOmmen) {
+
+
+        articles =
+            articles.filter(article =>
+                isOmmenNieuws(article)
+            );
+
+    }
+
+
+
+    // Daarna zoeken op eigen zoekwoord
+
+    if (zoekterm !== "") {
+
+
+        articles =
+            articles.filter(article => {
+
+
+                const text =
+
+                    (
+                        article.title
+                        +
+                        " "
+                        +
+                        article.description
+                    )
+                    .toLowerCase();
+
+
+
+                return text.includes(zoekterm);
+
+
+            });
+
+
+    }
+
+
+
+    articles.sort(
+        (a,b) =>
+            b.timestamp - a.timestamp
+    );
+
+
+
+    renderArticles(articles);
 
 }
+
+
+
+
+
+function setupSearch() {
+
+
+    const searchInput =
+        document.getElementById(
+            "search-input"
+        );
+
+
+    const switchOmmen =
+        document.getElementById(
+            "only-ommen"
+        );
+
+
+
+    searchInput.addEventListener(
+        "input",
+        searchNews
+    );
+
+
+
+    switchOmmen.addEventListener(
+        "change",
+        searchNews
+    );
+
+
+}
+
+
 
 
 function refreshNews() {
@@ -362,7 +518,15 @@ function refreshNews() {
 }
 
 
+
+
 window.addEventListener(
     "DOMContentLoaded",
-    loadNews
+    function() {
+
+        setupSearch();
+
+        loadNews();
+
+    }
 );
