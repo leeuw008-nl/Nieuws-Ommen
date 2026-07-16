@@ -479,18 +479,15 @@ function searchNews() {
 
 function setupSearch() {
 
-
     const searchInput =
         document.getElementById(
             "search-input"
         );
 
-
     const switchOmmen =
         document.getElementById(
             "only-ommen"
         );
-
 
 
     searchInput.addEventListener(
@@ -499,18 +496,22 @@ function setupSearch() {
     );
 
 
+    if (switchOmmen) {
 
-    switchOmmen.addEventListener(
-    "change",
-    function() {
+        switchOmmen.addEventListener(
+            "change",
+            function() {
 
-        // zoekveld leegmaken bij wisselen filter
-        searchInput.value = "";
+                searchInput.value = "";
 
-        searchNews();
+                searchNews();
+
+            }
+        );
 
     }
-);
+
+}
 
 
 
