@@ -53,10 +53,11 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
 .slider {
     width: 46px;
     height: 24px;
-    background-color: #ccc;
+    background-color: #888;
     border-radius: 24px;
     position: relative;
     transition: 0.3s;
+    border: 1px solid #666;
 }
 
 
