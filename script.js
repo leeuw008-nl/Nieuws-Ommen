@@ -254,7 +254,7 @@ articles.push({
 
     link: href,
 
-    description: "",
+    description: await fetchGemeenteTekst(href),
 
     pubDate: datum,
 
