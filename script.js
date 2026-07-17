@@ -177,7 +177,112 @@ async function fetchRSS(url) {
 
 }
 
+async function fetchGemeenteNieuws() {
 
+    const url =
+        "https://www.ommen.nl/actueel/";
+
+    try {
+
+        const res =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+
+        if (!res.ok) {
+            throw new Error("Gemeente pagina niet bereikbaar");
+        }
+
+
+        const text =
+            await res.text();
+
+
+        const html =
+            new DOMParser()
+                .parseFromString(
+                    text,
+                    "text/html"
+                );
+
+
+        const articles = [];
+
+
+        // Zoek alle links naar nieuwsartikelen
+
+        html.querySelectorAll("a")
+            .forEach(link => {
+
+
+                const title =
+                    link.querySelector("h3, h2")
+                    ?.textContent
+                    ?.trim()
+                    ||
+                    link.textContent.trim();
+
+
+                const href =
+                    link.href;
+
+
+                if (
+
+                    title &&
+
+                    href.includes("/actueel/") &&
+
+                    title.length > 10
+
+                ) {
+
+
+                    articles.push({
+
+                        title: title,
+
+                        link: href,
+
+                        description: "",
+
+                        pubDate: "",
+
+                        timestamp: 0
+
+                    });
+
+                }
+
+
+            });
+
+
+        console.log(
+            "Gemeente Ommen gevonden:",
+            articles.length
+        );
+
+
+        return articles.slice(0,25);
+
+
+    }
+    catch(error) {
+
+
+        console.error(
+            "Fout gemeente Ommen:",
+            error
+        );
+
+
+        return [];
+
+    }
+
+}
 
 function isOmmenNieuws(article) {
 
