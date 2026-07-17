@@ -265,7 +265,7 @@ articles.push({
                 }
 
 
-            });
+            }
 
 
         console.log(
