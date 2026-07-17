@@ -237,7 +237,33 @@ async function fetchGemeenteNieuws() {
                 ) {
 
 
-                    articles.push({
+                    let dateText = "";
+
+const parent =
+    link.parentElement;
+
+
+if (parent) {
+
+    dateText =
+        parent.textContent
+            .match(
+                /\d{1,2}[-\/]\d{1,2}[-\/]\d{4}/
+            );
+
+}
+
+
+const timestamp =
+    dateText
+        ? Date.parse(
+            dateText[0]
+        )
+        : Date.now();
+
+
+
+articles.push({
 
     title: title,
 
@@ -245,9 +271,13 @@ async function fetchGemeenteNieuws() {
 
     description: "",
 
-    pubDate: "",
+    pubDate:
+        dateText
+        ? dateText[0]
+        : "",
 
-    timestamp: Date.now()
+    timestamp:
+        timestamp
 
 });
 
