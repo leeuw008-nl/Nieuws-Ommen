@@ -655,14 +655,5 @@ window.addEventListener(
         loadNews();
 
 
-        const gemeente =
-            await fetchGemeenteNieuws();
-
-
-        console.log(
-            "TEST Gemeente Ommen:",
-            gemeente
-        );
-
     }
 );
