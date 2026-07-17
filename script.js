@@ -378,21 +378,26 @@ async function fetchGemeenteDatum(url) {
         // verwijder overbodige witruimte
 
         const regels =
-            bodyText
-            .split("\n")
-            .map(regel => regel.trim())
-            .filter(regel =>
-                regel.length > 40
-            );
+    bodyText
+    .split("\n")
+    .map(regel => regel.trim())
+    .filter(regel =>
+        regel.length > 40 &&
+        !regel.includes("HomeActueel") &&
+        !regel.includes("Uitleg in eenvoudige taal") &&
+        !regel.includes("simpele tekst")
+    );
 
 
-        if (regels.length > 0) {
+if (regels.length > 0) {
 
-            return regels[0]
-                .substring(0,250)
-                + "...";
+    return regels
+        .slice(0,3)
+        .join(" ")
+        .substring(0,350)
+        + "...";
 
-        }
+}
 
 
         return "";
