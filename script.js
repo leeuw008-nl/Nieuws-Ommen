@@ -369,7 +369,22 @@ async function loadNews() {
 
 
     });
+const gemeenteArtikelen =
+    await fetchGemeenteNieuws();
 
+
+gemeenteArtikelen.forEach(article => {
+
+    allArticles.push({
+
+        ...article,
+
+        source:
+            "Gemeente Ommen"
+
+    });
+
+});
 
 
     // dubbele artikelen verwijderen
