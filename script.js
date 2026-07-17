@@ -632,11 +632,21 @@ function refreshNews() {
 
 window.addEventListener(
     "DOMContentLoaded",
-    function() {
+    async function() {
 
         setupSearch();
 
         loadNews();
+
+
+        const gemeente =
+            await fetchGemeenteNieuws();
+
+
+        console.log(
+            "TEST Gemeente Ommen:",
+            gemeente
+        );
 
     }
 );
