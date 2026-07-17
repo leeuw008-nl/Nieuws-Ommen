@@ -263,6 +263,16 @@ const timestamp =
 
 
 
+const datum =
+    await fetchGemeenteDatum(href);
+
+
+const timestamp =
+    datum
+    ? Date.parse(datum)
+    : Date.now();
+
+
 articles.push({
 
     title: title,
@@ -271,13 +281,9 @@ articles.push({
 
     description: "",
 
-    pubDate:
-        dateText
-        ? dateText[0]
-        : "",
+    pubDate: datum,
 
-    timestamp:
-        timestamp
+    timestamp: timestamp
 
 });
 
