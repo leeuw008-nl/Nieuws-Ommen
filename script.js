@@ -349,7 +349,69 @@ async function fetchGemeenteDatum(url) {
     }
 
 }
-        
+ async function fetchGemeenteTekst(url) {
+
+    try {
+
+        const res =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+
+        const text =
+            await res.text();
+
+
+        const html =
+            new DOMParser()
+                .parseFromString(
+                    text,
+                    "text/html"
+                );
+
+
+        const bodyText =
+            html.body.innerText;
+
+
+        // verwijder overbodige witruimte
+
+        const regels =
+            bodyText
+            .split("\n")
+            .map(regel => regel.trim())
+            .filter(regel =>
+                regel.length > 40
+            );
+
+
+        if (regels.length > 0) {
+
+            return regels[0]
+                .substring(0,250)
+                + "...";
+
+        }
+
+
+        return "";
+
+
+    }
+    catch(error) {
+
+        console.error(
+            "Tekst ophalen mislukt:",
+            url,
+            error
+        );
+
+        return "";
+
+    }
+
+}       
 
 function isOmmenNieuws(article) {
 
