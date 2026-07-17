@@ -392,7 +392,7 @@ async function fetchGemeenteDatum(url) {
 if (regels.length > 0) {
 
     return regels
-        .slice(0,3)
+        .slice(1,4)
         .join(" ")
         .substring(0,350)
         + "...";
