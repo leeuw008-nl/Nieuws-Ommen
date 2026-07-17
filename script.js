@@ -237,31 +237,7 @@ async function fetchGemeenteNieuws() {
                 ) {
 
 
-                    let dateText = "";
-
-const parent =
-    link.parentElement;
-
-
-if (parent) {
-
-    dateText =
-        parent.textContent
-            .match(
-                /\d{1,2}[-\/]\d{1,2}[-\/]\d{4}/
-            );
-
-}
-
-
-const timestamp =
-    dateText
-        ? Date.parse(
-            dateText[0]
-        )
-        : Date.now();
-
-
+                    
 
 const datum =
     await fetchGemeenteDatum(href);
