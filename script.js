@@ -283,24 +283,7 @@ async function fetchGemeenteNieuws() {
 }
 
 
-        return articles.slice(0,25);
-
-
-    }
-    catch(error) {
-
-
-        console.error(
-            "Fout gemeente Ommen:",
-            error
-        );
-
-
-        return [];
-
-    }
-
-}
+        
 
 function isOmmenNieuws(article) {
 
