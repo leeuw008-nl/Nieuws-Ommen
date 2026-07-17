@@ -210,8 +210,7 @@ async function fetchGemeenteNieuws() {
         const articles = [];
 
 
-        html.querySelectorAll("a")
-            .forEach(link => {
+        for (const link of html.querySelectorAll("a")) {
 
 
                 const title =
