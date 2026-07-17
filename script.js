@@ -259,10 +259,9 @@ async function fetchGemeenteNieuws() {
             });
 
 
-        alert(
-    "Gemeente Ommen gevonden: " +
-    articles.length +
-    " artikelen"
+        console.log(
+    "Gemeente Ommen gevonden:",
+    articles.length
 );
 
 
