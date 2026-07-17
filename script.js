@@ -239,17 +239,17 @@ async function fetchGemeenteNieuws() {
 
                     articles.push({
 
-                        title: title,
+    title: title,
 
-                        link: href,
+    link: href,
 
-                        description: "",
+    description: "",
 
-                        pubDate: "",
+    pubDate: "",
 
-                        timestamp: 0
+    timestamp: Date.now()
 
-                    });
+});
 
                 }
 
