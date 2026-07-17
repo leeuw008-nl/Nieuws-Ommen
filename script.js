@@ -191,9 +191,7 @@ async function fetchGemeenteNieuws() {
 
 
         if (!res.ok) {
-            throw new Error(
-                "Gemeente pagina niet bereikbaar"
-            );
+            throw new Error("Gemeente pagina niet bereikbaar");
         }
 
 
@@ -217,8 +215,11 @@ async function fetchGemeenteNieuws() {
 
 
                 const title =
-                    link.textContent
-                        .trim();
+                    link.querySelector("h3, h2")
+                    ?.textContent
+                    ?.trim()
+                    ||
+                    link.textContent.trim();
 
 
                 const href =
@@ -227,38 +228,13 @@ async function fetchGemeenteNieuws() {
 
                 if (
 
-                    title.length > 10 &&
+                    title &&
 
-                    href.includes("/actueel/")
+                    href.includes("/actueel/") &&
+
+                    title.length > 10
 
                 ) {
-
-
-                    // probeer omliggende tekst te vinden
-
-                    let description = "";
-
-
-                    const parent =
-                        link.parentElement;
-
-
-                    if (parent) {
-
-                        description =
-                            parent.textContent
-                                .trim();
-
-                    }
-
-
-                    // overtollige titel verwijderen
-
-                    description =
-                        description
-                        .replace(title, "")
-                        .trim();
-
 
 
                     articles.push({
@@ -267,8 +243,7 @@ async function fetchGemeenteNieuws() {
 
                         link: href,
 
-                        description:
-                            description,
+                        description: "",
 
                         pubDate: "",
 
@@ -282,37 +257,13 @@ async function fetchGemeenteNieuws() {
             });
 
 
-
-        // dubbele links verwijderen
-
-        const unique =
-            [];
-
-        const seen =
-            new Set();
-
-
-        articles.forEach(article => {
-
-            if (!seen.has(article.link)) {
-
-                seen.add(article.link);
-
-                unique.push(article);
-
-            }
-
-        });
-
-
-
         console.log(
             "Gemeente Ommen gevonden:",
-            unique.length
+            articles.length
         );
 
 
-        return unique.slice(0,25);
+        return articles.slice(0,25);
 
 
     }
