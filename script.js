@@ -207,74 +207,96 @@ async function fetchGemeenteNieuws() {
                 );
 
 
-        const articles = [];
+        const links = [];
 
 
         for (const link of html.querySelectorAll("a")) {
 
 
-                const title =
-                    link.querySelector("h3, h2")
-                    ?.textContent
-                    ?.trim()
-                    ||
-                    link.textContent.trim();
+            const title =
+                link.querySelector("h3, h2")
+                ?.textContent
+                ?.trim()
+                ||
+                link.textContent.trim();
 
 
-                const href =
-                    link.href;
+            const href =
+                link.href;
 
 
-                if (
+            if (
+                title &&
+                href.includes("/actueel/") &&
+                title.length > 10
+            ) {
 
-                    title &&
+                links.push({
 
-                    href.includes("/actueel/") &&
+                    title: title,
 
-                    title.length > 10
+                    link: href
 
-                ) {
-
-
-                    
-
-const datum =
-    await fetchGemeenteDatum(href);
-
-
-const timestamp =
-    datum
-    ? Date.parse(datum)
-    : Date.now();
-
-
-articles.push({
-
-    title: title,
-
-    link: href,
-
-    description: await fetchGemeenteTekst(href),
-
-    pubDate: datum,
-
-    timestamp: timestamp
-
-});
-
-                }
-
+                });
 
             }
+
+        }
+
+
+        const artikelen =
+            await Promise.all(
+
+                links
+                .slice(0,10)
+                .map(async artikel => {
+
+
+                    const datum =
+                        await fetchGemeenteDatum(
+                            artikel.link
+                        );
+
+
+                    const tekst =
+                        await fetchGemeenteTekst(
+                            artikel.link
+                        );
+
+
+                    return {
+
+                        title:
+                            artikel.title,
+
+                        link:
+                            artikel.link,
+
+                        description:
+                            tekst,
+
+                        pubDate:
+                            datum,
+
+                        timestamp:
+                            datum
+                            ? Date.parse(datum)
+                            : Date.now()
+
+                    };
+
+                })
+
+            );
 
 
         console.log(
             "Gemeente Ommen gevonden:",
-            articles.length
+            artikelen.length
         );
 
 
-        return articles.slice(0,25);
+        return artikelen;
 
 
     }
