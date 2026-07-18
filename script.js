@@ -348,6 +348,8 @@ for (const link of html.querySelectorAll("a")) {
 
     let titel = link.textContent.trim();
 
+    console.log("RTV TEST TITEL:", titel);
+
     const href = link.href;
 
 
