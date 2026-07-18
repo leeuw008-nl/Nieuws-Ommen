@@ -1,901 +1,806 @@
 const PROXY = 'https://corsproxy.io/?';
 
 const feeds = [
-{
-name: 'Ommen City',
-url: 'https://ommencity.nl/feed/'
-},
-{
-name: 'OudOmmen',
-url: 'https://weblog.oudommen.nl/feed/'
-},
-{
-name: 'De Stentor',
-url: 'https://www.destentor.nl/ommen/rss.xml'
-}
+    {
+        name: 'Ommen City',
+        url: 'https://ommencity.nl/feed/'
+    },
+    {
+        name: 'OudOmmen',
+        url: 'https://weblog.oudommen.nl/feed/'
+    },
+    {
+        name: 'De Stentor',
+        url: 'https://www.destentor.nl/ommen/rss.xml'
+    }
 ];
 
 const ommenKeywords = [
-"ommen",
-"arriën",
-"arrien",
-"beerze",
-"beerzerveld",
-"besthmen",
-"diffelen",
-"giethmen",
-"junne",
-"lemele",
-"stegeren",
-"vilsteren",
-"witharen",
-"varsen",
-"ommermars"
+    "ommen",
+    "arriën",
+    "arrien",
+    "beerze",
+    "beerzerveld",
+    "besthmen",
+    "diffelen",
+    "giethmen",
+    "junne",
+    "lemele",
+    "stegeren",
+    "vilsteren",
+    "witharen",
+    "varsen",
+    "ommermars"
 ];
 
 let allArticles = [];
 
+
+// ==========================
+// RSS ophalen
+// ==========================
+
 async function fetchRSS(url) {
 
-try {  
+    try {
 
-    const response = await fetch(  
-        PROXY + encodeURIComponent(url)  
-    );  
+        const response = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
 
+        if (!response.ok) {
+            throw new Error("RSS fout");
+        }
 
-    if (!response.ok) {  
-        throw new Error("RSS fout");  
-    }  
+        const text = await response.text();
 
+        const xml = new DOMParser()
+            .parseFromString(text, "text/xml");
 
-    const text = await response.text();  
 
+        if (xml.querySelector("parsererror")) {
+            return [];
+        }
 
-    const xml =  
-        new DOMParser()  
-            .parseFromString(  
-                text,  
-                "text/xml"  
-            );  
 
+        return Array.from(
+            xml.querySelectorAll("item, entry")
+        )
+        .slice(0,25)
+        .map(item => {
 
-    if (xml.querySelector("parsererror")) {  
-        return [];  
-    }  
+            let link = "";
 
+            const linkElement =
+                item.querySelector("link");
 
 
-    return Array.from(  
-        xml.querySelectorAll("item, entry")  
-    )  
-    .slice(0, 25)  
-    .map(item => {  
+            if (linkElement) {
 
+                link =
+                    linkElement.getAttribute("href")
+                    ||
+                    linkElement.textContent
+                    ||
+                    "";
 
-        let link = "";  
+            }
 
 
-        const linkElement =  
-            item.querySelector("link");  
+            const date =
+                item.querySelector("pubDate")
+                ?.textContent
+                ?.trim()
 
+                ||
 
-        if (linkElement) {  
+                item.querySelector("published")
+                ?.textContent
+                ?.trim()
 
-            link =  
-                linkElement.getAttribute("href")  
-                ||  
-                linkElement.textContent  
-                ||  
-                "";  
+                ||
 
-        }  
+                item.querySelector("updated")
+                ?.textContent
+                ?.trim()
 
+                ||
 
-        const date =  
-            item.querySelector("pubDate")  
-                ?.textContent  
-                ?.trim()  
+                "";
 
-            ||  
 
-            item.querySelector("published")  
-                ?.textContent  
-                ?.trim()  
+            const timestamp =
+                Date.parse(date);
 
-            ||  
 
-            item.querySelector("updated")  
-                ?.textContent  
-                ?.trim()  
 
-            ||  
+            return {
 
-            "";  
+                title:
+                    item.querySelector("title")
+                    ?.textContent
+                    ?.trim()
+                    ||
+                    "Geen titel",
 
 
+                description:
+                    (
+                        item.querySelector(
+                            "description, summary, content"
+                        )
+                        ?.textContent
+                        ||
+                        ""
+                    )
+                    .replace(/<[^>]+>/g,"")
+                    .trim(),
 
-        const timestamp =  
-            Date.parse(date);  
 
+                link:
+                    link.trim(),
 
 
-        return {  
-
-            title:  
-                item.querySelector("title")  
-                    ?.textContent  
-                    ?.trim()  
-                ||  
-                "Geen titel",  
-
-
-            description:  
-                (  
-                    item.querySelector(  
-                        "description, summary, content"  
-                    )  
-                    ?.textContent  
-                    ||  
-                    ""  
-                )  
-                .replace(/<[^>]+>/g, "")  
-                .trim(),  
-
-
-            link:  
-                link.trim(),  
-
-
-            timestamp:  
-                isNaN(timestamp)  
-                ? 0  
-                : timestamp  
-
-        };  
-
-
-    });  
-
-
-}  
-catch(error) {  
-
-    console.error(  
-        "RSS ophalen mislukt:",  
-        url,  
-        error  
-    );  
-
-    return [];  
-
-}
-
-}
-
-async function fetchGemeenteNieuws() {
-
-const url =  
-    "https://www.ommen.nl/actueel/";  
-
-try {  
-
-    const res =  
-        await fetch(  
-            PROXY + encodeURIComponent(url)  
-        );  
-
-
-    if (!res.ok) {  
-        throw new Error("Gemeente pagina niet bereikbaar");  
-    }  
-
-
-    const text =  
-        await res.text();  
-
-
-    const html =  
-        new DOMParser()  
-            .parseFromString(  
-                text,  
-                "text/html"  
-            );  
-
-
-    const links = [];  
-
-
-    for (const link of html.querySelectorAll("a")) {  
-
-
-        const title =  
-            link.querySelector("h3, h2")  
-            ?.textContent  
-            ?.trim()  
-            ||  
-            link.textContent.trim();  
-
-
-        const href =  
-            link.href;  
-
-
-        if (  
-            title &&  
-            href.includes("/actueel/") &&  
-            title.length > 10  
-        ) {  
-
-            links.push({  
-
-                title: title,  
-
-                link: href  
-
-            });  
-
-        }  
-
-    }  
-
-
-    const artikelen =  
-        await Promise.all(  
-
-            links  
-            .slice(0,10)  
-            .map(async artikel => {  
-
-
-                const datum =  
-                    await fetchGemeenteDatum(  
-                        artikel.link  
-                    );  
-
-
-                const tekst =  
-                    await fetchGemeenteTekst(  
-                        artikel.link  
-                    );  
-
-
-                return {  
-
-                    title:  
-                        artikel.title,  
-
-                    link:  
-                        artikel.link,  
-
-                    description:  
-                        tekst,  
-
-                    pubDate:  
-                        datum,  
-
-                    timestamp:  
-                        datum  
-                        ? Date.parse(datum)  
-                        : Date.now()  
-
-                };  
-
-            })  
-
-        );  
-
-
-    console.log(  
-        "Gemeente Ommen gevonden:",  
-        artikelen.length  
-    );  
-
-
-    return artikelen;  
-
-
-}  
-catch(error) {  
-
-
-    console.error(  
-        "Fout gemeente Ommen:",  
-        error  
-    );  
-
-
-    return [];  
-
-}
-
-}
-
-async function fetchRTVOostNieuws() {
-
-const url =  
-    "https://www.rtvoost.nl/nieuws";  
-
-try {  
-
-    const res =  
-        await fetch(  
-            PROXY + encodeURIComponent(url)  
-        );  
-
-
-    if (!res.ok) {  
-        throw new Error("RTV Oost niet bereikbaar");  
-    }  
-
-
-    const text =  
-        await res.text();  
-
-
-    const html =  
-        new DOMParser()  
-            .parseFromString(  
-                text,  
-                "text/html"  
-            );  
-
-
-    const artikelen = [];  
-
-
-for (const link of html.querySelectorAll("a")) {
-
-    const href = link.href;
-
-    let titel = "";
-
-    const titelElement = link.querySelector("h2, h3");
-
-    if (titelElement) {
-        titel = titelElement.textContent.trim();
-    }
-
-    console.log("RTV NIEUWE TITEL:", titel);
-
-
-    if (
-        titel.length > 25 &&
-        href.includes("/nieuws/")
-    ) {
-
-        artikelen.push({
-
-            title: titel,
-
-            link: href,
-
-            description:
-                "Meer informatie via RTV Oost",
-
-            timestamp:
-                Date.now()
+                timestamp:
+                    isNaN(timestamp)
+                    ? 0
+                    : timestamp
+
+            };
 
         });
 
+
+    }
+    catch(error) {
+
+        console.error(
+            "RSS fout:",
+            url,
+            error
+        );
+
+        return [];
+
     }
 
 }
 
-alert("RTV test: " + artikelen[0]?.title);
-    
-    console.log(  
-        "RTV Oost gevonden:",  
-        artikelen.length  
-    );  
 
 
-    return artikelen.slice(0,10);  
+// ==========================
+// Gemeente Ommen
+// ==========================
+
+async function fetchGemeenteNieuws() {
+
+    const url =
+        "https://www.ommen.nl/actueel/";
 
 
-}  
-catch(error) {  
+    try {
 
-    console.error(  
-        "RTV Oost fout:",  
-        error  
-    );  
+        const response =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
 
-    return [];  
+
+        const text =
+            await response.text();
+
+
+        const html =
+            new DOMParser()
+            .parseFromString(
+                text,
+                "text/html"
+            );
+
+
+        const links = [];
+
+
+        html.querySelectorAll("a")
+        .forEach(link => {
+
+
+            const titel =
+                link.textContent
+                .trim();
+
+
+            const href =
+                link.href;
+
+
+            if (
+                titel.length > 15 &&
+                href.includes("/actueel/")
+            ) {
+
+                links.push({
+
+                    title:titel,
+
+                    link:href
+
+                });
+
+            }
+
+        });
+
+
+
+        const artikelen = [];
+
+
+        for (
+            const artikel of links.slice(0,10)
+        ) {
+
+
+            artikelen.push({
+
+                title:
+                    artikel.title,
+
+
+                link:
+                    artikel.link,
+
+
+                description:
+                    await fetchGemeenteTekst(
+                        artikel.link
+                    ),
+
+
+                timestamp:
+                    Date.now()
+
+            });
+
+        }
+
+
+        console.log(
+            "Gemeente artikelen:",
+            artikelen.length
+        );
+
+
+        return artikelen;
+
+
+    }
+    catch(error) {
+
+        console.error(
+            "Gemeente fout:",
+            error
+        );
+
+        return [];
+
+    }
 
 }
 
-}
+// ==========================
+// Gemeente tekst ophalen
+// ==========================
 
-async function fetchGemeenteDatum(url) {
-
-try {  
-
-    const res =  
-        await fetch(  
-            PROXY + encodeURIComponent(url)  
-        );  
-
-
-    const text =  
-        await res.text();  
-
-
-    const html =  
-        new DOMParser()  
-            .parseFromString(  
-                text,  
-                "text/html"  
-            );  
-
-
-    const bodyText =  
-        html.body.innerText;  
-
-
-    const match =  
-        bodyText.match(  
-            /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4},\s+\d{2}:\d{2}/i  
-        );  
-
-
-    if (match) {  
-
-        return match[0];  
-
-    }  
-
-
-    return "";  
-
-
-}  
-catch(error) {  
-
-    console.error(  
-        "Datum ophalen mislukt:",  
-        url,  
-        error  
-    );  
-
-    return "";  
-
-}
-
-}
 async function fetchGemeenteTekst(url) {
 
-try {  
+    try {
 
-    const res =  
-        await fetch(  
-            PROXY + encodeURIComponent(url)  
-        );  
-
-
-    const text =  
-        await res.text();  
+        const response =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
 
 
-    const html =  
-        new DOMParser()  
-            .parseFromString(  
-                text,  
-                "text/html"  
-            );  
+        const text =
+            await response.text();
 
 
-    const bodyText =  
-        html.body.innerText;  
+        const html =
+            new DOMParser()
+            .parseFromString(
+                text,
+                "text/html"
+            );
 
 
-    // verwijder overbodige witruimte  
-
-    const regels =  
-bodyText  
-.split("\n")  
-.map(regel => regel.trim())  
-.filter(regel =>  
-    regel.length > 40 &&  
-    !regel.includes("HomeActueel") &&  
-    !regel.includes("Uitleg in eenvoudige taal") &&  
-    !regel.includes("simpele tekst")  
-);
-
-if (regels.length > 0) {
-
-return regels  
-    .slice(1,4)  
-    .join(" ")  
-    .substring(0,350)  
-    + "...";
-
-}
-
-return "";  
+        const regels =
+            html.body.innerText
+            .split("\n")
+            .map(regel => regel.trim())
+            .filter(regel =>
+                regel.length > 40 &&
+                !regel.includes("Home") &&
+                !regel.includes("Actueel") &&
+                !regel.includes("Uitleg")
+            );
 
 
-}  
-catch(error) {  
+        if (regels.length) {
 
-    console.error(  
-        "Tekst ophalen mislukt:",  
-        url,  
-        error  
-    );  
+            return regels
+                .slice(0,3)
+                .join(" ")
+                .substring(0,350)
+                + "...";
 
-    return "";  
+        }
+
+
+        return "";
+
+
+    }
+    catch(error) {
+
+        console.error(
+            "Tekst fout:",
+            error
+        );
+
+        return "";
+
+    }
 
 }
 
-}
+
+
+// ==========================
+// Controle Ommen nieuws
+// ==========================
 
 function isOmmenNieuws(article) {
 
-const text =  
 
-    (  
-        article.title  
-        +  
-        " "  
-        +  
-        article.description  
-    )  
-    .toLowerCase();  
+    const text =
+        (
+            article.title
+            +
+            " "
+            +
+            article.description
+        )
+        .toLowerCase();
 
 
 
-return ommenKeywords.some(keyword =>  
-    text.includes(keyword)  
-);
+    return ommenKeywords.some(keyword =>
+        text.includes(keyword)
+    );
 
 }
+
+
+
+// ==========================
+// Nieuws laden
+// ==========================
 
 async function loadNews() {
 
-const container =  
-    document.getElementById(  
-        "news-container"  
-    );  
+
+    const container =
+        document.getElementById(
+            "news-container"
+        );
 
 
-container.innerHTML =  
-    "<p>Nieuws laden...</p>";  
+    container.innerHTML =
+        "<p>Nieuws laden...</p>";
 
 
 
-allArticles = [];
+    allArticles = [];
 
-// RSS en Gemeente tegelijk ophalen
 
-const [results, gemeenteArtikelen, rtvoostArtikelen] =
-await Promise.all([
 
-Promise.all(  
+    // RSS feeds parallel ophalen
 
-        feeds.map(feed =>  
-            fetchRSS(feed.url)  
-            .then(articles => ({  
+    const resultaten =
+        await Promise.all(
 
-                source:  
-                    feed.name,  
+            feeds.map(async feed => {
 
-                articles:  
-                    articles  
 
-            }))  
-        )  
+                const artikelen =
+                    await fetchRSS(
+                        feed.url
+                    );
 
-    ),  
 
-    fetchGemeenteNieuws(),
+                return {
 
-    fetchRTVOostNieuws()
+                    source:
+                        feed.name,
 
-]);
+                    artikelen:
+                        artikelen
 
-// RSS artikelen toevoegen
+                };
 
-results.forEach(result => {
 
-result.articles.forEach(article => {  
+            })
 
-    allArticles.push({  
+        );
 
-        ...article,  
 
-        source:  
-            result.source  
 
-    });  
+    // RSS toevoegen
 
-});
+    resultaten.forEach(resultaat => {
 
-});
 
-// Gemeente artikelen toevoegen
+        resultaat.artikelen.forEach(article => {
 
-gemeenteArtikelen.forEach(article => {
 
-allArticles.push({  
+            allArticles.push({
 
-    ...article,  
+                ...article,
 
-    source:  
-        "Gemeente Ommen"  
+                source:
+                    resultaat.source
 
-   });
+            });
 
-});
 
-// RTV Oost artikelen toevoegen
+        });
 
-rtvoostArtikelen.forEach(article => {
-
-    allArticles.push({
-
-        ...article,
-
-        source:
-            "RTV Oost"
 
     });
 
-});
-
-// dubbele artikelen verwijderen  
-
-const seen = new Set();  
 
 
-allArticles =  
-    allArticles.filter(article => {  
+    // Gemeente toevoegen
 
-
-        if (seen.has(article.link)) {  
-
-            return false;  
-
-        }  
-
-
-        seen.add(article.link);  
-
-
-        return true;  
-
-
-    });  
+    const gemeente =
+        await fetchGemeenteNieuws();
 
 
 
-// nieuwste eerst  
-
-allArticles.sort(  
-    (a,b) =>  
-        b.timestamp - a.timestamp  
-);  
+    gemeente.forEach(article => {
 
 
+        allArticles.push({
 
-console.log(  
-    "Aantal artikelen:",  
-    allArticles.length  
-);  
+            ...article,
+
+            source:
+                "Gemeente Ommen"
+
+        });
+
+
+    });
 
 
 
-searchNews();
+    // dubbele links verwijderen
+
+    const gezien =
+        new Set();
+
+
+
+    allArticles =
+        allArticles.filter(article => {
+
+
+            if (gezien.has(article.link)) {
+
+                return false;
+
+            }
+
+
+            gezien.add(article.link);
+
+
+            return true;
+
+
+        });
+
+
+
+    // nieuwste bovenaan
+
+    allArticles.sort(
+        (a,b) =>
+            b.timestamp - a.timestamp
+    );
+
+
+
+    console.log(
+        "Totaal artikelen:",
+        allArticles.length
+    );
+
+
+
+    searchNews();
 
 }
+
+
+
+// ==========================
+// Artikelen tonen
+// ==========================
+
 function renderArticles(articles) {
 
-const container =  
-    document.getElementById(  
-        "news-container"  
-    );  
+
+    const container =
+        document.getElementById(
+            "news-container"
+        );
 
 
-let html =  
-
-    `<p><strong>${articles.length} artikelen gevonden</strong></p>`;  
-
-
-if (articles.length === 0) {  
-
-    html +=  
-        "<p>Geen artikelen gevonden.</p>";  
-
-}  
-
-else {  
+    let html =
+        `<p><strong>${articles.length} artikelen gevonden</strong></p>`;
 
 
-    html += articles.map(article => `  
 
-        <div class="article">  
-
-            <h2>  
-                <a href="${article.link}"  
-                   target="_blank"  
-                   rel="noopener">  
-
-                    ${article.title}  
-
-                </a>  
-            </h2>  
+    if (!articles.length) {
 
 
-            <small>  
-
-                ${article.source}  
-
-                —  
-
-                ${  
-                    article.timestamp  
-                    ? new Date(article.timestamp)  
-                        .toLocaleDateString('nl-NL')  
-                    : ""  
-                }  
-
-            </small>  
+        html +=
+            "<p>Geen artikelen gevonden.</p>";
 
 
-            <p>  
-
-                ${article.description}  
-
-            </p>  
+    }
+    else {
 
 
-        </div>  
+        html += articles.map(article => `
+
+        <div class="article">
 
 
-    `).join("");  
+            <h2>
 
-}  
+                <a href="${article.link}"
+                   target="_blank"
+                   rel="noopener">
+
+                    ${article.title}
+
+                </a>
+
+            </h2>
 
 
-container.innerHTML = html;
+
+            <small>
+
+                ${article.source}
+
+                -
+
+                ${
+                    article.timestamp
+                    ?
+                    new Date(article.timestamp)
+                    .toLocaleDateString(
+                        'nl-NL'
+                    )
+                    :
+                    ""
+                }
+
+            </small>
+
+
+
+            <p>
+
+                ${article.description}
+
+            </p>
+
+
+        </div>
+
+
+        `).join("");
+
+    }
+
+
+    container.innerHTML =
+        html;
 
 }
+
+// ==========================
+// Zoeken en filteren
+// ==========================
 
 function searchNews() {
 
-const searchInput =  
-    document.getElementById(  
-        "search-input"  
-    );  
+
+    const searchInput =
+        document.getElementById(
+            "search-input"
+        );
 
 
-const alleenOmmen =  
-    document.getElementById(  
-        "only-ommen"  
-    ).checked;  
-
-
-
-const zoekterm =  
-    searchInput.value  
-        .toLowerCase()  
-        .trim();  
+    const alleenOmmen =
+        document.getElementById(
+            "only-ommen"
+        )
+        ?.checked
+        ||
+        false;
 
 
 
-let articles =  
-    [...allArticles];  
+    const zoekterm =
+        searchInput.value
+        .toLowerCase()
+        .trim();
 
 
 
-// Eerst eventueel filter op Ommen  
-
-if (alleenOmmen) {  
-
-
-    articles =  
-        articles.filter(article =>  
-            isOmmenNieuws(article)  
-        );  
-
-}  
+    let artikelen =
+        [...allArticles];
 
 
 
-// Daarna zoeken op eigen zoekwoord  
+    // Alleen nieuws uit regio Ommen
 
-if (zoekterm !== "") {  
-
-
-    articles =  
-        articles.filter(article => {  
+    if (alleenOmmen) {
 
 
-            const text =  
+        artikelen =
+            artikelen.filter(article =>
+                isOmmenNieuws(article)
+            );
 
-                (  
-                    article.title  
-                    +  
-                    " "  
-                    +  
-                    article.description  
-                )  
-                .toLowerCase();  
+    }
 
 
 
-            return text.includes(zoekterm);  
+    // Zoekwoord toepassen
+
+    if (zoekterm !== "") {
 
 
-        });  
+        artikelen =
+            artikelen.filter(article => {
 
 
-}  
+                const tekst =
+                    (
+                        article.title
+                        +
+                        " "
+                        +
+                        article.description
+                    )
+                    .toLowerCase();
 
 
 
-articles.sort(  
-    (a,b) =>  
-        b.timestamp - a.timestamp  
-);  
+                return tekst.includes(
+                    zoekterm
+                );
+
+
+            });
+
+    }
 
 
 
-renderArticles(articles);
+    artikelen.sort(
+        (a,b) =>
+            b.timestamp - a.timestamp
+    );
+
+
+
+    renderArticles(
+        artikelen
+    );
 
 }
+
+
+
+// ==========================
+// Zoekveld instellen
+// ==========================
 
 function setupSearch() {
 
-const searchInput =  
-    document.getElementById(  
-        "search-input"  
-    );  
 
-const switchOmmen =  
-    document.getElementById(  
-        "only-ommen"  
-    );  
+    const searchInput =
+        document.getElementById(
+            "search-input"
+        );
 
 
-searchInput.addEventListener(  
-    "input",  
-    searchNews  
-);  
+    const switchOmmen =
+        document.getElementById(
+            "only-ommen"
+        );
 
 
-if (switchOmmen) {  
 
-    switchOmmen.addEventListener(  
-        "change",  
-        function() {  
+    if (searchInput) {
 
-            searchInput.value = "";  
 
-            searchNews();  
+        searchInput.addEventListener(
+            "input",
+            searchNews
+        );
 
-        }  
-    );  
+    }
+
+
+
+    if (switchOmmen) {
+
+
+        switchOmmen.addEventListener(
+            "change",
+            function() {
+
+
+                searchInput.value = "";
+
+
+                searchNews();
+
+
+            }
+        );
+
+    }
 
 }
 
-}
+
+
+// ==========================
+// Vernieuwen knop
+// ==========================
 
 function refreshNews() {
 
-loadNews();
+    loadNews();
 
 }
+
+
+
+// ==========================
+// Start app
+// ==========================
 
 window.addEventListener(
-"DOMContentLoaded",
-async function() {
-
-setupSearch();  
-
-    loadNews();  
+    "DOMContentLoaded",
+    function() {
 
 
-}
+        setupSearch();
 
+
+        loadNews();
+
+
+    }
 );
