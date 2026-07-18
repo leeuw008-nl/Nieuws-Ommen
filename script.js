@@ -238,14 +238,8 @@ async function fetchGemeenteNieuws() {
 
                     
 
-const datum =
-    await fetchGemeenteDatum(href);
-
-
-const timestamp =
-    datum
-    ? Date.parse(datum)
-    : Date.now();
+const details =
+    await fetchGemeenteDetails(href);
 
 
 articles.push({
@@ -254,11 +248,11 @@ articles.push({
 
     link: href,
 
-    description: await fetchGemeenteTekst(href),
+    description: details.description,
 
-    pubDate: datum,
+    pubDate: details.pubDate,
 
-    timestamp: timestamp
+    timestamp: details.timestamp
 
 });
 
