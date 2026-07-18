@@ -315,6 +315,104 @@ async function fetchGemeenteNieuws() {
 
 }
 
+async function fetchRTVOostNieuws() {
+
+    const url =
+        "https://www.rtvoost.nl/nieuws";
+
+    try {
+
+        const res =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+
+        if (!res.ok) {
+            throw new Error("RTV Oost niet bereikbaar");
+        }
+
+
+        const text =
+            await res.text();
+
+
+        const html =
+            new DOMParser()
+                .parseFromString(
+                    text,
+                    "text/html"
+                );
+
+
+        const artikelen = [];
+
+
+        for (const link of html.querySelectorAll("a")) {
+
+
+            const titel =
+                link.textContent.trim();
+
+
+            const href =
+                link.href;
+
+
+            if (
+
+                titel.length > 25 &&
+
+                href.includes("/nieuws/")
+
+            ) {
+
+
+                artikelen.push({
+
+                    title:
+                        titel,
+
+                    link:
+                        href,
+
+                    description:
+                        "RTV Oost nieuws",
+
+                    timestamp:
+                        Date.now()
+
+                });
+
+
+            }
+
+        }
+
+
+        console.log(
+            "RTV Oost gevonden:",
+            artikelen.length
+        );
+
+
+        return artikelen.slice(0,10);
+
+
+    }
+    catch(error) {
+
+        console.error(
+            "RTV Oost fout:",
+            error
+        );
+
+        return [];
+
+    }
+
+}
+
 async function fetchGemeenteDatum(url) {
 
     try {
