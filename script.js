@@ -382,7 +382,8 @@ for (const link of html.querySelectorAll("a")) {
 
 }
 
-
+alert("RTV test: " + artikelen[0]?.title);
+    
     console.log(  
         "RTV Oost gevonden:",  
         artikelen.length  
