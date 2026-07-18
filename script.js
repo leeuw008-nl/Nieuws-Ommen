@@ -346,17 +346,17 @@ try {
 
 for (const link of html.querySelectorAll("a")) {
 
-    let titel = link.textContent.trim();
-
-    console.log("RTV TEST TITEL:", titel);
-
     const href = link.href;
 
+    let titel = "";
 
-    // verwijder categorie vóór de titel
-    if (titel.includes("|")) {
-        titel = titel.split("|").pop().trim();
+    const titelElement = link.querySelector("h2, h3");
+
+    if (titelElement) {
+        titel = titelElement.textContent.trim();
     }
+
+    console.log("RTV NIEUWE TITEL:", titel);
 
 
     if (
