@@ -382,6 +382,110 @@ async function fetchGemeenteDatum(url) {
         !regel.includes("simpele tekst")
     );
 
+async function fetchGemeenteDetails(url) {
+
+    try {
+
+        const res =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+
+        const text =
+            await res.text();
+
+
+        const html =
+            new DOMParser()
+                .parseFromString(
+                    text,
+                    "text/html"
+                );
+
+
+        const bodyText =
+            html.body.innerText;
+
+
+        // datum zoeken
+
+        const match =
+            bodyText.match(
+                /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4},\s+\d{2}:\d{2}/i
+            );
+
+
+        const pubDate =
+            match
+            ? match[0]
+            : "";
+
+
+        const timestamp =
+            pubDate
+            ? Date.parse(pubDate)
+            : Date.now();
+
+
+        // samenvatting maken
+
+        const regels =
+            bodyText
+            .split("\n")
+            .map(regel => regel.trim())
+            .filter(regel =>
+                regel.length > 40 &&
+                !regel.includes("HomeActueel") &&
+                !regel.includes("Uitleg in eenvoudige taal") &&
+                !regel.includes("simpele tekst")
+            );
+
+
+        const description =
+            regels.length > 1
+            ? regels
+                .slice(1,4)
+                .join(" ")
+                .substring(0,350)
+                + "..."
+            : "";
+
+
+        return {
+
+            pubDate: pubDate,
+
+            timestamp: timestamp,
+
+            description: description
+
+        };
+
+
+    }
+    catch(error) {
+
+        console.error(
+            "Gemeente detail ophalen mislukt:",
+            url,
+            error
+        );
+
+
+        return {
+
+            pubDate: "",
+
+            timestamp: Date.now(),
+
+            description: ""
+
+        };
+
+    }
+
+}        
 
 if (regels.length > 0) {
 
