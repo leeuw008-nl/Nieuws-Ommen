@@ -207,68 +207,96 @@ async function fetchGemeenteNieuws() {
                 );
 
 
-        const articles = [];
+        const links = [];
 
 
         for (const link of html.querySelectorAll("a")) {
 
 
-                const title =
-                    link.querySelector("h3, h2")
-                    ?.textContent
-                    ?.trim()
-                    ||
-                    link.textContent.trim();
+            const title =
+                link.querySelector("h3, h2")
+                ?.textContent
+                ?.trim()
+                ||
+                link.textContent.trim();
 
 
-                const href =
-                    link.href;
+            const href =
+                link.href;
 
 
-                if (
+            if (
+                title &&
+                href.includes("/actueel/") &&
+                title.length > 10
+            ) {
 
-                    title &&
+                links.push({
 
-                    href.includes("/actueel/") &&
+                    title: title,
 
-                    title.length > 10
+                    link: href
 
-                ) {
-
-
-                    
-
-const details =
-    await fetchGemeenteDetails(href);
-
-
-articles.push({
-
-    title: title,
-
-    link: href,
-
-    description: details.description,
-
-    pubDate: details.pubDate,
-
-    timestamp: details.timestamp
-
-});
-
-                }
-
+                });
 
             }
+
+        }
+
+
+        const artikelen =
+            await Promise.all(
+
+                links
+                .slice(0,10)
+                .map(async artikel => {
+
+
+                    const datum =
+                        await fetchGemeenteDatum(
+                            artikel.link
+                        );
+
+
+                    const tekst =
+                        await fetchGemeenteTekst(
+                            artikel.link
+                        );
+
+
+                    return {
+
+                        title:
+                            artikel.title,
+
+                        link:
+                            artikel.link,
+
+                        description:
+                            tekst,
+
+                        pubDate:
+                            datum,
+
+                        timestamp:
+                            datum
+                            ? Date.parse(datum)
+                            : Date.now()
+
+                    };
+
+                })
+
+            );
 
 
         console.log(
             "Gemeente Ommen gevonden:",
-            articles.length
+            artikelen.length
         );
 
 
-        return articles.slice(0,25);
+        return artikelen;
 
 
     }
@@ -382,110 +410,6 @@ async function fetchGemeenteDatum(url) {
         !regel.includes("simpele tekst")
     );
 
-async function fetchGemeenteDetails(url) {
-
-    try {
-
-        const res =
-            await fetch(
-                PROXY + encodeURIComponent(url)
-            );
-
-
-        const text =
-            await res.text();
-
-
-        const html =
-            new DOMParser()
-                .parseFromString(
-                    text,
-                    "text/html"
-                );
-
-
-        const bodyText =
-            html.body.innerText;
-
-
-        // datum zoeken
-
-        const match =
-            bodyText.match(
-                /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4},\s+\d{2}:\d{2}/i
-            );
-
-
-        const pubDate =
-            match
-            ? match[0]
-            : "";
-
-
-        const timestamp =
-            pubDate
-            ? Date.parse(pubDate)
-            : Date.now();
-
-
-        // samenvatting maken
-
-        const regels =
-            bodyText
-            .split("\n")
-            .map(regel => regel.trim())
-            .filter(regel =>
-                regel.length > 40 &&
-                !regel.includes("HomeActueel") &&
-                !regel.includes("Uitleg in eenvoudige taal") &&
-                !regel.includes("simpele tekst")
-            );
-
-
-        const description =
-            regels.length > 1
-            ? regels
-                .slice(1,4)
-                .join(" ")
-                .substring(0,350)
-                + "..."
-            : "";
-
-
-        return {
-
-            pubDate: pubDate,
-
-            timestamp: timestamp,
-
-            description: description
-
-        };
-
-
-    }
-    catch(error) {
-
-        console.error(
-            "Gemeente detail ophalen mislukt:",
-            url,
-            error
-        );
-
-
-        return {
-
-            pubDate: "",
-
-            timestamp: Date.now(),
-
-            description: ""
-
-        };
-
-    }
-
-}        
 
 if (regels.length > 0) {
 
@@ -559,51 +483,54 @@ async function loadNews() {
 
 
 
-    // Alle feeds tegelijk ophalen
+ // RSS en Gemeente tegelijk ophalen
 
-    const results =
-        await Promise.all(
+const [results, gemeenteArtikelen] =
+    await Promise.all([
+
+        Promise.all(
 
             feeds.map(feed =>
                 fetchRSS(feed.url)
-                    .then(articles => ({
+                .then(articles => ({
 
-                        source:
-                            feed.name,
+                    source:
+                        feed.name,
 
-                        articles:
-                            articles
+                    articles:
+                        articles
 
-                    }))
+                }))
             )
 
-        );
+        ),
+
+        fetchGemeenteNieuws()
+
+    ]);
 
 
+// RSS artikelen toevoegen
 
-    results.forEach(result => {
+results.forEach(result => {
 
+    result.articles.forEach(article => {
 
-        result.articles.forEach(article => {
+        allArticles.push({
 
+            ...article,
 
-            allArticles.push({
-
-                ...article,
-
-                source:
-                    result.source
-
-            });
-
+            source:
+                result.source
 
         });
 
-
     });
-const gemeenteArtikelen =
-    await fetchGemeenteNieuws();
 
+});
+
+
+// Gemeente artikelen toevoegen
 
 gemeenteArtikelen.forEach(article => {
 
