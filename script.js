@@ -347,8 +347,14 @@ try {
     for (const link of html.querySelectorAll("a")) {  
 
 
-        const titel =  
-            link.textContent.trim();  
+        let titel =
+    link.textContent.trim();
+
+titel =
+    titel.replace(
+        /^[^|]+\|\s*/,
+        ""
+    ); 
 
 
         const href =  
