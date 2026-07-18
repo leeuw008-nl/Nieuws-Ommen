@@ -483,51 +483,54 @@ async function loadNews() {
 
 
 
-    // Alle feeds tegelijk ophalen
+ // RSS en Gemeente tegelijk ophalen
 
-    const results =
-        await Promise.all(
+const [results, gemeenteArtikelen] =
+    await Promise.all([
+
+        Promise.all(
 
             feeds.map(feed =>
                 fetchRSS(feed.url)
-                    .then(articles => ({
+                .then(articles => ({
 
-                        source:
-                            feed.name,
+                    source:
+                        feed.name,
 
-                        articles:
-                            articles
+                    articles:
+                        articles
 
-                    }))
+                }))
             )
 
-        );
+        ),
+
+        fetchGemeenteNieuws()
+
+    ]);
 
 
+// RSS artikelen toevoegen
 
-    results.forEach(result => {
+results.forEach(result => {
 
+    result.articles.forEach(article => {
 
-        result.articles.forEach(article => {
+        allArticles.push({
 
+            ...article,
 
-            allArticles.push({
-
-                ...article,
-
-                source:
-                    result.source
-
-            });
-
+            source:
+                result.source
 
         });
 
-
     });
-const gemeenteArtikelen =
-    await fetchGemeenteNieuws();
 
+});
+
+
+// Gemeente artikelen toevoegen
 
 gemeenteArtikelen.forEach(article => {
 
