@@ -344,52 +344,41 @@ try {
     const artikelen = [];  
 
 
-    for (const link of html.querySelectorAll("a")) {  
+for (const link of html.querySelectorAll("a")) {
+
+    let titel = link.textContent.trim();
+
+    const href = link.href;
 
 
-        let titel =
-    link.textContent.trim();
-
-titel =
-    titel.replace(
-        /^[^|]+\|\s*/,
-        ""
-    ); 
+    // verwijder categorie vóór de titel
+    if (titel.includes("|")) {
+        titel = titel.split("|").pop().trim();
+    }
 
 
-        const href =  
-            link.href;  
+    if (
+        titel.length > 25 &&
+        href.includes("/nieuws/")
+    ) {
 
+        artikelen.push({
 
-        if (  
+            title: titel,
 
-            titel.length > 25 &&  
+            link: href,
 
-            href.includes("/nieuws/")  
+            description:
+                "Meer informatie via RTV Oost",
 
-        ) {  
+            timestamp:
+                Date.now()
 
+        });
 
-            artikelen.push({  
+    }
 
-                title:  
-                    titel,  
-
-                link:  
-                    href,  
-
-                description:  
-                    "RTV Oost nieuws",  
-
-                timestamp:  
-                    Date.now()  
-
-            });  
-
-
-        }  
-
-    }  
+}
 
 
     console.log(  
