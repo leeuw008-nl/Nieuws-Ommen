@@ -75,7 +75,13 @@ async function fetchRSS(url) {
 
 
         const items = Array.from(
-    xml.querySelectorAll("item, entry")
+    xml.getElementsByTagName("item")
+);
+
+console.log(
+    "RSS items gevonden:",
+    url,
+    items.length
 );
 
 console.log("Aantal RSS items:", url, items.length);
