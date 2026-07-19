@@ -74,11 +74,15 @@ async function fetchRSS(url) {
 
 
 
-        return Array.from(
-            xml.querySelectorAll("item, entry")
-        )
-        .slice(0, 25)
-        .map(item => {
+        const items = Array.from(
+    xml.querySelectorAll("item, entry")
+);
+
+console.log("Aantal RSS items:", url, items.length);
+
+return items
+.slice(0,25)
+.map(item => {
 
 
             let link = "";
