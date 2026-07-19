@@ -125,41 +125,6 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
     align-items: center;
     gap: 15px;
     margin-top: 10px;
-    flex-wrap: wrap;
-}
-.source-menu {
-    display: none;
-    background: white;
-    color: black;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    padding: 10px;
-    margin-top: 8px;
-    width: 220px;
-    text-align: left;
-}
-
-.source-menu label {
-    color: black;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
-    width: 100%;
-    padding: 4px 0;
-    cursor: pointer;
-}
-
-.source-menu input[type="checkbox"] {
-    margin: 0;
-    flex: 0 0 18px;
-}
-.controls-row {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 15px;
-    margin-top: 10px;
 }
 
 .source-wrapper {
@@ -170,7 +135,7 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
     display: none;
     position: absolute;
     top: 42px;
-    right: 0;
+    left: 0;              /* gewijzigd: niet meer rechts uitlijnen */
     background: white;
     color: black;
     border: 1px solid #ccc;
@@ -179,19 +144,6 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
     width: 210px;
     z-index: 1000;
     box-shadow: 0 2px 10px rgba(0,0,0,.2);
-}
-
-
-.source-menu label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 0;
-    color: black;
-    cursor: pointer;
-}
-/* Correcte uitlijning bronnenmenu op iPhone */
-.source-menu {
     text-align: left;
 }
 
@@ -200,10 +152,14 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
     align-items: center;
     justify-content: flex-start;
     gap: 8px;
-    width: auto;
+    padding: 6px 0;
+    color: black;
+    cursor: pointer;
     white-space: nowrap;
 }
 
 .source-menu input[type="checkbox"] {
     margin: 0;
+    width: 18px;
+    height: 18px;
 }
