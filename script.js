@@ -327,66 +327,91 @@ async function fetchRTVVechtdalNieuws() {
 
         const text = await res.text();
 
-        const html =
-            new DOMParser()
-            .parseFromString(
-                text,
-                "text/html"
-            );
-
+        const html = new DOMParser()
+            .parseFromString(text, "text/html");
 
         const links = [];
-
 
         html.querySelectorAll("a").forEach(a => {
 
             const href = a.href;
-
-            const titel =
-                a.textContent.trim();
-
+            const title = a.textContent.trim();
 
             if (
                 href.includes("type=detail") &&
-                titel.length > 10
+                title.length > 10 &&
+                !links.some(l => l.link === href)
             ) {
 
                 links.push({
-
-                    title: titel,
+                    title,
                     link: href
-
                 });
 
             }
 
         });
 
+        const artikelen = await Promise.all(
 
-        console.log(
-            "RTV links gevonden:",
-            links.length
+            links.slice(0,10).map(async artikel => {
+
+                const res2 = await fetch(
+                    PROXY + encodeURIComponent(artikel.link)
+                );
+
+                const text2 = await res2.text();
+
+                const doc = new DOMParser()
+                    .parseFromString(text2,"text/html");
+
+                const body =
+                    doc.body.innerText
+                        .replace(/\s+/g," ")
+                        .trim();
+
+                // Datum zoeken
+                const match =
+                    body.match(
+                        /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i
+                    );
+
+                const datum =
+                    match ? match[0] : "";
+
+                // Eerste stuk tekst
+                let beschrijving =
+                    body
+                        .replace(artikel.title,"")
+                        .substring(0,300)
+                        .trim();
+
+                return {
+
+                    title: artikel.title,
+
+                    link: artikel.link,
+
+                    description:
+                        beschrijving + "...",
+
+                    timestamp:
+                        datum
+                        ? Date.parse(datum)
+                        : Date.now()
+
+                };
+
+            })
+
         );
 
-
-        return links.slice(0,10).map(item => {
-
-    return {
-        title: item.title,
-        link: item.link,
-        description: ""
-    };
-
-});
-
+        return artikelen;
 
     }
     catch(error) {
 
-        console.error(
-            "RTV fout:",
-            error
-        );
+        console.error("RTV:", error);
 
         return [];
 
