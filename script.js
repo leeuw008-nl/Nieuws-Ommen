@@ -1,6 +1,5 @@
 const PROXY = 'https://corsproxy.io/?';
 
-
 const feeds = [
     {
         name: 'Ommen City',
@@ -13,11 +12,7 @@ const feeds = [
     {
         name: 'De Stentor',
         url: 'https://www.destentor.nl/ommen/rss.xml'
-    },
-{
-    name: 'RTV Vechtdal',
-    url: 'https://www.vechtdalcentraal.nl/feed/'
-}
+    }
 ];
 
 
@@ -54,9 +49,7 @@ async function fetchRSS(url) {
 
 
         if (!response.ok) {
-
             throw new Error("RSS fout");
-
         }
 
 
@@ -72,84 +65,101 @@ async function fetchRSS(url) {
 
 
         if (xml.querySelector("parsererror")) {
-
             return [];
-
         }
 
 
-        const items =
-            Array.from(
-                xml.querySelectorAll("item")
-            );
+
+        return Array.from(
+            xml.querySelectorAll("item, entry")
+        )
+        .slice(0, 25)
+        .map(item => {
 
 
-        console.log(
-            "RSS gevonden:",
-            url,
-            items.length
-        );
+            let link = "";
 
 
-        return items
-            .slice(0,25)
-            .map(item => {
+            const linkElement =
+                item.querySelector("link");
 
 
-                const title =
-                    item.querySelector("title")
-                    ?.textContent
-                    ?.trim()
+            if (linkElement) {
+
+                link =
+                    linkElement.getAttribute("href")
                     ||
-                    "Geen titel";
-
-
-                const link =
-                    item.querySelector("link")
-                    ?.textContent
-                    ?.trim()
+                    linkElement.textContent
                     ||
                     "";
 
+            }
 
-                const description =
+
+            const date =
+                item.querySelector("pubDate")
+                    ?.textContent
+                    ?.trim()
+
+                ||
+
+                item.querySelector("published")
+                    ?.textContent
+                    ?.trim()
+
+                ||
+
+                item.querySelector("updated")
+                    ?.textContent
+                    ?.trim()
+
+                ||
+
+                "";
+
+
+
+            const timestamp =
+                Date.parse(date);
+
+
+
+            return {
+
+                title:
+                    item.querySelector("title")
+                        ?.textContent
+                        ?.trim()
+                    ||
+                    "Geen titel",
+
+
+                description:
                     (
                         item.querySelector(
-                            "description"
+                            "description, summary, content"
                         )
                         ?.textContent
                         ||
                         ""
                     )
-                    .replace(/<[^>]+>/g,"")
-                    .trim();
+                    .replace(/<[^>]+>/g, "")
+                    .trim(),
 
 
-                const date =
-                    item.querySelector("pubDate")
-                    ?.textContent
-                    ?.trim()
-                    ||
-                    "";
+                link:
+                    link.trim(),
 
 
-                return {
+                timestamp:
+                    isNaN(timestamp)
+                    ? 0
+                    : timestamp
 
-                    title,
-
-                    link,
-
-                    description,
-
-                    timestamp:
-                        Date.parse(date)
-                        ||
-                        0
-
-                };
+            };
 
 
-            });
+        });
 
 
     }
@@ -166,98 +176,135 @@ async function fetchRSS(url) {
     }
 
 }
+
 async function fetchGemeenteNieuws() {
 
     const url =
         "https://www.ommen.nl/actueel/";
 
-
     try {
 
-        const response = await fetch(
-            PROXY + encodeURIComponent(url)
-        );
+        const res =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+
+        if (!res.ok) {
+            throw new Error("Gemeente pagina niet bereikbaar");
+        }
 
 
         const text =
-            await response.text();
+            await res.text();
 
 
         const html =
             new DOMParser()
-            .parseFromString(
-                text,
-                "text/html"
-            );
+                .parseFromString(
+                    text,
+                    "text/html"
+                );
 
 
-        const artikelen = [];
+        const links = [];
 
 
-        html.querySelectorAll("a")
-        .forEach(link => {
+        for (const link of html.querySelectorAll("a")) {
 
 
-            const titel =
-                link.textContent
-                .trim();
+            const title =
+                link.querySelector("h3, h2")
+                ?.textContent
+                ?.trim()
+                ||
+                link.textContent.trim();
 
 
             const href =
                 link.href;
 
 
-
             if (
-
-                titel.length > 15 &&
-                href.includes("/actueel/")
-
+                title &&
+                href.includes("/actueel/") &&
+                title.length > 10
             ) {
 
+                links.push({
 
-                if (
-                    !artikelen.some(
-                        a => a.link === href
-                    )
-                ) {
+                    title: title,
 
-                    artikelen.push({
+                    link: href
 
-                        title: titel,
-
-                        link: href,
-
-                        description: "",
-
-                        timestamp:
-                            Date.now()
-
-                    });
-
-                }
+                });
 
             }
 
+        }
 
-        });
+
+        const artikelen =
+            await Promise.all(
+
+                links
+                .slice(0,10)
+                .map(async artikel => {
+
+
+                    const datum =
+                        await fetchGemeenteDatum(
+                            artikel.link
+                        );
+
+
+                    const tekst =
+                        await fetchGemeenteTekst(
+                            artikel.link
+                        );
+
+
+                    return {
+
+                        title:
+                            artikel.title,
+
+                        link:
+                            artikel.link,
+
+                        description:
+                            tekst,
+
+                        pubDate:
+                            datum,
+
+                        timestamp:
+                            datum
+                            ? Date.parse(datum)
+                            : Date.now()
+
+                    };
+
+                })
+
+            );
 
 
         console.log(
-            "Gemeente gevonden:",
+            "Gemeente Ommen gevonden:",
             artikelen.length
         );
 
 
-        return artikelen
-            .slice(0,10);
+        return artikelen;
 
 
     }
     catch(error) {
 
+
         console.error(
-            "Gemeente fout:",
+            "Fout gemeente Ommen:",
             error
         );
 
@@ -268,167 +315,281 @@ async function fetchGemeenteNieuws() {
 
 }
 
-
-
-
 async function fetchRTVVechtdalNieuws() {
 
-
-    const url =
-        "https://rtvvechtdal.nl/vechtdalnl/nieuws";
-
+    const url = "https://rtvvechtdal.nl/";
 
     try {
 
+        const res = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
 
-        const response =
+        const text = await res.text();
+
+        const html = new DOMParser()
+            .parseFromString(text, "text/html");
+
+        const links = [];
+
+        html.querySelectorAll("a").forEach(a => {
+
+            const href = new URL(
+    a.getAttribute("href"),
+    "https://rtvvechtdal.nl"
+).href;
+
+            console.log(href);
+            
+            const title = a.textContent.trim();
+
+            if (
+                href.includes("type=detail") &&
+                title.length > 10 &&
+                !links.some(l => l.link === href)
+            ) {
+
+                links.push({
+                    title,
+                    link: href
+                });
+
+            }
+
+        });
+
+        const artikelen = await Promise.all(
+
+            links.slice(0,10).map(async artikel => {
+
+                const res2 = await fetch(
+                    PROXY + encodeURIComponent(artikel.link)
+                );
+
+                const text2 = await res2.text();
+
+                const doc = new DOMParser()
+                    .parseFromString(text2,"text/html");
+
+                const body =
+                    doc.body.innerText
+                        .replace(/\s+/g," ")
+                        .trim();
+
+let schoneTekst = body;
+
+// Alles vóór de eerste datum verwijderen
+schoneTekst = schoneTekst.replace(
+    /^.*?(\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4})/i,
+    "$1"
+);
+                
+                // Datum zoeken
+                const match =
+                    body.match(
+                        /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i
+                    );
+
+                const datum =
+                    match ? match[0] : "";
+
+                // Eerste stuk tekst
+                let beschrijving = schoneTekst
+    .replace(artikel.title,"")
+    .replace(
+        /Home Vechtdal TV.*?Stichting RTV Vechtdal/i,
+        ""
+    )
+    .replace(
+        /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i,
+        ""
+    )
+    .trim()
+    .substring(0,300);
+
+                return {
+
+                    title: artikel.title,
+
+                    link: artikel.link,
+
+                    description:
+                        beschrijving + "...",
+
+                    timestamp:
+                        datum
+                        ? Date.parse(datum)
+                        : Date.now()
+
+                };
+
+            })
+
+        );
+
+        return artikelen;
+
+    }
+    catch(error) {
+
+        console.error("RTV:", error);
+
+        return [];
+
+    }
+
+}
+
+async function fetchGemeenteDatum(url) {
+
+    try {
+
+        const res =
             await fetch(
                 PROXY + encodeURIComponent(url)
             );
 
 
         const text =
-            await response.text();
+            await res.text();
 
 
         const html =
             new DOMParser()
-            .parseFromString(
-                text,
-                "text/html"
+                .parseFromString(
+                    text,
+                    "text/html"
+                );
+
+
+        const bodyText =
+            html.body.innerText;
+
+
+        const match =
+            bodyText.match(
+                /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4},\s+\d{2}:\d{2}/i
             );
 
 
+        if (match) {
 
-        const links = [];
+            return match[0];
 
-
-
-        html.querySelectorAll("a")
-        .forEach(a => {
+        }
 
 
-            const href =
-                new URL(
-                    a.getAttribute("href"),
-                    "https://rtvvechtdal.nl"
-                ).href;
-
-
-            const titel =
-                a.textContent
-                .trim();
-
-
-
-            if (
-
-                titel.length > 10 &&
-                href.includes("type=detail")
-
-            ) {
-
-
-                if (
-                    !links.some(
-                        item =>
-                        item.link === href
-                    )
-                ) {
-
-
-                    links.push({
-
-                        title: titel,
-
-                        link: href
-
-                    });
-
-
-                }
-
-            }
-
-
-        });
-
-
-
-        console.log(
-            "RTV Vechtdal links:",
-            links.length
-        );
-
-
-
-        return links
-            .slice(0,10)
-            .map(item => {
-
-
-                return {
-
-                    title:
-                        item.title,
-
-                    link:
-                        item.link,
-
-                    description:
-                        "RTV Vechtdal nieuws",
-
-                    timestamp:
-                        Date.now()
-
-                };
-
-
-            });
-
+        return "";
 
 
     }
     catch(error) {
 
-
         console.error(
-            "RTV Vechtdal fout:",
+            "Datum ophalen mislukt:",
+            url,
             error
         );
 
-
-        return [];
+        return "";
 
     }
 
 }
+ async function fetchGemeenteTekst(url) {
+
+    try {
+
+        const res =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
 
 
+        const text =
+            await res.text();
 
 
+        const html =
+            new DOMParser()
+                .parseFromString(
+                    text,
+                    "text/html"
+                );
+
+
+        const bodyText =
+            html.body.innerText;
+
+
+        // verwijder overbodige witruimte
+
+        const regels =
+    bodyText
+    .split("\n")
+    .map(regel => regel.trim())
+    .filter(regel =>
+        regel.length > 40 &&
+        !regel.includes("HomeActueel") &&
+        !regel.includes("Uitleg in eenvoudige taal") &&
+        !regel.includes("simpele tekst")
+    );
+
+
+if (regels.length > 0) {
+
+    return regels
+        .slice(1,4)
+        .join(" ")
+        .substring(0,350)
+        + "...";
+
+}
+
+
+        return "";
+
+
+    }
+    catch(error) {
+
+        console.error(
+            "Tekst ophalen mislukt:",
+            url,
+            error
+        );
+
+        return "";
+
+    }
+
+}       
 
 function isOmmenNieuws(article) {
 
 
-    const tekst =
+    const text =
 
         (
-            article.title +
-            " " +
+            article.title
+            +
+            " "
+            +
             article.description
-
         )
         .toLowerCase();
 
 
 
-    return ommenKeywords.some(
-        woord =>
-        tekst.includes(woord)
+    return ommenKeywords.some(keyword =>
+        text.includes(keyword)
     );
 
 }
+
+
+
+
 async function loadNews() {
 
 
@@ -447,137 +608,100 @@ async function loadNews() {
 
 
 
-    const [
-        rssResult,
-        gemeenteArtikelen,
-        rtvArtikelen
+ // RSS en Gemeente tegelijk ophalen
 
-    ] = await Promise.all([
-
+const [results, gemeenteArtikelen, rtvArtikelen] =
+    await Promise.all([
 
         Promise.all(
 
-            feeds.map(
-                async feed => {
+            feeds.map(feed =>
+                fetchRSS(feed.url)
+                .then(articles => ({
 
-                    const artikelen =
-                        await fetchRSS(
-                            feed.url
-                        );
+                    source:
+                        feed.name,
 
+                    articles:
+                        articles
 
-                    return {
-
-                        source:
-                            feed.name,
-
-                        artikelen
-
-                    };
-
-                }
-
+                }))
             )
 
         ),
 
-
         fetchGemeenteNieuws(),
-
 
         fetchRTVVechtdalNieuws()
 
     ]);
 
 
+// RSS artikelen toevoegen
 
-    // RSS toevoegen
+results.forEach(result => {
 
-    rssResult.forEach(bron => {
-
-
-        bron.artikelen.forEach(article => {
-
-
-            allArticles.push({
-
-                ...article,
-
-                source:
-                    bron.source
-
-            });
-
-
-        });
-
-
-    });
-
-
-
-    // Gemeente toevoegen
-
-    gemeenteArtikelen.forEach(article => {
-
+    result.articles.forEach(article => {
 
         allArticles.push({
 
             ...article,
 
             source:
-                "Gemeente Ommen"
+                result.source
 
         });
 
+    });
+
+});
+
+
+// Gemeente artikelen toevoegen
+
+gemeenteArtikelen.forEach(article => {
+
+    allArticles.push({
+
+        ...article,
+
+        source:
+            "Gemeente Ommen"
 
     });
 
-
-
-    // RTV toevoegen
+});
 
     rtvArtikelen.forEach(article => {
 
+    allArticles.push({
 
-        allArticles.push({
+        ...article,
 
-            ...article,
-
-            source:
-                "RTV Vechtdal"
-
-        });
-
+        source:
+            "RTV Vechtdal"
 
     });
 
+});
 
+    // dubbele artikelen verwijderen
 
-    // dubbele links verwijderen
-
-    const gezien =
-        new Set();
+    const seen = new Set();
 
 
     allArticles =
         allArticles.filter(article => {
 
 
-            if (
-                gezien.has(
-                    article.link
-                )
-            ) {
+            if (seen.has(article.link)) {
 
                 return false;
 
             }
 
 
-            gezien.add(
-                article.link
-            );
+            seen.add(article.link);
 
 
             return true;
@@ -591,23 +715,14 @@ async function loadNews() {
 
     allArticles.sort(
         (a,b) =>
-        b.timestamp - a.timestamp
+            b.timestamp - a.timestamp
     );
 
 
 
     console.log(
-        "Totaal artikelen:",
+        "Aantal artikelen:",
         allArticles.length
-    );
-
-
-    console.log(
-        "Ommer Nieuws:",
-        allArticles.filter(
-            a =>
-            a.source === "Ommer Nieuws"
-        ).length
     );
 
 
@@ -615,14 +730,7 @@ async function loadNews() {
     searchNews();
 
 }
-
-
-
-
-
-
 function renderArticles(articles) {
-
 
     const container =
         document.getElementById(
@@ -635,11 +743,7 @@ function renderArticles(articles) {
         `<p><strong>${articles.length} artikelen gevonden</strong></p>`;
 
 
-
-    if (
-        articles.length === 0
-    ) {
-
+    if (articles.length === 0) {
 
         html +=
             "<p>Geen artikelen gevonden.</p>";
@@ -649,56 +753,45 @@ function renderArticles(articles) {
     else {
 
 
-        html +=
-        articles.map(article => `
+        html += articles.map(article => `
+
+            <div class="article">
+
+                <h2>
+                    <a href="${article.link}"
+                       target="_blank"
+                       rel="noopener">
+
+                        ${article.title}
+
+                    </a>
+                </h2>
 
 
-        <div class="article">
+                <small>
 
+                    ${article.source}
 
-            <h2>
+                    —
 
-                <a href="${article.link}"
-                   target="_blank"
-                   rel="noopener">
-
-                    ${article.title}
-
-                </a>
-
-            </h2>
-
-
-            <small>
-
-                ${article.source}
-
-                -
-
-                ${
-                    article.timestamp
-                    ?
-                    new Date(
+                    ${
                         article.timestamp
-                    )
-                    .toLocaleDateString(
-                        'nl-NL'
-                    )
-                    :
-                    ""
-                }
+                        ? new Date(article.timestamp)
+                            .toLocaleDateString('nl-NL')
+                        : ""
+                    }
 
-            </small>
+                </small>
 
 
-            <p>
+                <p>
 
-                ${article.description}
+                    ${article.description}
 
-            </p>
+                </p>
 
 
-        </div>
+            </div>
 
 
         `).join("");
@@ -706,14 +799,9 @@ function renderArticles(articles) {
     }
 
 
-
-    container.innerHTML =
-        html;
-
+    container.innerHTML = html;
 
 }
-
-
 
 
 
@@ -721,7 +809,7 @@ function renderArticles(articles) {
 function searchNews() {
 
 
-    const zoekveld =
+    const searchInput =
         document.getElementById(
             "search-input"
         );
@@ -730,106 +818,88 @@ function searchNews() {
     const alleenOmmen =
         document.getElementById(
             "only-ommen"
-        )
-        .checked;
+        ).checked;
 
 
 
     const zoekterm =
-        zoekveld.value
-        .toLowerCase()
-        .trim();
+        searchInput.value
+            .toLowerCase()
+            .trim();
 
 
 
-    let artikelen =
+    let articles =
         [...allArticles];
 
 
 
+    // Eerst eventueel filter op Ommen
+
     if (alleenOmmen) {
 
 
-        artikelen =
-        artikelen.filter(
-            article =>
-            isOmmenNieuws(article)
-        );
+        articles =
+            articles.filter(article =>
+                isOmmenNieuws(article)
+            );
 
     }
 
 
+
+    // Daarna zoeken op eigen zoekwoord
 
     if (zoekterm !== "") {
 
 
-        artikelen =
-        artikelen.filter(article => {
+        articles =
+            articles.filter(article => {
 
 
-            const tekst =
+                const text =
 
-                (
-                    article.title +
-                    " " +
-                    article.description
-
-                )
-                .toLowerCase();
-
-
-
-            return tekst.includes(
-                zoekterm
-            );
+                    (
+                        article.title
+                        +
+                        " "
+                        +
+                        article.description
+                    )
+                    .toLowerCase();
 
 
-        });
+
+                return text.includes(zoekterm);
+
+
+            });
+
 
     }
 
+const gekozenBronnen =
+    Array.from(
+        document.querySelectorAll(".source-filter:checked")
+    )
+    .map(box => box.value);
 
 
-    const gekozenBronnen =
-
-        Array.from(
-
-            document.querySelectorAll(
-                ".source-filter:checked"
-            )
-
-        )
-        .map(
-            box =>
-            box.value
-        );
-
-
-
-    artikelen =
-    artikelen.filter(article =>
-
-        gekozenBronnen.includes(
-            article.source
-        )
-
+articles =
+    articles.filter(article =>
+        gekozenBronnen.includes(article.source)
     );
 
-
-
-    artikelen.sort(
+    articles.sort(
         (a,b) =>
-        b.timestamp - a.timestamp
+            b.timestamp - a.timestamp
     );
 
 
 
-    renderArticles(
-        artikelen
-    );
+    renderArticles(articles);
 
 }
-
 
 
 
@@ -837,130 +907,39 @@ function searchNews() {
 
 function setupSearch() {
 
-
-    const input =
+    const searchInput =
         document.getElementById(
             "search-input"
         );
 
-
-    const switchKnop =
+    const switchOmmen =
         document.getElementById(
             "only-ommen"
         );
 
 
-
-    input.addEventListener(
+    searchInput.addEventListener(
         "input",
         searchNews
     );
 
 
+    if (switchOmmen) {
 
-    switchKnop.addEventListener(
-        "change",
-        () => {
-
-            input.value = "";
-
-            searchNews();
-
-        }
-
-    );
-
-
-}
-
-
-
-
-
-
-function setupSources() {
-
-
-    const button =
-        document.getElementById(
-            "source-button"
-        );
-
-
-    const menu =
-        document.getElementById(
-            "source-menu"
-        );
-
-
-
-    if (!button || !menu)
-        return;
-
-
-
-    menu.style.display =
-        "none";
-
-
-
-    button.onclick =
-    function() {
-
-
-        if (
-            menu.style.display ===
-            "none"
-        ) {
-
-
-            menu.style.display =
-                "block";
-
-
-            button.innerHTML =
-                "Bronnen ▲";
-
-
-        }
-
-        else {
-
-
-            menu.style.display =
-                "none";
-
-
-            button.innerHTML =
-                "Bronnen ▼";
-
-
-        }
-
-
-    };
-
-
-
-    document
-    .querySelectorAll(
-        ".source-filter"
-    )
-    .forEach(box => {
-
-
-        box.addEventListener(
+        switchOmmen.addEventListener(
             "change",
-            searchNews
+            function() {
+
+                searchInput.value = "";
+
+                searchNews();
+
+            }
         );
 
-
-    });
-
+    }
 
 }
-
-
 
 
 
@@ -972,24 +951,51 @@ function refreshNews() {
 }
 
 
+function setupSources() {
+
+    const button = document.getElementById("source-button");
+    const menu = document.getElementById("source-menu");
+    
+    menu.style.display = "none";
+
+    if (!button || !menu) return;
+
+    button.addEventListener("click", function() {
+
+        if (menu.style.display === "none") {
+            menu.style.display = "block";
+            button.innerHTML = "Bronnen ▲";
+        } 
+        else {
+            menu.style.display = "none";
+            button.innerHTML = "Bronnen ▼";
+        }
+
+    });
 
 
+    document.querySelectorAll(".source-filter")
+    .forEach(box => {
 
+        box.addEventListener("change", function() {
+
+            searchNews();
+
+        });
+
+    });
+
+}
 
 window.addEventListener(
     "DOMContentLoaded",
-    () => {
-
+    function() {
 
         setupSearch();
 
-
         setupSources();
-
 
         loadNews();
 
-
     }
-
 );
