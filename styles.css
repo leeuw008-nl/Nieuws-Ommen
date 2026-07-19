@@ -128,34 +128,28 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
     flex-wrap: wrap;
 }
 .source-menu {
-    position: absolute;
-    top: 155px;          /* eventueel iets aanpassen */
-    left: 50%;
-    transform: translateX(-50%);
+.source-menu {
+    display: none;
     background: white;
-    color: black;
-    border-radius: 10px;
-    padding: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.25);
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 8px;
+    width: 220px;
     text-align: left;
-    z-index: 1000;
-    min-width: 180px;
 }
 
 .source-menu label {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: flex-start;
+    gap: 8px;
+    width: 100%;
     padding: 4px 0;
-    white-space: nowrap;
     cursor: pointer;
 }
 
 .source-menu input[type="checkbox"] {
     margin: 0;
-    flex-shrink: 0;
-}
-
-.source-menu input {
-    margin-right: 8px;
+    flex: 0 0 18px;
 }
