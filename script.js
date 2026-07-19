@@ -585,7 +585,19 @@ beschrijving = beschrijving.replace(
 beschrijving = beschrijving
     .replace(artikel.title, "")
 
-// overtollige tekst opruimen
+// JavaScript en website-code verwijderen
+    .replace(
+        /Vorige\s+jQuery\( document \).*$/i,
+        ""
+    )
+
+// eventuele scripts verwijderen
+    .replace(
+        /<script.*?<\/script>/gi,
+        ""
+    )
+
+// overtollige witruimte
     .replace(/\s+/g," ")
     .trim()
     .substring(0,300);
