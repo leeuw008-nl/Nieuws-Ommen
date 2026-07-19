@@ -576,7 +576,15 @@ async function fetchOmmerNieuws() {
                     let beschrijving = body
     .replace(artikel.title, "")
     .replace(
-        /Home\s+Vechtdal TV.*?ProgrammamakersVerzoekContact/i,
+        /Home.*?(Nieuws|Programmering|Programma's|Programmamakers|Verzoek|Contact)/gi,
+        ""
+    )
+    .replace(
+        /Vechtdal TV.*?(Nieuws|Video's|Livestream|Contact)/gi,
+        ""
+    )
+    .replace(
+        /Vechtdal FM.*?(Nieuws|Programmering|Programma's|Contact)/gi,
         ""
     )
     .replace(
