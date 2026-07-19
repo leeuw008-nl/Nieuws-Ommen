@@ -12,11 +12,8 @@ const feeds = [
     {
         name: 'De Stentor',
         url: 'https://www.destentor.nl/ommen/rss.xml'
-    },
-    {
-        name: 'Ommer Nieuws',
-        url: 'https://www.vechtdalcentraal.nl/feed/'
     }
+
 ];
 
 
