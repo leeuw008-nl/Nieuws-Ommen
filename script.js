@@ -595,7 +595,7 @@ async function loadNews() {
 
  // RSS en Gemeente tegelijk ophalen
 
-const [results, gemeenteArtikelen, rtvArtikelen] =
+const [results, gemeenteArtikelen] =
     await Promise.all([
 
         Promise.all(
@@ -615,9 +615,7 @@ const [results, gemeenteArtikelen, rtvArtikelen] =
 
         ),
 
-        fetchGemeenteNieuws(),
-
-        fetchRTVVechtdalNieuws()
+        fetchGemeenteNieuws()
 
     ]);
 
@@ -656,22 +654,6 @@ gemeenteArtikelen.forEach(article => {
     });
 
 });
-
-    // RTV Vechtdal artikelen toevoegen
-
-rtvArtikelen.forEach(article => {
-
-    allArticles.push({
-
-        ...article,
-
-        source:
-            "RTV Vechtdal"
-
-    });
-
-});
-
 
     // dubbele artikelen verwijderen
 
