@@ -369,7 +369,15 @@ async function fetchRTVVechtdalNieuws() {
         );
 
 
-        return links.slice(0,10);
+        return links.slice(0,10).map(item => {
+
+    return {
+        title: item.title,
+        link: item.link,
+        description: ""
+    };
+
+});
 
 
     }
@@ -929,21 +937,12 @@ window.addEventListener(
 
         loadNews();
 
-        fetchRTVVechtdalNieuws().then(artikelen => {
+        const artikelen = await fetchRTVVechtdalNieuws();
 
-    const container = document.getElementById("news-container");
-
-    container.innerHTML =
-        "<h2>RTV Vechtdal test</h2>" +
-        artikelen.map(a =>
-            `<p>
-                <a href="${a.link}" target="_blank">
-                ${a.title}
-                </a>
-            </p>`
-        ).join("");
-
-});
+        console.log(
+            "RTV test resultaat:",
+            artikelen
+        );
 
     }
 );
