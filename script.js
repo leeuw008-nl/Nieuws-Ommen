@@ -334,7 +334,13 @@ async function fetchRTVVechtdalNieuws() {
 
         html.querySelectorAll("a").forEach(a => {
 
-            const href = a.getAttribute("href");
+            const href = new URL(
+    a.getAttribute("href"),
+    "https://rtvvechtdal.nl"
+).href;
+
+            console.log(href);
+            
             const title = a.textContent.trim();
 
             if (
