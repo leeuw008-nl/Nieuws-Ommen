@@ -143,8 +143,17 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
 }
 
 .source-menu label {
-    display: block;
-    margin: 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.source-menu input[type="checkbox"] {
+    margin: 0;
+    flex-shrink: 0;
 }
 
 .source-menu input {
