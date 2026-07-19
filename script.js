@@ -728,13 +728,6 @@ gemeenteArtikelen.forEach(article => {
             b.timestamp - a.timestamp
     );
 
-    console.log(
-    "Ommer Nieuws:",
-    allArticles.filter(a => a.source === "Ommer Nieuws")
-);
-
-
-
     searchNews();
 
 }
