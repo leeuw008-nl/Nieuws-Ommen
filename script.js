@@ -450,6 +450,192 @@ schoneTekst = schoneTekst.replace(
 
 }
 
+async function fetchOmmerNieuws() {
+
+    const url =
+        "https://rtvvechtdal.nl/vechtdalnl/nieuws";
+
+
+    try {
+
+        const res =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+
+        const text =
+            await res.text();
+
+
+        const html =
+            new DOMParser()
+            .parseFromString(
+                text,
+                "text/html"
+            );
+
+
+        const links = [];
+
+
+        html.querySelectorAll("a")
+        .forEach(a => {
+
+
+            const href =
+                new URL(
+                    a.getAttribute("href"),
+                    "https://rtvvechtdal.nl"
+                ).href;
+
+
+            const title =
+                a.textContent.trim();
+
+
+
+            if (
+
+                href.includes("type=detail") &&
+                title.length > 10 &&
+                !links.some(
+                    item =>
+                    item.link === href
+                )
+
+            ) {
+
+
+                links.push({
+
+                    title,
+
+                    link: href
+
+                });
+
+
+            }
+
+
+        });
+
+
+
+        console.log(
+            "Ommer Nieuws links:",
+            links.length
+        );
+
+
+
+        const artikelen =
+            await Promise.all(
+
+                links
+                .slice(0,10)
+                .map(async artikel => {
+
+
+                    const res2 =
+                        await fetch(
+                            PROXY +
+                            encodeURIComponent(
+                                artikel.link
+                            )
+                        );
+
+
+                    const text2 =
+                        await res2.text();
+
+
+                    const doc =
+                        new DOMParser()
+                        .parseFromString(
+                            text2,
+                            "text/html"
+                        );
+
+
+                    const body =
+                        doc.body.innerText
+                        .replace(/\s+/g," ")
+                        .trim();
+
+
+
+                    const datum =
+                        body.match(
+                            /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i
+                        );
+
+
+
+                    let beschrijving =
+                        body
+                        .replace(
+                            artikel.title,
+                            ""
+                        )
+                        .trim()
+                        .substring(
+                            0,
+                            300
+                        );
+
+
+
+                    return {
+
+                        title:
+                            artikel.title,
+
+                        link:
+                            artikel.link,
+
+                        description:
+                            beschrijving + "...",
+
+                        timestamp:
+                            datum
+                            ? Date.parse(datum[0])
+                            : Date.now()
+
+                    };
+
+
+                })
+
+            );
+
+
+        console.log(
+            "Ommer Nieuws artikelen:",
+            artikelen.length
+        );
+
+
+        return artikelen;
+
+
+    }
+    catch(error) {
+
+
+        console.error(
+            "Ommer Nieuws fout:",
+            error
+        );
+
+
+        return [];
+
+    }
+
+}
+
 async function fetchGemeenteDatum(url) {
 
     try {
