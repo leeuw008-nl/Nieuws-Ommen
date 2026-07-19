@@ -573,17 +573,27 @@ async function fetchOmmerNieuws() {
 
 
 
-                    let beschrijving =
-                        body
-                        .replace(
-                            artikel.title,
-                            ""
-                        )
-                        .trim()
-                        .substring(
-                            0,
-                            300
-                        );
+                    let beschrijving = body
+    .replace(artikel.title, "")
+    .replace(
+        /Home\s+Vechtdal TV.*?Stichting RTV Vechtdal/i,
+        ""
+    )
+    .replace(
+        /Vechtdal TV.*?NieuwsVideo'sLivestreamContact/i,
+        ""
+    )
+    .replace(
+        /Vechtdal FM.*?Contact/i,
+        ""
+    )
+    .replace(
+        /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i,
+        ""
+    )
+    .replace(/\s+/g," ")
+    .trim()
+    .substring(0,300);
 
 
 
