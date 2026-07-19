@@ -943,7 +943,21 @@ window.addEventListener(
 
         loadNews();
 
-        fetchRTVVechtdalNieuws();
+        fetchRTVVechtdalNieuws().then(artikelen => {
+
+    const container = document.getElementById("news-container");
+
+    container.innerHTML =
+        "<h2>RTV Vechtdal test</h2>" +
+        artikelen.map(a =>
+            `<p>
+                <a href="${a.link}" target="_blank">
+                ${a.title}
+                </a>
+            </p>`
+        ).join("");
+
+});
 
     }
 );
