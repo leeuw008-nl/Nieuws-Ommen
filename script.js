@@ -816,6 +816,8 @@ function setupSources() {
 
     const button = document.getElementById("source-button");
     const menu = document.getElementById("source-menu");
+    
+    menu.style.display = "none";
 
     if (!button || !menu) return;
 
