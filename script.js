@@ -334,7 +334,7 @@ async function fetchRTVVechtdalNieuws() {
 
         html.querySelectorAll("a").forEach(a => {
 
-            const href = a.href;
+            const href = a.getAttribute("href");
             const title = a.textContent.trim();
 
             if (
