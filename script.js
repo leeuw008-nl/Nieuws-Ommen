@@ -806,7 +806,7 @@ async function loadNews() {
 
  // RSS en Gemeente tegelijk ophalen
 
-const [results, gemeenteArtikelen, rtvArtikelen] =
+const [results, gemeenteArtikelen, rtvArtikelen, ommerArtikelen] =
     await Promise.all([
 
         Promise.all(
@@ -828,7 +828,9 @@ const [results, gemeenteArtikelen, rtvArtikelen] =
 
         fetchGemeenteNieuws(),
 
-        fetchRTVVechtdalNieuws()
+        fetchRTVVechtdalNieuws(),
+
+        fetchOmmerNieuws()
 
     ]);
 
@@ -876,6 +878,19 @@ gemeenteArtikelen.forEach(article => {
 
         source:
             "RTV Vechtdal"
+
+    });
+
+});
+
+    ommerArtikelen.forEach(article => {
+
+    allArticles.push({
+
+        ...article,
+
+        source:
+            "Ommer Nieuws"
 
     });
 
