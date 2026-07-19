@@ -127,3 +127,26 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
     margin-top: 10px;
     flex-wrap: wrap;
 }
+.source-menu {
+    position: absolute;
+    top: 155px;          /* eventueel iets aanpassen */
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    color: black;
+    border-radius: 10px;
+    padding: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.25);
+    text-align: left;
+    z-index: 1000;
+    min-width: 180px;
+}
+
+.source-menu label {
+    display: block;
+    margin: 8px 0;
+}
+
+.source-menu input {
+    margin-right: 8px;
+}
