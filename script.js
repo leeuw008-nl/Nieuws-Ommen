@@ -400,6 +400,10 @@ schoneTekst = schoneTekst.replace(
         /Home Vechtdal TV.*?Stichting RTV Vechtdal/i,
         ""
     )
+    .replace(
+        /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i,
+        ""
+    )
     .trim()
     .substring(0,300);
 
