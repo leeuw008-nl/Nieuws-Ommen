@@ -54,15 +54,7 @@ async function fetchRSS(url) {
         }
 
 
-        const text = await response.text();
-
-        if (url.includes("vechtdalcentraal")) {
-    alert(
-        "Vechtdal lengte: " + text.length +
-        " tekens"
-    );
-}
-
+        const text = await response.text();   
 
         const xml =
             new DOMParser()
