@@ -739,7 +739,17 @@ function searchNews() {
 
     }
 
+const gekozenBronnen =
+    Array.from(
+        document.querySelectorAll(".source-filter:checked")
+    )
+    .map(box => box.value);
 
+
+articles =
+    articles.filter(article =>
+        gekozenBronnen.includes(article.source)
+    );
 
     articles.sort(
         (a,b) =>
