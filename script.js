@@ -625,6 +625,8 @@ const [results, gemeenteArtikelen, rtvArtikelen] =
 
         fetchGemeenteNieuws()
 
+        fetchRTVVechtdalNieuws()
+
     ]);
 
 
