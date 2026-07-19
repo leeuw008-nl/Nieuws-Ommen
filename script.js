@@ -842,8 +842,9 @@ window.addEventListener(
 
         setupSearch();
 
-        loadNews();
+        setupSources();
 
+        loadNews();
 
     }
 );
