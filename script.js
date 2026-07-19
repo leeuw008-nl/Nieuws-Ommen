@@ -394,11 +394,14 @@ schoneTekst = schoneTekst.replace(
                     match ? match[0] : "";
 
                 // Eerste stuk tekst
-                let beschrijving =
-                    body
-                        .replace(artikel.title,"")
-                        .substring(0,300)
-                        .trim();
+                let beschrijving = schoneTekst
+    .replace(artikel.title,"")
+    .replace(
+        /Home Vechtdal TV.*?Stichting RTV Vechtdal/i,
+        ""
+    )
+    .trim()
+    .substring(0,300);
 
                 return {
 
