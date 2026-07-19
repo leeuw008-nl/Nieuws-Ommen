@@ -96,10 +96,28 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
 }
 
 
+
 /* knop naar rechts */
 .switch-label input:checked + .slider::before {
 
     transform:
         translate(24px, -50%);
 
+}
+.filter-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    flex-wrap: nowrap;
+}
+
+#source-button {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
 }
