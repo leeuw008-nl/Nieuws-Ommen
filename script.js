@@ -564,7 +564,7 @@ async function loadNews() {
 
  // RSS en Gemeente tegelijk ophalen
 
-const [results, gemeenteArtikelen] =
+const [results, gemeenteArtikelen, rtvArtikelen] =
     await Promise.all([
 
         Promise.all(
@@ -584,7 +584,9 @@ const [results, gemeenteArtikelen] =
 
         ),
 
-        fetchGemeenteNieuws()
+        fetchGemeenteNieuws(),
+
+        fetchRTVVechtdalNieuws()
 
     ]);
 
@@ -619,6 +621,21 @@ gemeenteArtikelen.forEach(article => {
 
         source:
             "Gemeente Ommen"
+
+    });
+
+});
+
+    // RTV Vechtdal artikelen toevoegen
+
+rtvArtikelen.forEach(article => {
+
+    allArticles.push({
+
+        ...article,
+
+        source:
+            "RTV Vechtdal"
 
     });
 
