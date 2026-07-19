@@ -128,7 +128,6 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
     flex-wrap: wrap;
 }
 .source-menu {
-.source-menu {
     display: none;
     background: white;
     border: 1px solid #ccc;
