@@ -573,24 +573,19 @@ async function fetchOmmerNieuws() {
 
 
 
-                    let beschrijving = body
+                    let beschrijving = body;
+
+// verwijder alles vóór de datum
+beschrijving = beschrijving.replace(
+    /^.*?\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i,
+    ""
+);
+
+// titel verwijderen
+beschrijving = beschrijving
     .replace(artikel.title, "")
-    .replace(
-        /Home.*?(Nieuws|Programmering|Programma's|Programmamakers|Verzoek|Contact)/gi,
-        ""
-    )
-    .replace(
-        /Vechtdal TV.*?(Nieuws|Video's|Livestream|Contact)/gi,
-        ""
-    )
-    .replace(
-        /Vechtdal FM.*?(Nieuws|Programmering|Programma's|Contact)/gi,
-        ""
-    )
-    .replace(
-        /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i,
-        ""
-    )
+
+// overtollige tekst opruimen
     .replace(/\s+/g," ")
     .trim()
     .substring(0,300);
