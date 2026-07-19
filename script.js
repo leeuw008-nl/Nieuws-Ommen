@@ -335,7 +335,10 @@ async function fetchGemeenteNieuws() {
 
 async function fetchRTVVechtdalNieuws() {
 
-    const url = "https://rtvvechtdal.nl/";
+    const urls = [
+    "https://rtvvechtdal.nl/",
+    "https://rtvvechtdal.nl/vechtdalnl/nieuws"
+];
 
     try {
 
