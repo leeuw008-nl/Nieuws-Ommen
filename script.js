@@ -982,7 +982,7 @@ function setupSources() {
 
 window.addEventListener(
     "DOMContentLoaded",
-    async function() {
+    function() {
 
         setupSearch();
 
@@ -990,12 +990,8 @@ window.addEventListener(
 
         loadNews();
 
-        const artikelen = await fetchRTVVechtdalNieuws();
-
-        console.log(
-            "RTV test resultaat:",
-            artikelen
-        );
+    }
+);
 
     }
 );
