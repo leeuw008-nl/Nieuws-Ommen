@@ -315,6 +315,91 @@ async function fetchGemeenteNieuws() {
 
 }
 
+async function fetchRTVVechtdalNieuws() {
+
+    const url = "https://rtvvechtdal.nl/";
+
+    try {
+
+        const res = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
+
+        if (!res.ok) {
+            throw new Error("RTV Vechtdal niet bereikbaar");
+        }
+
+        const text = await res.text();
+
+        const html =
+            new DOMParser()
+                .parseFromString(
+                    text,
+                    "text/html"
+                );
+
+
+        const artikelen = [];
+
+
+        html.querySelectorAll("a").forEach(link => {
+
+            const titel =
+                link.textContent.trim();
+
+            const href =
+                link.href;
+
+
+            if (
+                titel.length > 20 &&
+                href.includes("rtvvechtdal.nl")
+            ) {
+
+                artikelen.push({
+
+                    title: titel,
+
+                    link: href,
+
+                    description: "",
+
+                    timestamp: Date.now()
+
+                });
+
+            }
+
+        });
+
+
+        console.log(
+            "RTV Vechtdal gevonden:",
+            artikelen.length
+        );
+
+        console.log(
+            artikelen.slice(0,5)
+        );
+
+
+        return artikelen.slice(0,10);
+
+
+    }
+    catch(error) {
+
+        console.error(
+            "RTV Vechtdal fout:",
+            error
+        );
+
+        return [];
+
+    }
+
+}
+
 async function fetchGemeenteDatum(url) {
 
     try {
@@ -857,6 +942,8 @@ window.addEventListener(
         setupSources();
 
         loadNews();
+
+        fetchRTVVechtdalNieuws();
 
     }
 );
