@@ -728,13 +728,6 @@ gemeenteArtikelen.forEach(article => {
             b.timestamp - a.timestamp
     );
 
-
-
-    alert(
-    "Ommer Nieuws: " +
-    allArticles.filter(a => a.source === "Ommer Nieuws").length +
-    " artikelen"
-);
     console.log(
     "Ommer Nieuws:",
     allArticles.filter(a => a.source === "Ommer Nieuws")
