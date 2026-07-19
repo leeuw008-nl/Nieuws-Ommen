@@ -623,7 +623,7 @@ const [results, gemeenteArtikelen, rtvArtikelen] =
 
         ),
 
-        fetchGemeenteNieuws()
+        fetchGemeenteNieuws(),
 
         fetchRTVVechtdalNieuws()
 
