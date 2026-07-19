@@ -802,7 +802,39 @@ function refreshNews() {
 }
 
 
+function setupSources() {
 
+    const button = document.getElementById("source-button");
+    const menu = document.getElementById("source-menu");
+
+    if (!button || !menu) return;
+
+    button.addEventListener("click", function() {
+
+        if (menu.style.display === "none") {
+            menu.style.display = "block";
+            button.innerHTML = "Bronnen ▲";
+        } 
+        else {
+            menu.style.display = "none";
+            button.innerHTML = "Bronnen ▼";
+        }
+
+    });
+
+
+    document.querySelectorAll(".source-filter")
+    .forEach(box => {
+
+        box.addEventListener("change", function() {
+
+            searchNews();
+
+        });
+
+    });
+
+}
 
 window.addEventListener(
     "DOMContentLoaded",
