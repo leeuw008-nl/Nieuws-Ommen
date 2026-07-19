@@ -130,6 +130,7 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
 .source-menu {
     display: none;
     background: white;
+    color: black;
     border: 1px solid #ccc;
     border-radius: 8px;
     padding: 10px;
@@ -139,6 +140,7 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
 }
 
 .source-menu label {
+    color: black;
     display: flex;
     align-items: center;
     justify-content: flex-start;
