@@ -376,6 +376,14 @@ async function fetchRTVVechtdalNieuws() {
                         .replace(/\s+/g," ")
                         .trim();
 
+let schoneTekst = body;
+
+// Alles vóór de eerste datum verwijderen
+schoneTekst = schoneTekst.replace(
+    /^.*?(\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4})/i,
+    "$1"
+);
+                
                 // Datum zoeken
                 const match =
                     body.match(
