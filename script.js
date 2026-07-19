@@ -13,6 +13,7 @@ const feeds = [
         name: 'De Stentor',
         url: 'https://www.destentor.nl/ommen/rss.xml'
     }
+
 ];
 
 
@@ -55,6 +56,13 @@ async function fetchRSS(url) {
 
         const text = await response.text();
 
+        if (url.includes("vechtdalcentraal")) {
+    alert(
+        "Vechtdal lengte: " + text.length +
+        " tekens"
+    );
+}
+
 
         const xml =
             new DOMParser()
@@ -70,11 +78,21 @@ async function fetchRSS(url) {
 
 
 
-        return Array.from(
-            xml.querySelectorAll("item, entry")
-        )
-        .slice(0, 25)
-        .map(item => {
+        const items = Array.from(
+    xml.getElementsByTagName("item")
+);
+
+console.log(
+    "RSS items gevonden:",
+    url,
+    items.length
+);
+
+console.log("Aantal RSS items:", url, items.length);
+
+return items
+.slice(0,25)
+.map(item => {
 
 
             let link = "";
@@ -720,10 +738,15 @@ gemeenteArtikelen.forEach(article => {
 
 
 
+    alert(
+    "Ommer Nieuws: " +
+    allArticles.filter(a => a.source === "Ommer Nieuws").length +
+    " artikelen"
+);
     console.log(
-        "Aantal artikelen:",
-        allArticles.length
-    );
+    "Ommer Nieuws:",
+    allArticles.filter(a => a.source === "Ommer Nieuws")
+);
 
 
 
