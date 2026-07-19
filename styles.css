@@ -37,8 +37,6 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
     justify-content: center;   /* alles centreren */
     gap: 10px;
 
-    margin-top: 10px;
-
     font-size: 0.95em;
     cursor: pointer;
 }
