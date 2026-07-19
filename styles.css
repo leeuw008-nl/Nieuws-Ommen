@@ -127,33 +127,7 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
     margin-top: 10px;
     flex-wrap: wrap;
 }
-.source-menu {
-    display: none;
-    background: white;
-    color: black;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    padding: 10px;
-    margin-top: 8px;
-    width: 220px;
-    text-align: left;
-}
 
-.source-menu label {
-    color: black;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
-    width: 100%;
-    padding: 4px 0;
-    cursor: pointer;
-}
-
-.source-menu input[type="checkbox"] {
-    margin: 0;
-    flex: 0 0 18px;
-}
 .controls-row {
     display: flex;
     justify-content: center;
