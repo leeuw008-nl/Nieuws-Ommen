@@ -325,46 +325,36 @@ async function fetchRTVVechtdalNieuws() {
             PROXY + encodeURIComponent(url)
         );
 
-        if (!res.ok) {
-            throw new Error("RTV Vechtdal niet bereikbaar");
-        }
-
         const text = await res.text();
 
         const html =
             new DOMParser()
-                .parseFromString(
-                    text,
-                    "text/html"
-                );
+            .parseFromString(
+                text,
+                "text/html"
+            );
 
 
-        const artikelen = [];
+        const links = [];
 
 
-        html.querySelectorAll("a").forEach(link => {
+        html.querySelectorAll("a").forEach(a => {
+
+            const href = a.href;
 
             const titel =
-                link.textContent.trim();
-
-            const href =
-                link.href;
+                a.textContent.trim();
 
 
             if (
-                titel.length > 20 &&
-                href.includes("rtvvechtdal.nl")
+                href.includes("type=detail") &&
+                titel.length > 10
             ) {
 
-                artikelen.push({
+                links.push({
 
                     title: titel,
-
-                    link: href,
-
-                    description: "",
-
-                    timestamp: Date.now()
+                    link: href
 
                 });
 
@@ -374,23 +364,19 @@ async function fetchRTVVechtdalNieuws() {
 
 
         console.log(
-            "RTV Vechtdal gevonden:",
-            artikelen.length
-        );
-
-        console.log(
-            artikelen.slice(0,5)
+            "RTV links gevonden:",
+            links.length
         );
 
 
-        return artikelen.slice(0,10);
+        return links.slice(0,10);
 
 
     }
     catch(error) {
 
         console.error(
-            "RTV Vechtdal fout:",
+            "RTV fout:",
             error
         );
 
