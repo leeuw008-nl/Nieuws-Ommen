@@ -995,6 +995,3 @@ window.addEventListener(
 
     }
 );
-
-    }
-);
