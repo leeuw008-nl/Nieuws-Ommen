@@ -339,7 +339,7 @@ async function fetchRTVVechtdalNieuws() {
 
         const html = new DOMParser()
             .parseFromString(text, "text/html");
-        console.log(text);
+
 
         const links = [];
 
