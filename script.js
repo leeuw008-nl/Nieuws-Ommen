@@ -340,7 +340,6 @@ async function fetchRTVVechtdalNieuws() {
         const html = new DOMParser()
             .parseFromString(text, "text/html");
 
-
         const links = [];
 
         html.querySelectorAll("a").forEach(a => {
@@ -654,47 +653,7 @@ beschrijving = beschrijving
 
 }
 
-async function fetchOostNieuws() {
-
-    const url =
-        "https://www.oost.nl/nieuws/vechtdal";
-
-    try {
-
-        const res =
-            await fetch(
-                PROXY + encodeURIComponent(url)
-            );
-
-        const text =
-            await res.text();
-
-        console.log(
-            "Oost lengte:",
-            text.length
-        );
-
-        return [];
-
-    }
-    catch(error) {
-
-        console.error(
-            "Oost fout:",
-            error
-        );
-
-        return [];
-
-    }
-
-}
-
 async function fetchGemeenteDatum(url) {
-async function fetchOostNieuws() {
-
-    const url =
-        "https://www.oost.nl/nieuws/vechtdal";
 
     try {
 
@@ -702,6 +661,7 @@ async function fetchOostNieuws() {
             await fetch(
                 PROXY + encodeURIComponent(url)
             );
+
 
         const text =
             await res.text();
@@ -709,72 +669,46 @@ async function fetchOostNieuws() {
 
         const html =
             new DOMParser()
-            .parseFromString(
-                text,
-                "text/html"
+                .parseFromString(
+                    text,
+                    "text/html"
+                );
+
+
+        const bodyText =
+            html.body.innerText;
+
+
+        const match =
+            bodyText.match(
+                /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4},\s+\d{2}:\d{2}/i
             );
 
 
-        const links = [];
+        if (match) {
+
+            return match[0];
+
+        }
 
 
-        html.querySelectorAll("a")
-        .forEach(a => {
-
-            const href =
-                new URL(
-                    a.getAttribute("href"),
-                    "https://www.oost.nl"
-                ).href;
-
-
-            const title =
-                a.textContent.trim();
-
-
-            if (
-                href.includes("/nieuws/") &&
-                title.length > 20 &&
-                !links.some(
-                    item => item.link === href
-                )
-            ) {
-
-                links.push({
-
-                    title,
-                    link: href
-
-                });
-
-            }
-
-        });
-
-
-        console.log(
-            "Oost links:",
-            links.length
-        );
-
-
-        return [];
+        return "";
 
 
     }
     catch(error) {
 
         console.error(
-            "Oost fout:",
+            "Datum ophalen mislukt:",
+            url,
             error
         );
 
-        return [];
+        return "";
 
     }
 
 }
-    
  async function fetchGemeenteTekst(url) {
 
     try {
