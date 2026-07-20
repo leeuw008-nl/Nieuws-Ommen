@@ -697,15 +697,12 @@ async function testOostSitemap() {
         );
 
 
-        console.log(
-            "Oost Ommen links:",
-            ommenLinks.length
-        );
+alert(
+    "Oost Ommen links gevonden: " + ommenLinks.length
+);
 
 
-        console.log(
-            ommenLinks.slice(0,10)
-        );
+
 
 
     }
