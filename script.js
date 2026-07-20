@@ -961,7 +961,7 @@ async function loadNews() {
 
  // RSS en Gemeente tegelijk ophalen
 
-const [results, gemeenteArtikelen, rtvArtikelen, ommerArtikelen] =
+const [results, gemeenteArtikelen, rtvArtikelen, ommerArtikelen, oostArtikelen] =
     await Promise.all([
 
         Promise.all(
@@ -1048,6 +1048,19 @@ gemeenteArtikelen.forEach(article => {
             "Ommer Nieuws"
 
     });
+
+        oostArtikelen.forEach(article => {
+
+    allArticles.push({
+
+        ...article,
+
+        source:
+            "Oost"
+
+    });
+
+});
 
 });
 
