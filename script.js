@@ -690,7 +690,11 @@ async function fetchOostNieuws() {
 
         });
 
-        console.log("Oost links:", links);
+        alert("Aantal Oost-links: " + links.length);
+
+if (links.length > 0) {
+    alert(links[0].title + "\n\n" + links[0].link);
+}
 
         return [];
 
