@@ -684,11 +684,11 @@ async function testOostSitemap() {
             .map(loc => loc.textContent);
 
 
-        const ommenLinks =
-            links.filter(link =>
-                link.toLowerCase()
-                .includes("ommen")
-            );
+const ommenLinks =
+    links.filter(link =>
+        link.toLowerCase()
+        .includes("nieuws")
+    );
 
 
         console.log(
