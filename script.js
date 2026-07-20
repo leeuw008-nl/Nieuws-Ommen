@@ -653,6 +653,73 @@ beschrijving = beschrijving
 
 }
 
+async function testOostSitemap() {
+
+    const url =
+        "https://www.oost.nl/sitemap/sitemap-5.xml.gz";
+
+    try {
+
+        const res =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+        const text =
+            await res.text();
+
+
+        const xml =
+            new DOMParser()
+            .parseFromString(
+                text,
+                "text/xml"
+            );
+
+
+        const links =
+            Array.from(
+                xml.querySelectorAll("loc")
+            )
+            .map(loc => loc.textContent);
+
+
+        const ommenLinks =
+            links.filter(link =>
+                link.toLowerCase()
+                .includes("ommen")
+            );
+
+
+        console.log(
+            "Oost sitemap totaal:",
+            links.length
+        );
+
+
+        console.log(
+            "Oost Ommen links:",
+            ommenLinks.length
+        );
+
+
+        console.log(
+            ommenLinks.slice(0,10)
+        );
+
+
+    }
+    catch(error) {
+
+        console.error(
+            "Oost sitemap fout:",
+            error
+        );
+
+    }
+
+}
+
 async function fetchGemeenteDatum(url) {
 
     try {
@@ -1215,6 +1282,8 @@ window.addEventListener(
         setupSources();
 
         loadNews();
+
+        testOostSitemap();
 
     }
 );
