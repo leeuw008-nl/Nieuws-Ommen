@@ -747,11 +747,7 @@ async function fetchOostNieuws() {
             .map(loc => loc.textContent);
 
 
-        const ommenLinks =
-            links.filter(link =>
-                link.toLowerCase()
-                .includes("ommen")
-            );
+const ommenLinks = links.slice(0,20);
 
 
         console.log(
