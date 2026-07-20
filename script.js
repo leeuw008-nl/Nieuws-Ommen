@@ -733,59 +733,6 @@ async function fetchOostNieuws() {
             await res.text();
 
 
-        console.log(
-            "Oost pagina lengte:",
-            text.length
-        );
-
-
-        const html =
-            new DOMParser()
-            .parseFromString(
-                text,
-                "text/html"
-            );
-
-
-        const links = [];
-
-
-        html.querySelectorAll("a")
-        .forEach(a => {
-
-            const titel =
-                a.textContent.trim();
-
-            const link =
-                a.href;
-
-
-            if (
-                titel.length > 20 &&
-                link.includes("oost.nl")
-            ) {
-
-                links.push({
-
-                    title:titel,
-                    link:link,
-                    description:"Artikel van Oost.nl",
-async function fetchOostNieuws() {
-
-    const url =
-        "https://www.oost.nl/nieuws/ommen";
-
-    try {
-
-        const res =
-            await fetch(
-                PROXY + encodeURIComponent(url)
-            );
-
-        const text =
-            await res.text();
-
-
         alert(
             "Oost pagina geladen. Lengte: " + text.length
         );
