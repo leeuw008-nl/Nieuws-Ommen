@@ -985,7 +985,7 @@ const [results, gemeenteArtikelen, rtvArtikelen, ommerArtikelen, oostArtikelen] 
 
         fetchRTVVechtdalNieuws(),
 
-        fetchOmmerNieuws()
+        fetchOmmerNieuws(),
 
         fetchOostNieuws()
 
