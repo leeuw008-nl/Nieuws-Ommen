@@ -987,6 +987,8 @@ const [results, gemeenteArtikelen, rtvArtikelen, ommerArtikelen, oostArtikelen] 
 
         fetchOmmerNieuws()
 
+        fetchOostNieuws()
+
     ]);
 
 
