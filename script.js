@@ -1038,7 +1038,7 @@ gemeenteArtikelen.forEach(article => {
 
 });
 
-    ommerArtikelen.forEach(article => {
+ommerArtikelen.forEach(article => {
 
     allArticles.push({
 
@@ -1049,7 +1049,10 @@ gemeenteArtikelen.forEach(article => {
 
     });
 
-        oostArtikelen.forEach(article => {
+});
+
+
+oostArtikelen.forEach(article => {
 
     allArticles.push({
 
@@ -1059,8 +1062,6 @@ gemeenteArtikelen.forEach(article => {
             "Oost"
 
     });
-
-});
 
 });
 
