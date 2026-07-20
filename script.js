@@ -1368,7 +1368,7 @@ window.addEventListener(
 
         loadNews();
 
-        testOostSitemap();
+    
 
     }
 );
