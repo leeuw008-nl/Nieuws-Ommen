@@ -653,6 +653,58 @@ beschrijving = beschrijving
 
 }
 
+async function fetchOostNieuws() {
+
+    const url = "https://www.oost.nl/nieuws/vechtdal";
+
+    try {
+
+        const res = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
+
+        const text = await res.text();
+
+        const html = new DOMParser()
+            .parseFromString(text, "text/html");
+
+        const links = [];
+
+        html.querySelectorAll("a").forEach(a => {
+
+            const href = a.href;
+            const title = a.textContent.trim();
+
+            if (
+                href.includes("oost.nl") &&
+                title.length > 10 &&
+                !links.some(item => item.link === href)
+            ) {
+
+                links.push({
+                    title,
+                    link: href
+                });
+
+            }
+
+        });
+
+        console.log("Oost links:", links);
+
+        return [];
+
+    }
+    catch(error) {
+
+        console.error("Oost fout:", error);
+
+        return [];
+
+    }
+
+}
+
 async function fetchGemeenteDatum(url) {
 
     try {
