@@ -691,6 +691,10 @@ async function fetchOostNieuws() {
 }
 
 async function fetchGemeenteDatum(url) {
+async function fetchOostNieuws() {
+
+    const url =
+        "https://www.oost.nl/nieuws/vechtdal";
 
     try {
 
@@ -699,53 +703,78 @@ async function fetchGemeenteDatum(url) {
                 PROXY + encodeURIComponent(url)
             );
 
-
         const text =
             await res.text();
 
 
         const html =
             new DOMParser()
-                .parseFromString(
-                    text,
-                    "text/html"
-                );
-
-
-        const bodyText =
-            html.body.innerText;
-
-
-        const match =
-            bodyText.match(
-                /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4},\s+\d{2}:\d{2}/i
+            .parseFromString(
+                text,
+                "text/html"
             );
 
 
-        if (match) {
-
-            return match[0];
-
-        }
+        const links = [];
 
 
-        return "";
+        html.querySelectorAll("a")
+        .forEach(a => {
+
+            const href =
+                new URL(
+                    a.getAttribute("href"),
+                    "https://www.oost.nl"
+                ).href;
+
+
+            const title =
+                a.textContent.trim();
+
+
+            if (
+                href.includes("/nieuws/") &&
+                title.length > 20 &&
+                !links.some(
+                    item => item.link === href
+                )
+            ) {
+
+                links.push({
+
+                    title,
+                    link: href
+
+                });
+
+            }
+
+        });
+
+
+        console.log(
+            "Oost links:",
+            links.length
+        );
+
+
+        return [];
 
 
     }
     catch(error) {
 
         console.error(
-            "Datum ophalen mislukt:",
-            url,
+            "Oost fout:",
             error
         );
 
-        return "";
+        return [];
 
     }
 
 }
+    
  async function fetchGemeenteTekst(url) {
 
     try {
