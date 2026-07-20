@@ -991,16 +991,19 @@ gemeenteArtikelen.forEach(article => {
 
 
 
-    // nieuwste eerst
+// nieuwste eerst
 
-    allArticles.sort(
-        (a,b) =>
-            b.timestamp - a.timestamp
-    );
+allArticles.sort(
+    (a,b) =>
+        b.timestamp - a.timestamp
+);
 
-    searchNews();
+await fetchOostNieuws();
+
+searchNews();
 
 }
+
 function renderArticles(articles) {
 
     const container =
