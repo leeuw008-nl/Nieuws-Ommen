@@ -770,7 +770,64 @@ async function fetchOostNieuws() {
                     title:titel,
                     link:link,
                     description:"Artikel van Oost.nl",
-                    timestamp:Date.now()
+async function fetchOostNieuws() {
+
+    const url =
+        "https://www.oost.nl/nieuws/ommen";
+
+    try {
+
+        const res =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+        const text =
+            await res.text();
+
+
+        alert(
+            "Oost pagina geladen. Lengte: " + text.length
+        );
+
+
+        const html =
+            new DOMParser()
+            .parseFromString(
+                text,
+                "text/html"
+            );
+
+
+        const links = [];
+
+
+        html.querySelectorAll("a")
+        .forEach(a => {
+
+            const titel =
+                a.textContent.trim();
+
+            const link =
+                a.href;
+
+
+            if (
+                titel.length > 20 &&
+                link.includes("oost.nl")
+            ) {
+
+                links.push({
+
+                    title:titel,
+
+                    link:link,
+
+                    description:
+                        "Artikel van Oost.nl",
+
+                    timestamp:
+                        Date.now()
 
                 });
 
@@ -779,9 +836,8 @@ async function fetchOostNieuws() {
         });
 
 
-        console.log(
-            "Oost links gevonden:",
-            links.length
+        alert(
+            "Oost links gevonden: " + links.length
         );
 
 
@@ -791,9 +847,8 @@ async function fetchOostNieuws() {
     }
     catch(error) {
 
-        console.error(
-            "Oost fout:",
-            error
+        alert(
+            "Oost fout: " + error
         );
 
         return [];
