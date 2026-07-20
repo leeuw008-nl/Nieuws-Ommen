@@ -654,6 +654,42 @@ beschrijving = beschrijving
 
 }
 
+async function fetchOostNieuws() {
+
+    const url =
+        "https://www.oost.nl/nieuws/vechtdal";
+
+    try {
+
+        const res =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+        const text =
+            await res.text();
+
+        console.log(
+            "Oost lengte:",
+            text.length
+        );
+
+        return [];
+
+    }
+    catch(error) {
+
+        console.error(
+            "Oost fout:",
+            error
+        );
+
+        return [];
+
+    }
+
+}
+
 async function fetchGemeenteDatum(url) {
 
     try {
