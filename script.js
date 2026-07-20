@@ -720,7 +720,7 @@ alert(
 async function fetchOostNieuws() {
 
     const url =
-        "https://www.oost.nl/sitemap/sitemap-0.xml.gz";
+        "https://www.oost.nl/nieuws/ommen";
 
     try {
 
@@ -732,52 +732,67 @@ async function fetchOostNieuws() {
         const text =
             await res.text();
 
-        const xml =
-            new DOMParser()
-            .parseFromString(
-                text,
-                "text/xml"
-            );
-
-
-        const links =
-            Array.from(
-                xml.querySelectorAll("loc")
-            )
-            .map(loc => loc.textContent);
-
-
-const ommenLinks = links.slice(0,20);
-
 
         console.log(
-            "Oost Ommen artikelen:",
-            ommenLinks.length
+            "Oost pagina lengte:",
+            text.length
         );
 
 
-        return ommenLinks.map(link => ({
+        const html =
+            new DOMParser()
+            .parseFromString(
+                text,
+                "text/html"
+            );
 
-            title:
-                "Oost nieuws",
 
-            link:
-                link,
+        const links = [];
 
-            description:
-                "Artikel van Oost.nl",
 
-            timestamp:
-                Date.now()
+        html.querySelectorAll("a")
+        .forEach(a => {
 
-        }));
+            const titel =
+                a.textContent.trim();
+
+            const link =
+                a.href;
+
+
+            if (
+                titel.length > 20 &&
+                link.includes("oost.nl")
+            ) {
+
+                links.push({
+
+                    title:titel,
+                    link:link,
+                    description:"Artikel van Oost.nl",
+                    timestamp:Date.now()
+
+                });
+
+            }
+
+        });
+
+
+        console.log(
+            "Oost links gevonden:",
+            links.length
+        );
+
+
+        return links.slice(0,10);
 
 
     }
     catch(error) {
 
         console.error(
-            "Oost ophalen fout:",
+            "Oost fout:",
             error
         );
 
