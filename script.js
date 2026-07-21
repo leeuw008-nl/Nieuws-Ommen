@@ -697,11 +697,6 @@ const ommenLinks =
         );
 
 
-alert(
-    "Oost Ommen links gevonden: " + ommenLinks.length
-);
-
-
 
 
 
@@ -731,12 +726,6 @@ async function fetchOostNieuws() {
 
         const text =
             await res.text();
-
-
-        alert(
-            "Oost pagina geladen. Lengte: " + text.length
-        );
-
 
         const html =
             new DOMParser()
@@ -781,11 +770,6 @@ async function fetchOostNieuws() {
             }
 
         });
-
-
-        alert(
-            "Oost links gevonden: " + links.length
-        );
 
 
         return links.slice(0,10);
