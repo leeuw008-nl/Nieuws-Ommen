@@ -1229,6 +1229,77 @@ function setupSources() {
 
 }
 
+async function testOostSitemap() {
+
+    const url =
+        "https://www.oost.nl/sitemap/sitemap-5.xml.gz";
+
+    try {
+
+        const res =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+        const text =
+            await res.text();
+
+
+        console.log(
+            "Oost sitemap lengte:",
+            text.length
+        );
+
+
+        const xml =
+            new DOMParser()
+            .parseFromString(
+                text,
+                "text/xml"
+            );
+
+
+        const links =
+            Array.from(
+                xml.querySelectorAll("loc")
+            )
+            .map(loc => loc.textContent);
+
+
+        console.log(
+            "Aantal links in sitemap:",
+            links.length
+        );
+
+
+        console.log(
+            "Eerste 5 Oost links:",
+            links.slice(0,5)
+        );
+
+
+        alert(
+            "Oost test klaar. Links gevonden: " 
+            + links.length
+        );
+
+
+    }
+    catch(error) {
+
+        console.error(
+            "Oost sitemap fout:",
+            error
+        );
+
+        alert(
+            "Oost fout: " + error
+        );
+
+    }
+
+}
+
 window.addEventListener(
     "DOMContentLoaded",
     function() {
@@ -1238,6 +1309,8 @@ window.addEventListener(
         setupSources();
 
         loadNews();
+        
+        testOostSitemap();
 
     
 
