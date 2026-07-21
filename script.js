@@ -657,7 +657,7 @@ beschrijving = beschrijving
 async function fetchOostNieuws() {
 
     const url =
-        "https://www.oost.nl/nieuws/ommen";
+        "https://www.oost.nl/sitemap/sitemap-5.xml.gz";
 
     try {
 
@@ -669,63 +669,24 @@ async function fetchOostNieuws() {
         const text =
             await res.text();
 
-        const html =
+        const xml =
             new DOMParser()
-            .parseFromString(
-                text,
-                "text/html"
-            );
+                .parseFromString(text, "text/xml");
 
+        const links =
+            Array.from(xml.querySelectorAll("loc"))
+            .map(loc => loc.textContent)
+            .filter(link => link.includes("/nieuws/"));
 
-        const links = [];
+        console.log("RTV Oost sitemap:", links.length);
 
-
-        html.querySelectorAll("a")
-        .forEach(a => {
-
-            const titel =
-                a.textContent.trim();
-
-            const link =
-                a.href;
-
-
-            if (
-                titel.length > 20 &&
-                link.includes("oost.nl")
-            ) {
-
-                links.push({
-
-                    title:titel,
-
-                    link:link,
-
-                    description:
-                        "Artikel van Oost.nl",
-
-                    timestamp:
-                        Date.now()
-
-                });
-
-            }
-
-        });
-
-
-        return links.slice(0,10);
-
-
+        return [];
     }
     catch(error) {
 
-        alert(
-            "Oost fout: " + error
-        );
+        console.error("RTV Oost:", error);
 
         return [];
-
     }
 
 }
