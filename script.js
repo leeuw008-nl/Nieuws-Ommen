@@ -680,14 +680,31 @@ async function fetchOostNieuws() {
             );
 
 
-        const links =
-            Array.from(
-                xml.querySelectorAll("loc")
-            )
-            .map(loc => loc.textContent)
-            .filter(link =>
-                link.includes("/nieuws/")
-            );
+        const artikelenSitemap =
+    Array.from(
+        xml.querySelectorAll("url")
+    )
+    .map(url => {
+
+        return {
+            link:
+                url.querySelector("loc")?.textContent,
+
+            datum:
+                url.querySelector("lastmod")?.textContent
+        };
+
+    })
+    .filter(item =>
+        item.link &&
+        item.link.includes("/nieuws/")
+    );
+
+
+console.log(
+    "Oost sitemap artikelen:",
+    artikelenSitemap.length
+);
 
 
         console.log(
