@@ -653,20 +653,26 @@ beschrijving = beschrijving
 
 }
 
+
 async function fetchOostNieuws() {
 
-    const url =
-        "https://www.oost.nl/sitemap/sitemap-5.xml.gz";
+    const sitemap =
+        "https://www.oost.nl/sitemap/sitemap-5.xml";
 
     try {
 
         const res =
             await fetch(
-                PROXY + encodeURIComponent(url)
+                PROXY + encodeURIComponent(sitemap)
             );
+
+        if (!res.ok) {
+            throw new Error("Oost sitemap niet bereikbaar");
+        }
 
         const text =
             await res.text();
+
 
         const xml =
             new DOMParser()
@@ -676,46 +682,140 @@ async function fetchOostNieuws() {
             );
 
 
-        const artikelen =
+        const links =
             Array.from(
                 xml.querySelectorAll("url")
             )
-            .map(item => ({
+            .map(item => {
 
-                link:
-                    item.querySelector("loc")
-                    ?.textContent,
+                return {
 
-                datum:
-                    item.querySelector("lastmod")
-                    ?.textContent
+                    link:
+                        item.querySelector("loc")
+                        ?.textContent
+                        ?.trim(),
 
-            }))
+                    datum:
+                        item.querySelector("lastmod")
+                        ?.textContent
+                        ?.trim()
+
+                };
+
+            })
             .filter(item =>
                 item.link &&
                 item.link.includes("/nieuws/")
             );
 
 
-        return artikelen
-            .slice(0,10)
-            .map(item => ({
+        const artikelen =
+            await Promise.all(
 
-                title:
-                    "Oost nieuws",
+                links
+                .slice(0,10)
+                .map(async item => {
 
-                link:
-                    item.link,
 
-                description:
-                    "Artikel van Oost.nl",
+                    try {
 
-                timestamp:
-                    item.datum
-                    ? Date.parse(item.datum)
-                    : Date.now()
+                        const artikelRes =
+                            await fetch(
+                                PROXY +
+                                encodeURIComponent(
+                                    item.link
+                                )
+                            );
 
-            }));
+
+                        const artikelText =
+                            await artikelRes.text();
+
+
+                        const html =
+                            new DOMParser()
+                            .parseFromString(
+                                artikelText,
+                                "text/html"
+                            );
+
+
+                        const titel =
+                            html.querySelector("h1")
+                            ?.textContent
+                            ?.trim()
+                            ||
+                            "Oost nieuws";
+
+
+                        let tekst =
+                            html.body.innerText
+                            .replace(/\s+/g," ")
+                            .trim();
+
+
+                        tekst =
+                            tekst
+                            .replace(titel,"")
+                            .trim()
+                            .substring(0,300);
+
+
+                        return {
+
+                            title:
+                                titel,
+
+                            link:
+                                item.link,
+
+                            description:
+                                tekst + "...",
+
+                            timestamp:
+                                item.datum
+                                ? Date.parse(item.datum)
+                                : Date.now()
+
+                        };
+
+
+                    }
+                    catch(e) {
+
+                        return {
+
+                            title:
+                                "Oost nieuws",
+
+                            link:
+                                item.link,
+
+                            description:
+                                "Artikel van Oost.nl",
+
+                            timestamp:
+                                item.datum
+                                ? Date.parse(item.datum)
+                                : Date.now()
+
+                        };
+
+                    }
+
+
+                })
+
+            );
+
+
+        console.log(
+            "Oost artikelen:",
+            artikelen.length
+        );
+
+
+        return artikelen;
 
 
     }
@@ -731,8 +831,6 @@ async function fetchOostNieuws() {
     }
 
 }
-
-
  async function fetchGemeenteTekst(url) {
 
     try {
