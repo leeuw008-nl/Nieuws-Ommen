@@ -722,27 +722,63 @@ async function fetchGemeenteDatum(url) {
                 /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4},\s+\d{2}:\d{2}/i
             );
 
+async function fetchOostNieuws() {
 
-        if (match) {
+    const url =
+        "https://www.oost.nl/sitemap/sitemap-5.xml.gz";
 
-            return match[0];
+    try {
 
-        }
+        const res =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+        const text =
+            await res.text();
 
 
-        return "";
+        const xml =
+            new DOMParser()
+            .parseFromString(
+                text,
+                "text/xml"
+            );
+
+
+        const links =
+            Array.from(
+                xml.querySelectorAll("loc")
+            )
+            .map(loc => loc.textContent);
+
+
+        return links
+            .slice(0,10)
+            .map(link => ({
+
+                title: "Oost artikel",
+
+                link: link,
+
+                description:
+                    "Artikel van Oost.nl",
+
+                timestamp:
+                    Date.now()
+
+            }));
 
 
     }
     catch(error) {
 
         console.error(
-            "Datum ophalen mislukt:",
-            url,
+            "Oost fout:",
             error
         );
 
-        return "";
+        return [];
 
     }
 
