@@ -16,6 +16,17 @@ const feeds = [
 
 ];
 
+async function saveOostHtml() {
+
+    const res = await fetch(
+        PROXY + encodeURIComponent("https://www.oost.nl/nieuws")
+    );
+
+    const text = await res.text();
+
+    console.log(text);
+
+}
 
 const ommenKeywords = [
     "ommen",
@@ -1305,7 +1316,7 @@ function setupSearch() {
 
 function refreshNews() {
 
-    loadNews();
+    saveOostHtml();
 
 }
 
