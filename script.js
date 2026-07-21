@@ -674,7 +674,7 @@ beschrijving = beschrijving
 async function fetchOostNieuws() {
 
     const sitemap =
-        "https://www.oost.nl/sitemap/sitemap-5.xml";
+    "https://www.oost.nl/sitemap/sitemap-5.xml.gz";
 
     try {
 
