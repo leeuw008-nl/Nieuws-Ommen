@@ -368,8 +368,6 @@ async function fetchRTVVechtdalNieuws() {
     "https://rtvvechtdal.nl"
 ).href;
 
-            console.log(href);
-            
             const title = a.textContent.trim();
 
             if (
