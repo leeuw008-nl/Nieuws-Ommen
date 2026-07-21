@@ -868,7 +868,7 @@ const [results, gemeenteArtikelen, rtvArtikelen, ommerArtikelen, oostArtikelen] 
 
         fetchOmmerNieuws(),
 
-        Promise.resolve([])
+        fetchOostNieuws()
 
     ]);
 
