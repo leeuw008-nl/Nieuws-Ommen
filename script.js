@@ -850,6 +850,55 @@ async function fetchOostNieuws() {
     }
 
 }
+
+async function fetchGemeenteDatum(url) {
+
+    try {
+
+        const res = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
+
+        const text = await res.text();
+
+        const html =
+            new DOMParser()
+            .parseFromString(
+                text,
+                "text/html"
+            );
+
+
+        const body =
+            html.body.innerText;
+
+
+        const match =
+            body.match(
+                /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i
+            );
+
+
+        return match
+            ? match[0]
+            : "";
+
+
+    }
+    catch(error) {
+
+        console.error(
+            "Datum ophalen mislukt:",
+            url,
+            error
+        );
+
+        return "";
+
+    }
+
+}
+
  async function fetchGemeenteTekst(url) {
 
     try {
