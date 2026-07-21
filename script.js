@@ -1417,18 +1417,45 @@ async function testOostSitemap() {
 
 }
 
+async function testOost() {
+
+    const url = "https://www.oost.nl/nieuws";
+
+    try {
+
+        const res = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
+
+        console.log("Status:", res.status);
+
+        const text = await res.text();
+
+        console.log("Lengte HTML:", text.length);
+
+        console.log(
+            "Eerste 1000 tekens:\n",
+            text.substring(0,1000)
+        );
+
+    }
+    catch(error) {
+
+        console.error(error);
+
+    }
+
+}
+
 window.addEventListener(
     "DOMContentLoaded",
     function() {
 
+        testOost();
+
         setupSearch();
-
         setupSources();
-
         loadNews();
-        
-
-    
 
     }
 );
