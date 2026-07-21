@@ -716,9 +716,9 @@ console.log(
         const artikelen =
             await Promise.all(
 
-                links
-                .slice(0,10)
-                .map(async link => {
+artikelenSitemap
+.slice(0,10)
+.map(async artikel => {
 
 
                     try {
