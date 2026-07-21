@@ -1322,7 +1322,6 @@ window.addEventListener(
 
         loadNews();
         
-        testOostSitemap();
 
     
 
