@@ -24,15 +24,17 @@ const ommenKeywords = [
     "beerze",
     "beerzerveld",
     "besthmen",
-    "diffelen",
+    "besthmenerberg",
     "giethmen",
     "junne",
     "lemele",
+    "lemelerberg",
     "stegeren",
     "vilsteren",
     "witharen",
     "varsen",
-    "ommermars"
+    "ommermars",
+    "ommerschans"
 ];
 
 
