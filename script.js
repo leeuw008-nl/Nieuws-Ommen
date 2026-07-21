@@ -798,12 +798,6 @@ artikelenSitemap
 
 
                         return {
-
-                            title:
-                                titel ||
-                                "Oost nieuws",
-
-                            link:
 async function fetchOostNieuws() {
 
     const url =
