@@ -1487,11 +1487,9 @@ window.addEventListener(
     "DOMContentLoaded",
     function() {
 
-        testOost();
-
-        // setupSearch();
-        // setupSources();
-        // loadNews();
+        setupSearch();
+        setupSources();
+        loadNews();
 
     }
 );
