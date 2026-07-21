@@ -653,7 +653,84 @@ beschrijving = beschrijving
 
 }
 
+async function fetchOostNieuws() {
 
+    const url =
+        "https://www.oost.nl/sitemap/sitemap-5.xml.gz";
+
+    try {
+
+        const res =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+        const text =
+            await res.text();
+
+        const xml =
+            new DOMParser()
+            .parseFromString(
+                text,
+                "text/xml"
+            );
+
+
+        const artikelen =
+            Array.from(
+                xml.querySelectorAll("url")
+            )
+            .map(item => ({
+
+                link:
+                    item.querySelector("loc")
+                    ?.textContent,
+
+                datum:
+                    item.querySelector("lastmod")
+                    ?.textContent
+
+            }))
+            .filter(item =>
+                item.link &&
+                item.link.includes("/nieuws/")
+            );
+
+
+        return artikelen
+            .slice(0,10)
+            .map(item => ({
+
+                title:
+                    "Oost nieuws",
+
+                link:
+                    item.link,
+
+                description:
+                    "Artikel van Oost.nl",
+
+                timestamp:
+                    item.datum
+                    ? Date.parse(item.datum)
+                    : Date.now()
+
+            }));
+
+
+    }
+    catch(error) {
+
+        console.error(
+            "Oost fout:",
+            error
+        );
+
+        return [];
+
+    }
+
+}
 
 
  async function fetchGemeenteTekst(url) {
