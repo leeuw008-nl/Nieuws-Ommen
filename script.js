@@ -667,6 +667,7 @@ async function fetchOostNieuws() {
                 PROXY + encodeURIComponent(url)
             );
 
+
         const text =
             await res.text();
 
@@ -683,16 +684,27 @@ async function fetchOostNieuws() {
             Array.from(
                 xml.querySelectorAll("loc")
             )
-            .map(loc => loc.textContent);
+            .map(loc => loc.textContent)
+            .filter(link =>
+                link.includes("/nieuws/")
+            );
+
+
+        console.log(
+            "Oost nieuwslinks:",
+            links.length
+        );
 
 
         return links
             .slice(0,10)
             .map(link => ({
 
-                title: "Oost artikel",
+                title:
+                    "Oost nieuws",
 
-                link: link,
+                link:
+                    link,
 
                 description:
                     "Artikel van Oost.nl",
