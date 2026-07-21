@@ -653,64 +653,6 @@ beschrijving = beschrijving
 
 }
 
-async function testOostSitemap() {
-
-    const url =
-        "https://www.oost.nl/sitemap/sitemap-0.xml.gz";
-
-    try {
-
-        const res =
-            await fetch(
-                PROXY + encodeURIComponent(url)
-            );
-
-        const text =
-            await res.text();
-
-
-        const xml =
-            new DOMParser()
-            .parseFromString(
-                text,
-                "text/xml"
-            );
-
-
-        const links =
-            Array.from(
-                xml.querySelectorAll("loc")
-            )
-            .map(loc => loc.textContent);
-
-
-const ommenLinks =
-    links.filter(link =>
-        link.toLowerCase()
-        .includes("nieuws")
-    );
-
-
-        console.log(
-            "Oost sitemap totaal:",
-            links.length
-        );
-
-
-
-
-
-    }
-    catch(error) {
-
-        console.error(
-            "Oost sitemap fout:",
-            error
-        );
-
-    }
-
-}
 
 async function fetchOostNieuws() {
 
