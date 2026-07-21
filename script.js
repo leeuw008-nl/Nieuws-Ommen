@@ -704,13 +704,7 @@ async function fetchOostNieuws() {
 console.log(
     "Oost sitemap artikelen:",
     artikelenSitemap.length
-);
-
-
-        console.log(
-            "Oost links:",
-            links.length
-        );
+);     
 
 
         const artikelen =
@@ -810,9 +804,6 @@ artikelenSitemap
                                 "Oost nieuws",
 
                             link:
-                                link,
-
-                            description:
 async function fetchOostNieuws() {
 
     const url =
@@ -855,12 +846,6 @@ async function fetchOostNieuws() {
             );
 
 
-        console.log(
-            "Oost artikelen:",
-            artikelen.length
-        );
-
-
         return artikelen
             .slice(0,10)
             .map(item => ({
@@ -881,14 +866,8 @@ async function fetchOostNieuws() {
 
             }));
 
-
     }
     catch(error) {
-
-        console.error(
-            "Oost fout:",
-            error
-        );
 
         return [];
 
