@@ -813,46 +813,45 @@ artikelenSitemap
                                 link,
 
                             description:
-                                beschrijving + "...",
+async function fetchOostNieuws() {
 
-                            timestamp:
-                                datum
-                                ? Date.parse(datum[0])
-                                : Date.now()
+    const url =
+        "https://www.oost.nl/sitemap/sitemap-5.xml.gz";
 
-                        };
+    try {
 
+        const res =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
 
-                    }
-                    catch(error) {
+        const text =
+            await res.text();
 
-                        console.error(
-                            "Oost artikel fout:",
-                            link,
-                            error
-                        );
-
-                        return {
-
-                            title:
-                                "Oost nieuws",
-
-                            link:
-                                link,
-
-                            description:
-                                "Artikel van Oost.nl",
-
-                            timestamp:
-                                Date.now()
-
-                        };
-
-                    }
+        const xml =
+            new DOMParser()
+            .parseFromString(
+                text,
+                "text/xml"
+            );
 
 
-                })
+        const artikelen =
+            Array.from(
+                xml.querySelectorAll("url")
+            )
+            .map(item => ({
 
+                link:
+                    item.querySelector("loc")?.textContent,
+
+                datum:
+                    item.querySelector("lastmod")?.textContent
+
+            }))
+            .filter(item =>
+                item.link &&
+                item.link.includes("/nieuws/")
             );
 
 
@@ -862,14 +861,32 @@ artikelenSitemap
         );
 
 
-        return artikelen;
+        return artikelen
+            .slice(0,10)
+            .map(item => ({
+
+                title:
+                    "Oost nieuws",
+
+                link:
+                    item.link,
+
+                description:
+                    "Artikel van Oost.nl",
+
+                timestamp:
+                    item.datum
+                    ? Date.parse(item.datum)
+                    : Date.now()
+
+            }));
 
 
     }
     catch(error) {
 
         console.error(
-            "Oost sitemap fout:",
+            "Oost fout:",
             error
         );
 
