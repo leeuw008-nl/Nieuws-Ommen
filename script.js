@@ -18,13 +18,19 @@ const feeds = [
 
 async function saveOostHtml() {
 
+    const url = "https://www.oost.nl/nieuws";
+
     const res = await fetch(
-        PROXY + encodeURIComponent("https://www.oost.nl/nieuws")
+        PROXY + encodeURIComponent(url)
     );
+
+    console.log("Status:", res.status);
 
     const text = await res.text();
 
-    console.log(text);
+    console.log("Lengte HTML:", text.length);
+
+    console.log(text.substring(0,1000));
 
 }
 
