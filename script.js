@@ -1474,9 +1474,9 @@ window.addEventListener(
 
         testOost();
 
-        setupSearch();
-        setupSources();
-        loadNews();
+        // setupSearch();
+        // setupSources();
+        // loadNews();
 
     }
 );
