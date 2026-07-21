@@ -1455,9 +1455,24 @@ async function testOost() {
         console.log("Lengte HTML:", text.length);
 
         console.log(
-            "Eerste 1000 tekens:\n",
-            text.substring(0,1000)
-        );
+    "Eerste 1000 tekens:\n",
+    text.substring(0,1000)
+);
+
+console.log(
+    "Zoek nieuws:",
+    text.includes("/nieuws/")
+);
+
+console.log(
+    "Aantal keer /nieuws/:",
+    (text.match(/\/nieuws\//g) || []).length
+);
+
+console.log(
+    "Aantal h2:",
+    (text.match(/<h2/g) || []).length
+);
 
     }
     catch(error) {
