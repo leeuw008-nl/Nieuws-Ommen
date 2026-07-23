@@ -653,80 +653,7 @@ beschrijving = beschrijving
 
 }
 
-async function fetchOostNieuws() {
 
-    const url = "https://www.oost.nl/nieuws";
-
-    try {
-
-        const res = await fetch(
-            PROXY + encodeURIComponent(url)
-        );
-
-        const text = await res.text();
-
-        const start =
-            text.indexOf("window.__NUXT__=");
-
-
-        if (start === -1) {
-            return [];
-        }
-
-
-        const nuxt =
-            text.substring(
-                start + 16,
-                text.indexOf("</script>", start)
-            );
-        console.log(nuxt.substring(0,2000));
-
-
-        const artikelen = [];
-
-
-        const regex =
-/title:"(.*?)"/g;
-
-
-        let match;
-
-
-        while (
-            (match = regex.exec(nuxt)) !== null
-        ) {
-
-            let titel =
-                match[1]
-                .replace(/\\u002F/g,"/")
-                .replace(/\\u0027/g,"'")
-                .replace(/©.*$/,"")
-                .trim();
-
-
-            if (
-    titel.length > 10 &&
-    titel !== "Overijssels Nieuws"
-) 
-{
-    artikelen.push({
-
-                    title: titel,
-
-                    link:
-"https://www.oost.nl/nieuws",
-
-                    description:
-                    "RTV Oost nieuwsbericht",
-
-                    timestamp:
-                    Date.now()
-
-                });
-
-            }
-
-        }
 
 async function fetchOostNieuws() {
 
@@ -789,124 +716,85 @@ async function fetchOostNieuws() {
 
         });
 
+async function fetchOostNieuws() {
 
-        console.log(
-            "RTV Oost links gevonden:",
-            links.length
+    const url = "https://www.oost.nl/nieuws";
+
+    const oostKeywords = [
+        "ommen",
+        "ommer",
+        "ommerschans",
+        "besthmenerberg",
+        "lemelerberg",
+        "beerze",
+        "vilsteren",
+        "vechtdal"
+    ];
+
+    try {
+
+        const res = await fetch(
+            PROXY + encodeURIComponent(url)
         );
 
+        const text = await res.text();
 
-        const artikelen = [];
+        const titels = [];
 
+        const regex = /"title":"(.*?)"/g;
 
-        for (const artikel of links.slice(0,40)) {
+        let match;
 
+        while ((match = regex.exec(text)) !== null) {
 
-            try {
+            let titel = match[1]
+                .replace(/\\u002F/g,"/")
+                .replace(/\\u0027/g,"'")
+                .trim();
 
-                const res2 = await fetch(
-                    PROXY + encodeURIComponent(artikel.link)
-                );
-
-
-                const text2 = await res2.text();
-
-
-                const doc =
-                    new DOMParser()
-                    .parseFromString(
-                        text2,
-                        "text/html"
-                    );
-
-
-                const body =
-                    doc.body.innerText
-                    .replace(/\s+/g," ")
-                    .trim();
-
-
-                const controle =
-                    (
-                        artikel.title +
-                        " " +
-                        body
-                    )
-                    .toLowerCase();
-
-
-                // alleen Ommen-regio bewaren
-
-                if (
-                    !oostKeywords.some(keyword =>
-                        controle.includes(keyword)
-                    )
-                ) {
-
-                    continue;
-
-                }
-
-
-                const datum =
-                    body.match(
-                        /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i
-                    );
-
-
-                let beschrijving =
-                    body
-                    .replace(artikel.title,"")
-                    .replace(/\s+/g," ")
-                    .trim();
-
-
-                artikelen.push({
-
-                    title:
-                        artikel.title,
-
-                    link:
-                        artikel.link,
-
-                    description:
-                        beschrijving.substring(0,300)
-                        + "...",
-
-                    timestamp:
-                        datum
-                        ? Date.parse(datum[0])
-                        : Date.now()
-
-                });
-
-
-                if (artikelen.length >= 10) {
-                    break;
-                }
-
-
+            if (
+                titel.length > 15 &&
+                !titels.includes(titel)
+            ) {
+                titels.push(titel);
             }
-            catch(e) {
-
-                console.error(
-                    "RTV Oost artikel fout:",
-                    artikel.link,
-                    e
-                );
-
-            }
-
         }
 
 
+        const artikelen = titels
+            .filter(titel => {
+
+                const zoek =
+                    titel.toLowerCase();
+
+                return oostKeywords.some(keyword =>
+                    zoek.includes(keyword)
+                );
+
+            })
+            .map(titel => ({
+
+                title: titel,
+
+                link:
+                "https://www.oost.nl/nieuws",
+
+                description:
+                "RTV Oost nieuwsbericht",
+
+                timestamp:
+                Date.now()
+
+            }));
+
+
         console.log(
-            "RTV Oost Ommen artikelen:",
+            "RTV Oost Ommen:",
             artikelen.length
         );
 
 
-        return artikelen;
+        return artikelen.slice(0,10);
 
 
     }
@@ -922,7 +810,6 @@ async function fetchOostNieuws() {
     }
 
 }
-
 
 async function fetchGemeenteDatum(url) {
 
