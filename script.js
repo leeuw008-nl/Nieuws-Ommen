@@ -685,7 +685,7 @@ async function fetchOostNieuws() {
 
 
         const regex =
-/"title":"(.*?)"/g;
+/title:"(.*?)"/g;
 
 
         let match;
@@ -711,7 +711,7 @@ async function fetchOostNieuws() {
                     title: titel,
 
                     link:
-                    "https://www.oost.nl/nieuws",
+"https://www.oost.nl/nieuws#" + titel,
 
                     description:
                     "RTV Oost nieuwsbericht",
@@ -725,7 +725,9 @@ async function fetchOostNieuws() {
 
         }
 
-
+console.log("RTV Oost gevonden:", artikelen.length);
+console.log(artikelen);
+        
         return artikelen.slice(0,25);
 
 
