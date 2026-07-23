@@ -668,80 +668,107 @@ async function fetchOostNieuws() {
         "vechtdal"
     ];
 
+
     try {
 
         const res = await fetch(
             PROXY + encodeURIComponent(url)
         );
 
+
+        if (!res.ok) {
+            throw new Error("RTV Oost pagina niet bereikbaar");
+        }
+
+
         const text = await res.text();
 
+
         const titels = [];
-        let aantalTitels = 0;
 
         const regex = /"title":"(.*?)"/g;
 
-let match;
+        let match;
 
-if ((match = regex.exec(text)) !== null) {
+        let aantalTitels = 0;
 
-    const positie = match.index;
 
-    console.log(
-        "OOST ITEM GEDEELTE:",
-        text.substring(
-            positie - 500,
-            positie + 1500
-        )
-    );
+        while ((match = regex.exec(text)) !== null) {
 
-}
-
-       while ((match = regex.exec(text)) !== null) {
 
             let titel = match[1]
                 .replace(/\\u002F/g,"/")
                 .replace(/\\u0027/g,"'")
+                .replace(/\\"/g,'"')
                 .trim();
 
+
+
             if (
-    titel.length > 15 &&
-    !titels.includes(titel)
-) {
-    titels.push(titel);
+                titel.length > 15 &&
+                !titels.includes(titel)
+            ) {
 
-    if (aantalTitels < 20) {
-        console.log("OOST TITEL:", titel);
-        aantalTitels++;
-    }
-}
+                titels.push(titel);
 
 
-        const artikelen = titels
+                if (aantalTitels < 20) {
+
+                    console.log(
+                        "OOST TITEL:",
+                        titel
+                    );
+
+                    aantalTitels++;
+
+                }
+
+            }
+
+        }
+
+
+        console.log(
+            "Aantal Oost titels:",
+            titels.length
+        );
+
+
+
+        const artikelen =
+            titels
             .filter(titel => {
 
                 const zoek =
                     titel.toLowerCase();
+
 
                 return oostKeywords.some(keyword =>
                     zoek.includes(keyword)
                 );
 
             })
-            .map(titel => ({
+            .map(titel => {
 
-                title: titel,
 
-                link:
-                "https://www.oost.nl/nieuws",
+                return {
 
-                description:
-                "RTV Oost nieuwsbericht",
+                    title:
+                        titel,
 
-                timestamp:
-                Date.now()
+                    link:
+                        "https://www.oost.nl/nieuws",
 
-            }));
+                    description:
+                        "RTV Oost nieuwsbericht",
+
+                    timestamp:
+                        Date.now()
+
+                };
+
+            });
+
 
 
         console.log(
@@ -756,17 +783,18 @@ if ((match = regex.exec(text)) !== null) {
     }
     catch(error) {
 
+
         console.error(
             "RTV Oost fout:",
             error
         );
+
 
         return [];
 
     }
 
 }
-
 
 async function fetchGemeenteDatum(url) {
 
