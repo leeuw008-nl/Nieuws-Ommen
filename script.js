@@ -674,7 +674,7 @@ beschrijving = beschrijving
 async function fetchOostNieuws() {
 
     const sitemap =
-    "https://www.oost.nl/sitemap/sitemap-5.xml.gz";
+    "https://www.oost.nl/sitemap/sitemap-6.xml.gz";
 
     try {
 
@@ -1413,7 +1413,7 @@ function setupSources() {
 async function testOostSitemap() {
 
     const url =
-        "https://www.oost.nl/sitemap/sitemap-5.xml.gz";
+        "https://www.oost.nl/sitemap/sitemap-6.xml.gz";
 
     try {
 
