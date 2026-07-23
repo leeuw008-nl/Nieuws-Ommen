@@ -696,9 +696,7 @@ if ((match = regex.exec(text)) !== null) {
 
 }
 
-        let match;
-
-        while ((match = regex.exec(text)) !== null) {
+       while ((match = regex.exec(text)) !== null) {
 
             let titel = match[1]
                 .replace(/\\u002F/g,"/")
