@@ -686,49 +686,40 @@ async function fetchOostNieuws() {
 
 
         const regex =
-    /title:"(.*?)".*?lead:"(.*?)"/gs;
+/title:"(.*?)"/g;
 
 
         let match;
 
 
         while (
-            (match = regex.exec(nuxt)) !== null
-        ) {
+    (match = regex.exec(nuxt)) !== null
+) {
 
-            let titel =
-                match[1]
-                .replace(/\\u002F/g,"/")
-                .replace(/\\u0027/g,"'")
-                .replace(/©.*$/,"")
-                .trim();
-
-
-            let tekst =
-                match[2]
-                .replace(/\\u002F/g,"/")
-                .replace(/\\u0027/g,"'")
-                .trim();
+    let titel =
+        match[1]
+        .replace(/\\u002F/g,"/")
+        .replace(/\\u0027/g,"'")
+        .replace(/©.*$/,"")
+        .trim();
 
 
-            artikelen.push({
+    artikelen.push({
 
-                title:
-                    titel,
+        title: titel,
 
-                link:
-                    "https://www.oost.nl/nieuws",
+        link:
+            "https://www.oost.nl/nieuws",
 
-                description:
-                    tekst.substring(0,300) + "...",
+        description:
+            "",
 
-                timestamp:
-                    Date.now()
+        timestamp:
+            Date.now()
 
-            });
+    });
 
-
-        }
+}
 
 
         console.log(
@@ -1375,7 +1366,7 @@ window.addEventListener(
 
         setupSources();
 
-        loadNews();
+        testOost();
 
     }
 );
