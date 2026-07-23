@@ -804,62 +804,25 @@ async function testOost() {
 
     const url = "https://www.oost.nl/nieuws";
 
-    try {
+    const res = await fetch(
+        PROXY + encodeURIComponent(url)
+    );
 
-        const res = await fetch(
-            PROXY + encodeURIComponent(url)
-        );
-
-        const text = await res.text();
+    const text = await res.text();
 
 
-        let resultaten = [];
+    let pos = text.indexOf("publication");
 
 
-        // zoeken naar bekende woorden uit nieuwsstructuur
+    document.getElementById("news-container").innerHTML =
+    `
+    <h2>RTV Oost data</h2>
+    <p>Positie publication: ${pos}</p>
 
-        const zoekwoorden = [
-            "title",
-            "article",
-            "nieuws",
-            "publication",
-            "headline"
-        ];
-
-
-        zoekwoorden.forEach(word => {
-
-            let aantal =
-                (text.match(
-                    new RegExp(word,"gi")
-                ) || []).length;
-
-
-            resultaten.push(
-                word + ": " + aantal
-            );
-
-        });
-
-
-        document.getElementById("news-container").innerHTML =
-        `
-        <h2>RTV Oost structuur test</h2>
-        <pre>${resultaten.join("\n")}</pre>
-
-        <hr>
-
-        <pre>${text.substring(0,3000)}</pre>
-        `;
-
-
-    }
-    catch(error) {
-
-        document.getElementById("news-container").innerHTML =
-        error;
-
-    }
+    <pre>
+${text.substring(pos - 500, pos + 1500)}
+    </pre>
+    `;
 
 }
 
