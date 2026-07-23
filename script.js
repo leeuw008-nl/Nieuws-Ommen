@@ -816,27 +816,39 @@ async function testOost() {
     );
 
 
-    const einde = text.indexOf(
-        "</script>",
-        start
-    );
-
-
     const nuxt = text.substring(
-        start,
-        einde
+        start + 16,
+        text.indexOf("</script>", start)
     );
+
+
+    let titels = [];
+
+
+    // zoeken naar alle title velden
+
+    const matches =
+        nuxt.matchAll(
+            /title:"(.*?)"/g
+        );
+
+
+    for (const match of matches) {
+
+        titels.push(match[1]);
+
+    }
 
 
     document.getElementById("news-container").innerHTML =
     `
-    <h2>RTV Oost Nuxt test</h2>
+    <h2>RTV Oost titels test</h2>
 
-    <p>Lengte Nuxt data:
-    ${nuxt.length}</p>
+    <p>Aantal titels:
+    ${titels.length}</p>
 
     <pre>
-${nuxt.substring(0,3000)}
+${titels.slice(0,20).join("\n\n")}
     </pre>
     `;
 
