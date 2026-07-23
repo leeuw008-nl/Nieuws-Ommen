@@ -686,7 +686,7 @@ async function fetchOostNieuws() {
 
 
         const regex =
-            /title:"(.*?)".*?lead:"(.*?)"/g;
+    /title:"(.*?)".*?lead:"(.*?)"/gs;
 
 
         let match;
@@ -736,8 +736,8 @@ async function fetchOostNieuws() {
             artikelen.length
         );
 
-
-        return artikelen.slice(0,10);
+console.log("RTV Oost totaal gevonden:", artikelen.length);
+        return artikelen.slice(0,25);
 
 
     }
