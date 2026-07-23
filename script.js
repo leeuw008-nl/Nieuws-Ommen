@@ -810,42 +810,33 @@ async function testOost() {
 
     const text = await res.text();
 
-    const html =
-        new DOMParser()
-        .parseFromString(text,"text/html");
+
+    const start = text.indexOf(
+        "window.__NUXT__="
+    );
 
 
-    let scripts = [];
+    const einde = text.indexOf(
+        "</script>",
+        start
+    );
 
-    html.querySelectorAll("script")
-    .forEach(script => {
 
-        const inhoud = script.textContent;
-
-        if (
-            inhoud.includes("title") ||
-            inhoud.includes("nieuws") ||
-            inhoud.includes("article")
-        ) {
-
-            scripts.push(
-                inhoud.substring(0,500)
-            );
-
-        }
-
-    });
+    const nuxt = text.substring(
+        start,
+        einde
+    );
 
 
     document.getElementById("news-container").innerHTML =
     `
-    <h2>RTV Oost script test</h2>
+    <h2>RTV Oost Nuxt test</h2>
 
-    <p>Aantal gevonden scripts:
-    ${scripts.length}</p>
+    <p>Lengte Nuxt data:
+    ${nuxt.length}</p>
 
     <pre>
-${scripts.slice(0,5).join("\n\n----------------\n\n")}
+${nuxt.substring(0,3000)}
     </pre>
     `;
 
