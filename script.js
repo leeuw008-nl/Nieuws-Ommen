@@ -812,13 +812,40 @@ async function testOost() {
 
         const text = await res.text();
 
+        const html =
+            new DOMParser()
+            .parseFromString(text,"text/html");
+
+
+        let links = [];
+
+        html.querySelectorAll("a")
+        .forEach(a => {
+
+            const href = a.href;
+            const title = a.textContent.trim();
+
+            if (
+                href.includes("oost.nl") &&
+                title.length > 20
+            ) {
+
+                links.push(
+                    title + "\n" + href
+                );
+
+            }
+
+        });
+
+
         document.getElementById("news-container").innerHTML =
         `
-        <h2>RTV Oost test</h2>
-        <p>Status: ${res.status}</p>
-        <p>Aantal tekens HTML: ${text.length}</p>
-        <pre>${text.substring(0,1000)}</pre>
+        <h2>RTV Oost links test</h2>
+        <p>Aantal gevonden links: ${links.length}</p>
+        <pre>${links.slice(0,20).join("\n\n")}</pre>
         `;
+
 
     }
     catch(error) {
