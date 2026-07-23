@@ -686,7 +686,7 @@ async function fetchOostNieuws() {
 
         const titels = [];
 
-        const regex = /"title":"(.*?)"/g;
+        const regex = /"title"\s*:\s*"([^"]+)"/g;
 
         let match;
 
