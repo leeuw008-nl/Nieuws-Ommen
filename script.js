@@ -1529,14 +1529,27 @@ console.log(
     }
 
 }
+async function testOost0() {
 
+    const url = "https://www.oost.nl/sitemap/sitemap-0.xml.gz";
+
+    const res = await fetch(
+        PROXY + encodeURIComponent(url)
+    );
+
+    console.log("Status:", res.status);
+
+    const text = await res.text();
+
+    console.log(text.substring(0,1000));
+}
 window.addEventListener(
     "DOMContentLoaded",
     function() {
 
         setupSearch();
         setupSources();
-        loadNews();
+        testOost0();
 
     }
 );
