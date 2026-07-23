@@ -699,7 +699,7 @@ console.log(
 
 
         const regex =
-            /"title"\s*:\s*"([^"]+)"/gi;
+    /"headline"\s*:\s*"([^"]+)"/gi;
 
 
         let match;
