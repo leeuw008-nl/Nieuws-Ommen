@@ -653,6 +653,102 @@ beschrijving = beschrijving
 
 }
 
+async function fetchOostNieuws() {
+
+    const url = "https://www.oost.nl/nieuws";
+
+    const oostKeywords = [
+        "ommen",
+        "ommer",
+        "ommerschans",
+        "besthmenerberg",
+        "lemelerberg",
+        "beerze",
+        "vilsteren",
+        "vechtdal"
+    ];
+
+    try {
+
+        const res = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
+
+        const text = await res.text();
+
+        const titels = [];
+
+        const regex = /"title":"(.*?)"/g;
+
+        let match;
+
+        while ((match = regex.exec(text)) !== null) {
+
+            let titel = match[1]
+                .replace(/\\u002F/g,"/")
+                .replace(/\\u0027/g,"'")
+                .trim();
+
+            if (
+                titel.length > 15 &&
+                !titels.includes(titel)
+            ) {
+                titels.push(titel);
+            }
+        }
+
+
+        const artikelen = titels
+            .filter(titel => {
+
+                const zoek =
+                    titel.toLowerCase();
+
+                return oostKeywords.some(keyword =>
+                    zoek.includes(keyword)
+                );
+
+            })
+            .map(titel => ({
+
+                title: titel,
+
+                link:
+                "https://www.oost.nl/nieuws",
+
+                description:
+                "RTV Oost nieuwsbericht",
+
+                timestamp:
+                Date.now()
+
+            }));
+
+
+        console.log(
+            "RTV Oost Ommen:",
+            artikelen.length
+        );
+
+
+        return artikelen.slice(0,10);
+
+
+    }
+    catch(error) {
+
+        console.error(
+            "RTV Oost fout:",
+            error
+        );
+
+        return [];
+
+    }
+
+}
+
+
 async function fetchGemeenteDatum(url) {
 
     try {
