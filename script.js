@@ -812,38 +812,44 @@ async function testOost() {
 
         const text = await res.text();
 
-        const html =
-            new DOMParser()
-            .parseFromString(text,"text/html");
+
+        let resultaten = [];
 
 
-        let links = [];
+        // zoeken naar bekende woorden uit nieuwsstructuur
 
-        html.querySelectorAll("a")
-        .forEach(a => {
+        const zoekwoorden = [
+            "title",
+            "article",
+            "nieuws",
+            "publication",
+            "headline"
+        ];
 
-            const href = a.href;
-            const title = a.textContent.trim();
 
-            if (
-                href.includes("oost.nl") &&
-                title.length > 20
-            ) {
+        zoekwoorden.forEach(word => {
 
-                links.push(
-                    title + "\n" + href
-                );
+            let aantal =
+                (text.match(
+                    new RegExp(word,"gi")
+                ) || []).length;
 
-            }
+
+            resultaten.push(
+                word + ": " + aantal
+            );
 
         });
 
 
         document.getElementById("news-container").innerHTML =
         `
-        <h2>RTV Oost links test</h2>
-        <p>Aantal gevonden links: ${links.length}</p>
-        <pre>${links.slice(0,20).join("\n\n")}</pre>
+        <h2>RTV Oost structuur test</h2>
+        <pre>${resultaten.join("\n")}</pre>
+
+        <hr>
+
+        <pre>${text.substring(0,3000)}</pre>
         `;
 
 
@@ -851,10 +857,7 @@ async function testOost() {
     catch(error) {
 
         document.getElementById("news-container").innerHTML =
-        `
-        <h2>RTV Oost fout</h2>
-        <p>${error}</p>
-        `;
+        error;
 
     }
 
