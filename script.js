@@ -665,7 +665,6 @@ async function fetchOostNieuws() {
 
         const text = await res.text();
 
-
         const start =
             text.indexOf("window.__NUXT__=");
 
@@ -686,48 +685,51 @@ async function fetchOostNieuws() {
 
 
         const regex =
-/title:"(.*?)"/g;
+            /title:"(.*?)"/g;
 
 
         let match;
 
 
         while (
-    (match = regex.exec(nuxt)) !== null
-) {
+            (match = regex.exec(nuxt)) !== null
+        ) {
 
-    let titel =
-        match[1]
-        .replace(/\\u002F/g,"/")
-        .replace(/\\u0027/g,"'")
-        .replace(/©.*$/,"")
-        .trim();
-
-
-    artikelen.push({
-
-        title: titel,
-
-        link:
-            "https://www.oost.nl/nieuws",
-
-        description:
-            "",
-
-        timestamp:
-            Date.now()
-
-    });
-
-}
+            let titel =
+                match[1]
+                .replace(/\\u002F/g,"/")
+                .replace(/\\u0027/g,"'")
+                .replace(/©.*$/,"")
+                .trim();
 
 
-        console.log(
-            "RTV Oost artikelen:",
-            artikelen.length
-        );
+            if (
+                titel.length > 10 &&
+                !artikelen.some(
+                    a => a.title === titel
+                )
+            ) {
 
-console.log("RTV Oost totaal gevonden:", artikelen.length);
+                artikelen.push({
+
+                    title: titel,
+
+                    link:
+                    "https://www.oost.nl/nieuws",
+
+                    description:
+                    "RTV Oost nieuwsbericht",
+
+                    timestamp:
+                    Date.now()
+
+                });
+
+            }
+
+        }
+
+
         return artikelen.slice(0,25);
 
 
@@ -1366,7 +1368,7 @@ window.addEventListener(
 
         setupSources();
 
-        testOost();
+        loadNews();
 
     }
 );
