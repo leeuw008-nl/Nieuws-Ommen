@@ -677,6 +677,7 @@ async function fetchOostNieuws() {
         const text = await res.text();
 
         const titels = [];
+        let aantalTitels = 0;
 
         const regex = /"title":"(.*?)"/g;
 
@@ -704,12 +705,16 @@ if ((match = regex.exec(text)) !== null) {
                 .trim();
 
             if (
-                titel.length > 15 &&
-                !titels.includes(titel)
-            ) {
-                titels.push(titel);
-            }
-        }
+    titel.length > 15 &&
+    !titels.includes(titel)
+) {
+    titels.push(titel);
+
+    if (aantalTitels < 20) {
+        console.log("OOST TITEL:", titel);
+        aantalTitels++;
+    }
+}
 
 
         const artikelen = titels
