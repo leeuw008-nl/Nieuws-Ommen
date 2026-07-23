@@ -810,22 +810,35 @@ async function testOost() {
 
     const text = await res.text();
 
+    const html =
+        new DOMParser()
+        .parseFromString(text,"text/html");
 
-    let pos = text.indexOf("publication");
+
+    let artikelen = [];
+
+
+    html.querySelectorAll("article")
+    .forEach(article => {
+
+        artikelen.push(
+            article.innerText.substring(0,300)
+        );
+
+    });
 
 
     document.getElementById("news-container").innerHTML =
     `
-    <h2>RTV Oost data</h2>
-    <p>Positie publication: ${pos}</p>
+    <h2>RTV Oost article test</h2>
+    <p>Aantal article elementen: ${artikelen.length}</p>
 
     <pre>
-${text.substring(pos - 500, pos + 1500)}
+${artikelen.slice(0,5).join("\n\n----------------\n\n")}
     </pre>
     `;
 
 }
-
 
 async function loadNews() {
 
