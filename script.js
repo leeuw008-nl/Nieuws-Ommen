@@ -653,6 +653,108 @@ beschrijving = beschrijving
 
 }
 
+async function fetchOostNieuws() {
+
+    const url = "https://www.oost.nl/nieuws";
+
+    try {
+
+        const res = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
+
+        const text = await res.text();
+
+
+        const start =
+            text.indexOf("window.__NUXT__=");
+
+
+        if (start === -1) {
+            return [];
+        }
+
+
+        const nuxt =
+            text.substring(
+                start + 16,
+                text.indexOf("</script>", start)
+            );
+
+
+        const artikelen = [];
+
+
+        const regex =
+            /title:"(.*?)".*?lead:"(.*?)"/g;
+
+
+        let match;
+
+
+        while (
+            (match = regex.exec(nuxt)) !== null
+        ) {
+
+            let titel =
+                match[1]
+                .replace(/\\u002F/g,"/")
+                .replace(/\\u0027/g,"'")
+                .replace(/©.*$/,"")
+                .trim();
+
+
+            let tekst =
+                match[2]
+                .replace(/\\u002F/g,"/")
+                .replace(/\\u0027/g,"'")
+                .trim();
+
+
+            artikelen.push({
+
+                title:
+                    titel,
+
+                link:
+                    "https://www.oost.nl/nieuws",
+
+                description:
+                    tekst.substring(0,300) + "...",
+
+                timestamp:
+                    Date.now()
+
+            });
+
+
+        }
+
+
+        console.log(
+            "RTV Oost artikelen:",
+            artikelen.length
+        );
+
+
+        return artikelen.slice(0,10);
+
+
+    }
+    catch(error) {
+
+        console.error(
+            "RTV Oost fout:",
+            error
+        );
+
+        return [];
+
+    }
+
+}
+
+
 async function fetchGemeenteDatum(url) {
 
     try {
