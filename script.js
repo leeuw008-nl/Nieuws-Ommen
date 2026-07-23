@@ -680,6 +680,22 @@ async function fetchOostNieuws() {
 
         const regex = /"title":"(.*?)"/g;
 
+let match;
+
+if ((match = regex.exec(text)) !== null) {
+
+    const positie = match.index;
+
+    console.log(
+        "OOST ITEM GEDEELTE:",
+        text.substring(
+            positie - 500,
+            positie + 1500
+        )
+    );
+
+}
+
         let match;
 
         while ((match = regex.exec(text)) !== null) {
