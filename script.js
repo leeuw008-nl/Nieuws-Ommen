@@ -1367,7 +1367,7 @@ window.addEventListener(
 
         setupSources();
 
-        testOost();
+        loadNews();
 
     }
 );
