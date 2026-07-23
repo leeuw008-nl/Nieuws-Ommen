@@ -819,29 +819,147 @@ async function fetchOostNieuws() {
                         };
 
                     }
+async function fetchOostNieuws() {
 
+    const hoofdSitemap =
+        "https://www.oost.nl/sitemap/sitemap.xml.gz";
 
-                })
+    try {
 
-            );
-
-
-        console.log(
-            "Oost artikelen:",
-            artikelen.length
+        // Hoofdsitemap ophalen
+        const res = await fetch(
+            PROXY + encodeURIComponent(hoofdSitemap)
         );
 
+        const text = await res.text();
 
-        return artikelen;
+        const xml = new DOMParser()
+            .parseFromString(text, "text/xml");
 
+        // Alle deelsitemaps verzamelen
+        const sitemapLinks = Array.from(
+            xml.querySelectorAll("loc")
+        ).map(loc => loc.textContent.trim());
+
+        console.log("Oost sitemaps:", sitemapLinks);
+
+        let alleLinks = [];
+
+        // Iedere deelsitemap lezen
+        for (const sitemap of sitemapLinks) {
+
+            try {
+
+                const r = await fetch(
+                    PROXY + encodeURIComponent(sitemap)
+                );
+
+                const t = await r.text();
+
+                const x = new DOMParser()
+                    .parseFromString(t, "text/xml");
+
+                const urls = Array.from(
+                    x.querySelectorAll("url")
+                ).map(item => ({
+
+                    link:
+                        item.querySelector("loc")
+                        ?.textContent
+                        ?.trim(),
+
+                    datum:
+                        item.querySelector("lastmod")
+                        ?.textContent
+                        ?.trim()
+
+                }))
+                .filter(item =>
+                    item.link &&
+                    item.link.includes("/nieuws/")
+                );
+
+                alleLinks.push(...urls);
+
+            } catch(e) {
+
+                console.log("Sitemap overgeslagen:", sitemap);
+
+            }
+
+        }
+
+        console.log(
+            "Totaal Oost-artikelen:",
+            alleLinks.length
+        );
+
+        // Nieuwste eerst
+        alleLinks.sort((a,b)=>
+            Date.parse(b.datum)-Date.parse(a.datum)
+        );
+
+        // Alleen de 10 nieuwste
+        alleLinks = alleLinks.slice(0,10);
+
+        const artikelen = await Promise.all(
+
+            alleLinks.map(async item => {
+
+                try {
+
+                    const r = await fetch(
+                        PROXY +
+                        encodeURIComponent(item.link)
+                    );
+
+                    const htmlText = await r.text();
+
+                    const html = new DOMParser()
+                        .parseFromString(
+                            htmlText,
+                            "text/html"
+                        );
+
+                    const titel =
+                        html.querySelector("h1")
+                        ?.textContent.trim()
+                        || "Oost";
+
+                    let tekst =
+                        html.body.innerText
+                        .replace(/\s+/g," ")
+                        .trim();
+
+                    tekst = tekst
+                        .replace(titel,"")
+                        .substring(0,300);
+
+                    return {
+
+                        title: titel,
+                        link: item.link,
+                        description: tekst + "...",
+                        timestamp: Date.parse(item.datum)
+
+                    };
+
+                } catch(e) {
+
+                    return null;
+
+                }
+
+            })
+
+        );
+
+        return artikelen.filter(a=>a);
 
     }
     catch(error) {
 
-        console.error(
-            "Oost fout:",
-            error
-        );
+        console.error("Oost fout:", error);
 
         return [];
 
