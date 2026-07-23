@@ -728,14 +728,185 @@ async function fetchOostNieuws() {
 
         }
 
-console.log("RTV Oost gevonden:", artikelen.length);
-console.log(artikelen);
-        
-        return artikelen.slice(0,5).map(a => ({
-    title: a.title,
-    link: a.link,
-    description: nuxt.substring(0,500)
-}));
+async function fetchOostNieuws() {
+
+    const url = "https://www.oost.nl/nieuws";
+
+    const oostKeywords = [
+        "ommen",
+        "ommenaar",
+        "ommerschans",
+        "besthmenerberg",
+        "lemelerberg",
+        "beerze",
+        "vilsteren",
+        "vechtdal"
+    ];
+
+
+    try {
+
+        const res = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
+
+
+        const text = await res.text();
+
+
+        const html =
+            new DOMParser()
+            .parseFromString(
+                text,
+                "text/html"
+            );
+
+
+        const links = [];
+
+
+        html.querySelectorAll("a")
+        .forEach(a => {
+
+            const href = a.href;
+            const title = a.textContent.trim();
+
+
+            if (
+                href.includes("/nieuws/") &&
+                title.length > 20 &&
+                !links.some(item => item.link === href)
+            ) {
+
+                links.push({
+
+                    title: title,
+                    link: href
+
+                });
+
+            }
+
+        });
+
+
+        console.log(
+            "RTV Oost links gevonden:",
+            links.length
+        );
+
+
+        const artikelen = [];
+
+
+        for (const artikel of links.slice(0,40)) {
+
+
+            try {
+
+                const res2 = await fetch(
+                    PROXY + encodeURIComponent(artikel.link)
+                );
+
+
+                const text2 = await res2.text();
+
+
+                const doc =
+                    new DOMParser()
+                    .parseFromString(
+                        text2,
+                        "text/html"
+                    );
+
+
+                const body =
+                    doc.body.innerText
+                    .replace(/\s+/g," ")
+                    .trim();
+
+
+                const controle =
+                    (
+                        artikel.title +
+                        " " +
+                        body
+                    )
+                    .toLowerCase();
+
+
+                // alleen Ommen-regio bewaren
+
+                if (
+                    !oostKeywords.some(keyword =>
+                        controle.includes(keyword)
+                    )
+                ) {
+
+                    continue;
+
+                }
+
+
+                const datum =
+                    body.match(
+                        /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i
+                    );
+
+
+                let beschrijving =
+                    body
+                    .replace(artikel.title,"")
+                    .replace(/\s+/g," ")
+                    .trim();
+
+
+                artikelen.push({
+
+                    title:
+                        artikel.title,
+
+                    link:
+                        artikel.link,
+
+                    description:
+                        beschrijving.substring(0,300)
+                        + "...",
+
+                    timestamp:
+                        datum
+                        ? Date.parse(datum[0])
+                        : Date.now()
+
+                });
+
+
+                if (artikelen.length >= 10) {
+                    break;
+                }
+
+
+            }
+            catch(e) {
+
+                console.error(
+                    "RTV Oost artikel fout:",
+                    artikel.link,
+                    e
+                );
+
+            }
+
+        }
+
+
+        console.log(
+            "RTV Oost Ommen artikelen:",
+            artikelen.length
+        );
+
+
+        return artikelen;
 
 
     }
