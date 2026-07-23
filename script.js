@@ -16,23 +16,6 @@ const feeds = [
 
 ];
 
-async function saveOostHtml() {
-
-    const url = "https://www.oost.nl/nieuws";
-
-    const res = await fetch(
-        PROXY + encodeURIComponent(url)
-    );
-
-    console.log("Status:", res.status);
-
-    const text = await res.text();
-
-    console.log("Lengte HTML:", text.length);
-
-    console.log(text.substring(0,1000));
-
-}
 
 const ommenKeywords = [
     "ommen",
@@ -41,17 +24,15 @@ const ommenKeywords = [
     "beerze",
     "beerzerveld",
     "besthmen",
-    "besthmenerberg",
+    "diffelen",
     "giethmen",
     "junne",
     "lemele",
-    "lemelerberg",
     "stegeren",
     "vilsteren",
     "witharen",
     "varsen",
-    "ommermars",
-    "ommerschans"
+    "ommermars"
 ];
 
 
@@ -368,6 +349,8 @@ async function fetchRTVVechtdalNieuws() {
     "https://rtvvechtdal.nl"
 ).href;
 
+            console.log(href);
+            
             const title = a.textContent.trim();
 
             if (
@@ -670,334 +653,46 @@ beschrijving = beschrijving
 
 }
 
-
-async function fetchOostNieuws() {
-
-    const sitemap =
-    "https://www.oost.nl/sitemap/sitemap-6.xml.gz";
+async function fetchGemeenteDatum(url) {
 
     try {
 
         const res =
             await fetch(
-                PROXY + encodeURIComponent(sitemap)
+                PROXY + encodeURIComponent(url)
             );
 
-        if (!res.ok) {
-            throw new Error("Oost sitemap niet bereikbaar");
-        }
 
         const text =
             await res.text();
 
 
-        const xml =
-            new DOMParser()
-            .parseFromString(
-                text,
-                "text/xml"
-            );
-
-
-        const links =
-            Array.from(
-                xml.querySelectorAll("url")
-            )
-            .map(item => {
-
-                return {
-
-                    link:
-                        item.querySelector("loc")
-                        ?.textContent
-                        ?.trim(),
-
-                    datum:
-                        item.querySelector("lastmod")
-                        ?.textContent
-                        ?.trim()
-
-                };
-
-            })
-            .filter(item =>
-                item.link &&
-                item.link.includes("/nieuws/")
-            );
-
-
-        const artikelen =
-            await Promise.all(
-
-                links
-                .slice(0,10)
-                .map(async item => {
-
-
-                    try {
-
-                        const artikelRes =
-                            await fetch(
-                                PROXY +
-                                encodeURIComponent(
-                                    item.link
-                                )
-                            );
-
-
-                        const artikelText =
-                            await artikelRes.text();
-
-
-                        const html =
-                            new DOMParser()
-                            .parseFromString(
-                                artikelText,
-                                "text/html"
-                            );
-
-
-                        const titel =
-                            html.querySelector("h1")
-                            ?.textContent
-                            ?.trim()
-                            ||
-                            "Oost nieuws";
-
-
-                        let tekst =
-                            html.body.innerText
-                            .replace(/\s+/g," ")
-                            .trim();
-
-
-                        tekst =
-                            tekst
-                            .replace(titel,"")
-                            .trim()
-                            .substring(0,300);
-
-
-                        return {
-
-                            title:
-                                titel,
-
-                            link:
-                                item.link,
-
-                            description:
-                                tekst + "...",
-
-                            timestamp:
-                                item.datum
-                                ? Date.parse(item.datum)
-                                : Date.now()
-
-                        };
-
-
-                    }
-                    catch(e) {
-
-                        return {
-
-                            title:
-                                "Oost nieuws",
-
-                            link:
-                                item.link,
-
-                            description:
-                                "Artikel van Oost.nl",
-
-                            timestamp:
-                                item.datum
-                                ? Date.parse(item.datum)
-                                : Date.now()
-
-                        };
-
-                    }
-async function fetchOostNieuws() {
-
-    const hoofdSitemap =
-        "https://www.oost.nl/sitemap/sitemap.xml.gz";
-
-    try {
-
-        // Hoofdsitemap ophalen
-        const res = await fetch(
-            PROXY + encodeURIComponent(hoofdSitemap)
-        );
-
-        const text = await res.text();
-
-        const xml = new DOMParser()
-            .parseFromString(text, "text/xml");
-
-        // Alle deelsitemaps verzamelen
-        const sitemapLinks = Array.from(
-            xml.querySelectorAll("loc")
-        ).map(loc => loc.textContent.trim());
-
-        console.log("Oost sitemaps:", sitemapLinks);
-
-        let alleLinks = [];
-
-        // Iedere deelsitemap lezen
-        for (const sitemap of sitemapLinks) {
-
-            try {
-
-                const r = await fetch(
-                    PROXY + encodeURIComponent(sitemap)
-                );
-
-                const t = await r.text();
-
-                const x = new DOMParser()
-                    .parseFromString(t, "text/xml");
-
-                const urls = Array.from(
-                    x.querySelectorAll("url")
-                ).map(item => ({
-
-                    link:
-                        item.querySelector("loc")
-                        ?.textContent
-                        ?.trim(),
-
-                    datum:
-                        item.querySelector("lastmod")
-                        ?.textContent
-                        ?.trim()
-
-                }))
-                .filter(item =>
-                    item.link &&
-                    item.link.includes("/nieuws/")
-                );
-
-                alleLinks.push(...urls);
-
-            } catch(e) {
-
-                console.log("Sitemap overgeslagen:", sitemap);
-
-            }
-
-        }
-
-        console.log(
-            "Totaal Oost-artikelen:",
-            alleLinks.length
-        );
-
-        // Nieuwste eerst
-        alleLinks.sort((a,b)=>
-            Date.parse(b.datum)-Date.parse(a.datum)
-        );
-
-        // Alleen de 10 nieuwste
-        alleLinks = alleLinks.slice(0,10);
-
-        const artikelen = await Promise.all(
-
-            alleLinks.map(async item => {
-
-                try {
-
-                    const r = await fetch(
-                        PROXY +
-                        encodeURIComponent(item.link)
-                    );
-
-                    const htmlText = await r.text();
-
-                    const html = new DOMParser()
-                        .parseFromString(
-                            htmlText,
-                            "text/html"
-                        );
-
-                    const titel =
-                        html.querySelector("h1")
-                        ?.textContent.trim()
-                        || "Oost";
-
-                    let tekst =
-                        html.body.innerText
-                        .replace(/\s+/g," ")
-                        .trim();
-
-                    tekst = tekst
-                        .replace(titel,"")
-                        .substring(0,300);
-
-                    return {
-
-                        title: titel,
-                        link: item.link,
-                        description: tekst + "...",
-                        timestamp: Date.parse(item.datum)
-
-                    };
-
-                } catch(e) {
-
-                    return null;
-
-                }
-
-            })
-
-        );
-
-        return artikelen.filter(a=>a);
-
-    }
-    catch(error) {
-
-        console.error("Oost fout:", error);
-
-        return [];
-
-    }
-
-}
-
-async function fetchGemeenteDatum(url) {
-
-    try {
-
-        const res = await fetch(
-            PROXY + encodeURIComponent(url)
-        );
-
-        const text = await res.text();
-
         const html =
             new DOMParser()
-            .parseFromString(
-                text,
-                "text/html"
-            );
+                .parseFromString(
+                    text,
+                    "text/html"
+                );
 
 
-        const body =
+        const bodyText =
             html.body.innerText;
 
 
         const match =
-            body.match(
-                /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i
+            bodyText.match(
+                /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4},\s+\d{2}:\d{2}/i
             );
 
 
-        return match
-            ? match[0]
-            : "";
+        if (match) {
+
+            return match[0];
+
+        }
+
+
+        return "";
 
 
     }
@@ -1014,7 +709,6 @@ async function fetchGemeenteDatum(url) {
     }
 
 }
-
  async function fetchGemeenteTekst(url) {
 
     try {
@@ -1129,7 +823,7 @@ async function loadNews() {
 
  // RSS en Gemeente tegelijk ophalen
 
-const [results, gemeenteArtikelen, rtvArtikelen, ommerArtikelen, oostArtikelen] =
+const [results, gemeenteArtikelen, rtvArtikelen, ommerArtikelen] =
     await Promise.all([
 
         Promise.all(
@@ -1153,9 +847,7 @@ const [results, gemeenteArtikelen, rtvArtikelen, ommerArtikelen, oostArtikelen] 
 
         fetchRTVVechtdalNieuws(),
 
-        fetchOmmerNieuws(),
-
-        fetchOostNieuws()
+        fetchOmmerNieuws()
 
     ]);
 
@@ -1208,7 +900,7 @@ gemeenteArtikelen.forEach(article => {
 
 });
 
-ommerArtikelen.forEach(article => {
+    ommerArtikelen.forEach(article => {
 
     allArticles.push({
 
@@ -1216,20 +908,6 @@ ommerArtikelen.forEach(article => {
 
         source:
             "Ommer Nieuws"
-
-    });
-
-});
-
-
-oostArtikelen.forEach(article => {
-
-    allArticles.push({
-
-        ...article,
-
-        source:
-            "Oost"
 
     });
 
@@ -1487,7 +1165,7 @@ function setupSearch() {
 
 function refreshNews() {
 
-    saveOostHtml();
+    loadNews();
 
 }
 
@@ -1528,146 +1206,15 @@ function setupSources() {
 
 }
 
-async function testOostSitemap() {
-
-    const url =
-        "https://www.oost.nl/sitemap/sitemap-6.xml.gz";
-
-    try {
-
-        const res =
-            await fetch(
-                PROXY + encodeURIComponent(url)
-            );
-
-        const text =
-            await res.text();
-        console.log("Status:", res.status);
-        console.log("Content-Type:", res.headers.get("content-type"));
-        console.log("Lengte:", text.length);
-        console.log(text.substring(0,200));
-
-
-        console.log(
-            "Oost sitemap lengte:",
-            text.length
-        );
-
-
-        const xml =
-            new DOMParser()
-            .parseFromString(
-                text,
-                "text/xml"
-            );
-
-
-        const links =
-            Array.from(
-                xml.querySelectorAll("loc")
-            )
-            .map(loc => loc.textContent);
-
-
-        console.log(
-            "Aantal links in sitemap:",
-            links.length
-        );
-
-
-        console.log(
-            "Eerste 5 Oost links:",
-            links.slice(0,5)
-        );
-
-
-        alert(
-            "Oost test klaar. Links gevonden: " 
-            + links.length
-        );
-
-
-    }
-    catch(error) {
-
-        console.error(
-            "Oost sitemap fout:",
-            error
-        );
-
-        alert(
-            "Oost fout: " + error
-        );
-
-    }
-
-}
-
-async function testOost() {
-
-    const url = "https://www.oost.nl/nieuws";
-
-    try {
-
-        const res = await fetch(
-            PROXY + encodeURIComponent(url)
-        );
-
-        console.log("Status:", res.status);
-
-        const text = await res.text();
-
-        console.log("Lengte HTML:", text.length);
-
-        console.log(
-    "Eerste 1000 tekens:\n",
-    text.substring(0,1000)
-);
-
-console.log(
-    "Zoek nieuws:",
-    text.includes("/nieuws/")
-);
-
-console.log(
-    "Aantal keer /nieuws/:",
-    (text.match(/\/nieuws\//g) || []).length
-);
-
-console.log(
-    "Aantal h2:",
-    (text.match(/<h2/g) || []).length
-);
-
-    }
-    catch(error) {
-
-        console.error(error);
-
-    }
-
-}
-async function testOost0() {
-
-    const url = "https://www.oost.nl/sitemap/sitemap-0.xml.gz";
-
-    const res = await fetch(
-        PROXY + encodeURIComponent(url)
-    );
-
-    console.log("Status:", res.status);
-
-    const text = await res.text();
-
-    console.log(text.substring(0,1000));
-}
 window.addEventListener(
     "DOMContentLoaded",
     function() {
 
         setupSearch();
+
         setupSources();
-        testOost0();
+
+        loadNews();
 
     }
 );
