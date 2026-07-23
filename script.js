@@ -976,31 +976,26 @@ async function loadNews() {
 
  // RSS en Gemeente tegelijk ophalen
 
-const [results, gemeenteArtikelen, rtvArtikelen, ommerArtikelen] =
+const [results, gemeenteArtikelen, rtvArtikelen, ommerArtikelen, oostArtikelen] =
     await Promise.all([
 
         Promise.all(
-
             feeds.map(feed =>
                 fetchRSS(feed.url)
                 .then(articles => ({
-
-                    source:
-                        feed.name,
-
-                    articles:
-                        articles
-
+                    source: feed.name,
+                    articles: articles
                 }))
             )
-
         ),
 
         fetchGemeenteNieuws(),
 
         fetchRTVVechtdalNieuws(),
 
-        fetchOmmerNieuws()
+        fetchOmmerNieuws(),
+
+        fetchOostNieuws()
 
     ]);
 
