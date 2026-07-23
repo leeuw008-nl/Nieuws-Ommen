@@ -695,42 +695,74 @@ console.log(
 
 
         // Zoek alle mogelijke title velden
-        const titels = [];
+const titels = [];
 
 
-        const regex =
-    /"headline"\s*:\s*"([^"]+)"/gi;
+// Zoek Nuxt data
+const nuxtMatch = text.match(
+    /window\.__NUXT__\s*=\s*(.*?);<\/script>/
+);
 
 
-        let match;
+if (nuxtMatch) {
+
+    console.log(
+        "Nuxt gevonden"
+    );
 
 
-        while (
-            (match = regex.exec(text)) !== null
+    const nuxtText = nuxtMatch[1];
+
+
+    const regex =
+        /"title":"([^"]+)"/g;
+
+
+    let match;
+
+
+    while (
+        (match = regex.exec(nuxtText))
+        !== null
+    ) {
+
+        let titel =
+            match[1]
+            .replace(/\\"/g,'"')
+            .trim();
+
+
+        if (
+            titel.length > 15 &&
+            !titels.includes(titel)
         ) {
 
-            let titel = match[1]
-                .replace(/\\"/g,'"')
-                .replace(/\\u002F/g,"/")
-                .trim();
-
-
-            if (
-                titel.length > 15 &&
-                !titels.includes(titel)
-            ) {
-
-                titels.push(titel);
-
-            }
+            titels.push(titel);
 
         }
 
+    }
 
-        console.log(
-            "Aantal Oost titels:",
-            titels.length
-        );
+}
+else {
+
+    console.log(
+        "Geen Nuxt blok gevonden"
+    );
+
+}
+
+
+console.log(
+    "Aantal Oost titels:",
+    titels.length
+);
+
+
+console.log(
+    "Eerste Oost titels:",
+    titels.slice(0,10)
+);
 
 
         console.log(
