@@ -714,7 +714,7 @@ async function fetchOostNieuws() {
                     title: titel,
 
                     link:
-"https://www.oost.nl/nieuws#" + titel,
+"https://www.oost.nl/nieuws",
 
                     description:
                     "RTV Oost nieuwsbericht",
@@ -731,7 +731,11 @@ async function fetchOostNieuws() {
 console.log("RTV Oost gevonden:", artikelen.length);
 console.log(artikelen);
         
-        return artikelen.slice(0,25);
+        return artikelen.slice(0,5).map(a => ({
+    title: a.title,
+    link: a.link,
+    description: nuxt.substring(0,500)
+}));
 
 
     }
