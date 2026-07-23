@@ -685,7 +685,7 @@ async function fetchOostNieuws() {
 
 
         const regex =
-            /title:"(.*?)"/g;
+/"title":"(.*?)"/g;
 
 
         let match;
@@ -703,12 +703,8 @@ async function fetchOostNieuws() {
                 .trim();
 
 
-            if (
-                titel.length > 10 &&
-                !artikelen.some(
-                    a => a.title === titel
-                )
-            ) {
+            if (titel.length > 10) 
+            {
 
                 artikelen.push({
 
