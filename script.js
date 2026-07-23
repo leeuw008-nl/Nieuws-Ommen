@@ -1025,6 +1025,19 @@ gemeenteArtikelen.forEach(article => {
 
 });
 
+    oostArtikelen.forEach(article => {
+
+    allArticles.push({
+
+        ...article,
+
+        source:
+            "Oost"
+
+    });
+
+});
+
     // dubbele artikelen verwijderen
 
     const seen = new Set();
