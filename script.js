@@ -684,24 +684,31 @@ async function fetchOostNieuws() {
         const text = await res.text();
 
 
+        console.log(
+            "Oost lengte:",
+            text.length
+        );
+
+
+        // Zoek alle mogelijke title velden
         const titels = [];
 
-        const regex = /"title"\s*:\s*"([^"]+)"/g;
+
+        const regex =
+            /"title"\s*:\s*"([^"]+)"/gi;
+
 
         let match;
 
-        let aantalTitels = 0;
 
-
-        while ((match = regex.exec(text)) !== null) {
-
+        while (
+            (match = regex.exec(text)) !== null
+        ) {
 
             let titel = match[1]
-                .replace(/\\u002F/g,"/")
-                .replace(/\\u0027/g,"'")
                 .replace(/\\"/g,'"')
+                .replace(/\\u002F/g,"/")
                 .trim();
-
 
 
             if (
@@ -710,18 +717,6 @@ async function fetchOostNieuws() {
             ) {
 
                 titels.push(titel);
-
-
-                if (aantalTitels < 20) {
-
-                    console.log(
-                        "OOST TITEL:",
-                        titel
-                    );
-
-                    aantalTitels++;
-
-                }
 
             }
 
@@ -734,18 +729,27 @@ async function fetchOostNieuws() {
         );
 
 
+        console.log(
+            "Eerste Oost titels:",
+            titels.slice(0,10)
+        );
+
+
 
         const artikelen =
             titels
             .filter(titel => {
 
+
                 const zoek =
                     titel.toLowerCase();
 
 
-                return oostKeywords.some(keyword =>
+                return oostKeywords.some(
+                    keyword =>
                     zoek.includes(keyword)
                 );
+
 
             })
             .map(titel => {
@@ -756,16 +760,20 @@ async function fetchOostNieuws() {
                     title:
                         titel,
 
+
                     link:
                         "https://www.oost.nl/nieuws",
 
+
                     description:
                         "RTV Oost nieuwsbericht",
+
 
                     timestamp:
                         Date.now()
 
                 };
+
 
             });
 
@@ -795,7 +803,6 @@ async function fetchOostNieuws() {
     }
 
 }
-
 async function fetchGemeenteDatum(url) {
 
     try {
