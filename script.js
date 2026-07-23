@@ -683,6 +683,10 @@ async function fetchOostNieuws() {
 
         const text = await res.text();
 
+console.log(
+    text.substring(0,2000)
+);
+
 
         console.log(
             "Oost lengte:",
