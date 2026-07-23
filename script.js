@@ -815,26 +815,37 @@ async function testOost() {
         .parseFromString(text,"text/html");
 
 
-    let artikelen = [];
+    let scripts = [];
 
+    html.querySelectorAll("script")
+    .forEach(script => {
 
-    html.querySelectorAll("article")
-    .forEach(article => {
+        const inhoud = script.textContent;
 
-        artikelen.push(
-            article.innerText.substring(0,300)
-        );
+        if (
+            inhoud.includes("title") ||
+            inhoud.includes("nieuws") ||
+            inhoud.includes("article")
+        ) {
+
+            scripts.push(
+                inhoud.substring(0,500)
+            );
+
+        }
 
     });
 
 
     document.getElementById("news-container").innerHTML =
     `
-    <h2>RTV Oost article test</h2>
-    <p>Aantal article elementen: ${artikelen.length}</p>
+    <h2>RTV Oost script test</h2>
+
+    <p>Aantal gevonden scripts:
+    ${scripts.length}</p>
 
     <pre>
-${artikelen.slice(0,5).join("\n\n----------------\n\n")}
+${scripts.slice(0,5).join("\n\n----------------\n\n")}
     </pre>
     `;
 
