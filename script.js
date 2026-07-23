@@ -679,6 +679,7 @@ async function fetchOostNieuws() {
                 start + 16,
                 text.indexOf("</script>", start)
             );
+        console.log(nuxt.substring(0,2000));
 
 
         const artikelen = [];
@@ -703,10 +704,12 @@ async function fetchOostNieuws() {
                 .trim();
 
 
-            if (titel.length > 10) 
-            {
-
-                artikelen.push({
+            if (
+    titel.length > 10 &&
+    titel !== "Overijssels Nieuws"
+) 
+{
+    artikelen.push({
 
                     title: titel,
 
