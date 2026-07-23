@@ -653,71 +653,6 @@ beschrijving = beschrijving
 
 }
 
-
-
-async function fetchOostNieuws() {
-
-    const url = "https://www.oost.nl/nieuws";
-
-    const oostKeywords = [
-        "ommen",
-        "ommenaar",
-        "ommerschans",
-        "besthmenerberg",
-        "lemelerberg",
-        "beerze",
-        "vilsteren",
-        "vechtdal"
-    ];
-
-
-    try {
-
-        const res = await fetch(
-            PROXY + encodeURIComponent(url)
-        );
-
-
-        const text = await res.text();
-
-
-        const html =
-            new DOMParser()
-            .parseFromString(
-                text,
-                "text/html"
-            );
-
-
-        const links = [];
-
-
-        html.querySelectorAll("a")
-        .forEach(a => {
-
-            const href = a.href;
-            const title = a.textContent.trim();
-
-
-            if (
-                href.includes("/nieuws/") &&
-                title.length > 20 &&
-                !links.some(item => item.link === href)
-            ) {
-
-                links.push({
-
-                    title: title,
-                    link: href
-
-                });
-
-            }
-
-        });
-
-
-
 async function fetchGemeenteDatum(url) {
 
     try {
@@ -865,59 +800,8 @@ function isOmmenNieuws(article) {
 
 }
 
-async function testOost() {
-
-    const url = "https://www.oost.nl/nieuws";
-
-    const res = await fetch(
-        PROXY + encodeURIComponent(url)
-    );
-
-    const text = await res.text();
 
 
-    const start = text.indexOf(
-        "window.__NUXT__="
-    );
-
-
-    const nuxt = text.substring(
-        start + 16,
-        text.indexOf("</script>", start)
-    );
-
-
-    let titels = [];
-
-
-    // zoeken naar alle title velden
-
-    const matches =
-        nuxt.matchAll(
-            /title:"(.*?)"/g
-        );
-
-
-    for (const match of matches) {
-
-        titels.push(match[1]);
-
-    }
-
-
-    document.getElementById("news-container").innerHTML =
-    `
-    <h2>RTV Oost titels test</h2>
-
-    <p>Aantal titels:
-    ${titels.length}</p>
-
-    <pre>
-${titels.slice(0,20).join("\n\n")}
-    </pre>
-    `;
-
-}
 
 async function loadNews() {
 
@@ -939,26 +823,31 @@ async function loadNews() {
 
  // RSS en Gemeente tegelijk ophalen
 
-const [results, gemeenteArtikelen, rtvArtikelen, ommerArtikelen, oostArtikelen] =
+const [results, gemeenteArtikelen, rtvArtikelen, ommerArtikelen] =
     await Promise.all([
 
         Promise.all(
+
             feeds.map(feed =>
                 fetchRSS(feed.url)
                 .then(articles => ({
-                    source: feed.name,
-                    articles: articles
+
+                    source:
+                        feed.name,
+
+                    articles:
+                        articles
+
                 }))
             )
+
         ),
 
         fetchGemeenteNieuws(),
 
         fetchRTVVechtdalNieuws(),
 
-        fetchOmmerNieuws(),
-
-        fetchOostNieuws()
+        fetchOmmerNieuws()
 
     ]);
 
@@ -1019,19 +908,6 @@ gemeenteArtikelen.forEach(article => {
 
         source:
             "Ommer Nieuws"
-
-    });
-
-});
-
-    oostArtikelen.forEach(article => {
-
-    allArticles.push({
-
-        ...article,
-
-        source:
-            "RTV Oost"
 
     });
 
