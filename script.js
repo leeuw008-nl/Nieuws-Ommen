@@ -800,7 +800,38 @@ function isOmmenNieuws(article) {
 
 }
 
+async function testOost() {
 
+    const url = "https://www.oost.nl/nieuws";
+
+    try {
+
+        const res = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
+
+        const text = await res.text();
+
+        document.getElementById("news-container").innerHTML =
+        `
+        <h2>RTV Oost test</h2>
+        <p>Status: ${res.status}</p>
+        <p>Aantal tekens HTML: ${text.length}</p>
+        <pre>${text.substring(0,1000)}</pre>
+        `;
+
+    }
+    catch(error) {
+
+        document.getElementById("news-container").innerHTML =
+        `
+        <h2>RTV Oost fout</h2>
+        <p>${error}</p>
+        `;
+
+    }
+
+}
 
 
 async function loadNews() {
@@ -1214,7 +1245,7 @@ window.addEventListener(
 
         setupSources();
 
-        loadNews();
+        testOost();
 
     }
 );
