@@ -1108,7 +1108,7 @@ gemeenteArtikelen.forEach(article => {
         ...article,
 
         source:
-            "Oost"
+            "RTV Oost"
 
     });
 
