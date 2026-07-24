@@ -761,6 +761,29 @@ const response = await fetch(
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, "text/html");
 
+        console.log("OOST DEBUG", url);
+
+console.log(
+    "META:",
+    [...doc.querySelectorAll("meta")]
+        .map(m => ({
+            name: m.getAttribute("name"),
+            property: m.getAttribute("property"),
+            content: m.getAttribute("content")
+        }))
+        .filter(x => x.content)
+);
+
+console.log(
+    "TIME:",
+    doc.querySelectorAll("time")
+);
+
+console.log(
+    "TEKST:",
+    doc.body.innerText.substring(0,500)
+);
+
 
         // titel
         let title =
