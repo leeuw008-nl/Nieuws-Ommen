@@ -756,7 +756,7 @@ async function fetchGemeenteDatum(url) {
 
 
         const bodyText =
-            html.body.innerText;
+    html.body?.innerText || "";
 
 
         // verwijder overbodige witruimte
