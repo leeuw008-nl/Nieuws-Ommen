@@ -655,28 +655,10 @@ beschrijving = beschrijving
 
 async function fetchOostNieuws() {
 
+    console.log("=== RTV OOST NIEUWE VERSIE ===");
+
     const sitemap =
         "https://www.oost.nl/sitemap/sitemap.xml.gz";
-
-    const oostKeywords = [
-        "ommen",
-        "ommer",
-        "vechtdal",
-        "beerze",
-        "beerzerveld",
-        "vilsteren",
-        "stegeren",
-        "giethmen",
-        "junne",
-        "besthmen",
-        "besthmenerberg",
-        "lemele",
-        "lemelerberg",
-        "diffelen",
-        "witharen",
-        "arriën",
-        "arrien"
-    ];
 
     try {
 
@@ -684,75 +666,20 @@ async function fetchOostNieuws() {
             PROXY + encodeURIComponent(sitemap)
         );
 
-        if (!res.ok)
-            throw new Error("Sitemap niet bereikbaar");
+        console.log("Status:", res.status);
 
         const xmlText = await res.text();
 
         console.log(xmlText.substring(0,500));
 
-    }
-    catch(err){
-
-        console.error("RTV Oost:",err);
-
         return [];
 
     }
+    catch(err){
 
-}
-async function fetchGemeenteDatum(url) {
+        console.error(err);
 
-    try {
-
-        const res =
-            await fetch(
-                PROXY + encodeURIComponent(url)
-            );
-
-
-        const text =
-            await res.text();
-
-
-        const html =
-            new DOMParser()
-                .parseFromString(
-                    text,
-                    "text/html"
-                );
-
-
-        const bodyText =
-            html.body.innerText;
-
-
-        const match =
-            bodyText.match(
-                /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4},\s+\d{2}:\d{2}/i
-            );
-
-
-        if (match) {
-
-            return match[0];
-
-        }
-
-
-        return "";
-
-
-    }
-    catch(error) {
-
-        console.error(
-            "Datum ophalen mislukt:",
-            url,
-            error
-        );
-
-        return "";
+        return [];
 
     }
 
