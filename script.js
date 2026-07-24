@@ -762,6 +762,8 @@ async function fetchOostArtikel(url) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, "text/html");
 
+        console.log("OOST ARTIKEL HTML", doc.body.innerHTML.substring(0,3000));
+
 
         // titel
         const title =
