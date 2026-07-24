@@ -765,13 +765,6 @@ console.log(
 );
 
 
-        console.log(
-            "Eerste Oost titels:",
-            titels.slice(0,10)
-        );
-
-
-
         const artikelen =
             titels
             .filter(titel => {
