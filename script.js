@@ -699,17 +699,32 @@ console.log(uniek.slice(0,10));
 
         const artikelen = [];
 
-for (const url of uniek.slice(0,10)) {
+const nieuwsItems = [...doc.querySelectorAll("a")]
+    .filter(a =>
+        a.href &&
+        a.href.includes("/nieuws/") &&
+        /\/nieuws\/\d+\//.test(a.href)
+    )
+    .slice(0,10);
 
-    const artikel =
-        await fetchOostArtikel(url);
 
-    if (artikel) {
-        artikelen.push(artikel);
-    }
+for (const item of nieuwsItems) {
 
-    // even wachten zodat corsproxy.io niet blokkeert
-    await new Promise(resolve => setTimeout(resolve, 1200));
+    const titel = item.innerText.trim();
+
+    if (!titel) continue;
+
+    artikelen.push({
+        title: titel,
+        link: item.href.replace(
+            "https://leeuw008-nl.github.io",
+            "https://www.oost.nl"
+        ),
+        date: new Date(),
+        pubDate: new Date(),
+        text: "",
+        source: "Oost"
+    });
 
 }
 
@@ -718,7 +733,6 @@ console.log(
     "Oost artikelen:",
     artikelen.length
 );
-
 
 return artikelen;
 
