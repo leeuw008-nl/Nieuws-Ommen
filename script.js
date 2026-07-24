@@ -655,35 +655,61 @@ beschrijving = beschrijving
 
 async function fetchOostNieuws() {
 
-    console.log("=== RTV OOST NIEUWE VERSIE ===");
+    console.log("=== RTV OOST STAP 2 ===");
 
-    const sitemap =
+    const sitemapIndex =
         "https://www.oost.nl/sitemap/sitemap.xml.gz";
 
     try {
 
+        // sitemap-index ophalen
         const res = await fetch(
-            PROXY + encodeURIComponent(sitemap)
+            PROXY + encodeURIComponent(sitemapIndex)
         );
 
-        console.log("Status:", res.status);
+        if (!res.ok)
+            throw new Error("Sitemap index niet bereikbaar");
 
         const xmlText = await res.text();
 
-        console.log(xmlText.substring(0,500));
+        const xml = new DOMParser()
+            .parseFromString(xmlText, "text/xml");
+
+        // alle sitemap-url's verzamelen
+        const sitemapUrls =
+            Array.from(xml.getElementsByTagName("loc"))
+                 .map(loc => loc.textContent.trim());
+
+        console.log("Aantal sitemaps:", sitemapUrls.length);
+        console.log(sitemapUrls);
+
+        // voorlopig alleen de eerste sitemap openen
+        if (sitemapUrls.length === 0)
+            return [];
+
+        const res2 = await fetch(
+            PROXY + encodeURIComponent(sitemapUrls[0])
+        );
+
+        console.log("Sitemap 0 status:", res2.status);
+
+        const xml2 = await res2.text();
+
+        console.log(xml2.substring(0,1000));
 
         return [];
 
     }
     catch(err){
 
-        console.error(err);
+        console.error("RTV Oost:", err);
 
         return [];
 
     }
 
 }
+
 
 async function fetchGemeenteDatum(url) {
 
