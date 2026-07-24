@@ -748,93 +748,104 @@ async function fetchOostArtikel(url) {
 
     try {
 
-        await new Promise(r => setTimeout(r, 500));
+        const response = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
 
-const response = await fetch(
-    PROXY + encodeURIComponent(url)
-);
-
-        if (!response.ok) return null;
+        if (!response.ok) {
+            console.log("Oost artikel niet bereikbaar:", url);
+            return null;
+        }
 
         const html = await response.text();
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, "text/html");
-        
-        console.log("OOST PAGINA TEKST:", doc.body.innerText.substring(0,1000));
-
-        console.log("OOST DEBUG", url);
-
-console.log(
-    "META:",
-    [...doc.querySelectorAll("meta")]
-        .map(m => ({
-            name: m.getAttribute("name"),
-            property: m.getAttribute("property"),
-            content: m.getAttribute("content")
-        }))
-        .filter(x => x.content)
-);
-
-console.log(
-    "TIME:",
-    doc.querySelectorAll("time")
-);
-
-console.log(
-    "TEKST:",
-    doc.body.innerText.substring(0,500)
-);
 
 
         // titel
-        let title =
+        const title =
             doc.querySelector("h1")?.innerText ||
             "RTV Oost";
 
 
         // datum zoeken
-        let date = new Date();
-
-const metaDate =
-    doc.querySelector('meta[property="article:published_time"]')?.content ||
-    doc.querySelector('meta[property="og:published_time"]')?.content ||
-    doc.querySelector('time')?.getAttribute("datetime");
-
-if (metaDate) {
-    date = new Date(metaDate);
-}
+        let date = null;
 
 
-        // intro
-        let text =
-    doc.querySelector('meta[name="description"]')?.content ||
-    doc.querySelector('meta[property="og:description"]')?.content ||
-    "";
+        const mogelijkeDatums = [
+
+            doc.querySelector('meta[property="article:published_time"]')?.content,
+
+            doc.querySelector('meta[name="date"]')?.content,
+
+            doc.querySelector('time')?.getAttribute("datetime"),
+
+            ...[...doc.querySelectorAll("*")]
+                .map(el => el.innerText)
+                .filter(t =>
+                    t &&
+                    /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+202\d/.test(t)
+                )
+                .slice(0,1)
+
+        ];
 
 
-        console.log("OOST RESULTAAT", {
-    title,
-    date,
-    text
-});
+        for (const d of mogelijkeDatums) {
 
-return {
-    title: title.trim(),
-    link: url,
-    date: date,
-    pubDate: date,
-    text: text,
-    source: "Oost"
-};
+            if (d) {
+
+                const test = new Date(d);
+
+                if (!isNaN(test)) {
+                    date = test;
+                    break;
+                }
+
+            }
+
+        }
+
+
+        // als fallback
+        if (!date) {
+            date = new Date();
+        }
+
+
+        // omschrijving
+        const text =
+            doc.querySelector('meta[name="description"]')?.content ||
+            doc.querySelector('meta[property="og:description"]')?.content ||
+            "";
+
+
+        console.log(
+            "Oost artikel:",
+            title,
+            date,
+            text.substring(0,80)
+        );
+
+
+        return {
+
+            title: title.trim(),
+            link: url,
+            date: date,
+            pubDate: date,
+            text: text,
+            source: "RTV Oost"
+
+        };
 
 
     } catch(e){
 
         console.error(
-          "Oost artikel fout:",
-          url,
-          e
+            "Oost artikel fout:",
+            e
         );
 
         return null;
