@@ -655,7 +655,7 @@ beschrijving = beschrijving
 
 async function fetchOostNieuws() {
 
-    const url = "https://www.oost.nl/nieuws";
+    const url = "https://www.oost.nl/nieuws/vechtdal";
 
     const oostKeywords = [
         "ommen",
