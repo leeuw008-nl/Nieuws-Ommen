@@ -684,6 +684,7 @@ async function fetchOostNieuws() {
                 href.includes("/nieuws/")
             );
 
+        console.log("Alle Oost links:", links.slice(0,100));
 
         const uniek = [...new Set(links)];
 
