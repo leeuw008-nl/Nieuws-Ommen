@@ -697,12 +697,27 @@ console.log("Oost nieuwslinks:", uniek.length);
 console.log(uniek.slice(0,10));
 
 
-        return uniek.slice(0,10).map(url => ({
-            title: "RTV Oost nieuws",
-            link: url,
-            date: new Date(),
-            source: "Oost"
-        }));
+        const artikelen = [];
+
+for (const url of uniek.slice(0,10)) {
+
+    const artikel =
+        await fetchOostArtikel(url);
+
+    if (artikel) {
+        artikelen.push(artikel);
+    }
+
+}
+
+
+console.log(
+    "Oost artikelen:",
+    artikelen.length
+);
+
+
+return artikelen;
 
 
     } catch(e){
