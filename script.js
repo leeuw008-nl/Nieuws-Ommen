@@ -796,7 +796,7 @@ console.log(
 
 const metaDate =
     doc.querySelector('meta[property="article:published_time"]')?.content ||
-    doc.querySelector('meta[name="date"]')?.content ||
+    doc.querySelector('meta[property="og:published_time"]')?.content ||
     doc.querySelector('time')?.getAttribute("datetime");
 
 if (metaDate) {
@@ -806,9 +806,9 @@ if (metaDate) {
 
         // intro
         let text =
-            doc.querySelector(
-              'meta[name="description"]'
-            )?.content || "";
+    doc.querySelector('meta[name="description"]')?.content ||
+    doc.querySelector('meta[property="og:description"]')?.content ||
+    "";
 
 
         return {
