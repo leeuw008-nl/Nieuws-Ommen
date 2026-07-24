@@ -677,8 +677,8 @@ async function fetchOostNieuws() {
 
 
         const links = [...doc.querySelectorAll("a")]
-            .map(a => a.href)
-            .filter(href =>
+    .map(a => a.href)
+    .filter(Boolean);
                 href &&
                 href.includes("oost.nl") &&
                 href.includes("/nieuws/")
