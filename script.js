@@ -712,6 +712,67 @@ console.log(uniek.slice(0,10));
     }
 }
 
+async function fetchOostArtikel(url) {
+
+    try {
+
+        const response = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
+
+        if (!response.ok) return null;
+
+        const html = await response.text();
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+
+
+        // titel
+        let title =
+            doc.querySelector("h1")?.innerText ||
+            "RTV Oost";
+
+
+        // datum zoeken
+        let date = new Date();
+
+        const time =
+            doc.querySelector("time");
+
+        if (time?.datetime) {
+            date = new Date(time.datetime);
+        }
+
+
+        // intro
+        let text =
+            doc.querySelector(
+              'meta[name="description"]'
+            )?.content || "";
+
+
+        return {
+            title: title.trim(),
+            link: url,
+            date: date,
+            text: text,
+            source: "Oost"
+        };
+
+
+    } catch(e){
+
+        console.error(
+          "Oost artikel fout:",
+          url,
+          e
+        );
+
+        return null;
+    }
+}
+
 async function fetchGemeenteDatum(url) {
 
     try {
