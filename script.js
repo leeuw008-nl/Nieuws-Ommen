@@ -655,177 +655,46 @@ beschrijving = beschrijving
 
 async function fetchOostNieuws() {
 
-    const url = "https://www.oost.nl/nieuws/vechtdal";
+    const sitemap =
+        "https://www.oost.nl/sitemap/sitemap.xml.gz";
 
     const oostKeywords = [
         "ommen",
         "ommer",
-        "ommerschans",
-        "besthmenerberg",
-        "lemelerberg",
+        "vechtdal",
         "beerze",
+        "beerzerveld",
         "vilsteren",
-        "vechtdal"
+        "stegeren",
+        "giethmen",
+        "junne",
+        "besthmen",
+        "besthmenerberg",
+        "lemele",
+        "lemelerberg",
+        "diffelen",
+        "witharen",
+        "arriën",
+        "arrien"
     ];
-
 
     try {
 
         const res = await fetch(
-            PROXY + encodeURIComponent(url)
+            PROXY + encodeURIComponent(sitemap)
         );
 
+        if (!res.ok)
+            throw new Error("Sitemap niet bereikbaar");
 
-        if (!res.ok) {
-            throw new Error("RTV Oost pagina niet bereikbaar");
-        }
+        const xmlText = await res.text();
 
-
-        const text = await res.text();
-
-console.log(
-    text.substring(0,2000)
-);
-
-
-        console.log(
-            "Oost lengte:",
-            text.length
-        );
-
-
-        // Zoek alle mogelijke title velden
-const titels = [];
-
-
-// Zoek Nuxt data
-const nuxtMatch = text.match(
-    /window\.__NUXT__\s*=\s*(.*?);<\/script>/
-);
-
-
-if (nuxtMatch) {
-
-    console.log(
-        "Nuxt gevonden"
-    );
-
-
-    const nuxtText = nuxtMatch[1];
-
-
-    const regex =
-        /"title":"([^"]+)"/g;
-
-
-    let match;
-
-
-    while (
-        (match = regex.exec(nuxtText))
-        !== null
-    ) {
-
-        let titel =
-            match[1]
-            .replace(/\\"/g,'"')
-            .trim();
-
-
-        if (
-            titel.length > 15 &&
-            !titels.includes(titel)
-        ) {
-
-            titels.push(titel);
-
-        }
+        console.log(xmlText.substring(0,500));
 
     }
+    catch(err){
 
-}
-else {
-
-    console.log(
-        "Geen Nuxt blok gevonden"
-    );
-
-}
-
-
-console.log(
-    "Aantal Oost titels:",
-    titels.length
-);
-
-
-console.log(
-    "Eerste Oost titels:",
-    titels.slice(0,10)
-);
-
-
-        const artikelen =
-            titels
-            .filter(titel => {
-
-
-                const zoek =
-                    titel.toLowerCase();
-
-
-                return oostKeywords.some(
-                    keyword =>
-                    zoek.includes(keyword)
-                );
-
-
-            })
-            .map(titel => {
-
-
-                return {
-
-                    title:
-                        titel,
-
-
-                    link:
-                        "https://www.oost.nl/nieuws",
-
-
-                    description:
-                        "RTV Oost nieuwsbericht",
-
-
-                    timestamp:
-                        Date.now()
-
-                };
-
-
-            });
-
-
-
-        console.log(
-            "RTV Oost Ommen:",
-            artikelen.length
-        );
-
-
-        return artikelen.slice(0,10);
-
-
-    }
-    catch(error) {
-
-
-        console.error(
-            "RTV Oost fout:",
-            error
-        );
-
+        console.error("RTV Oost:",err);
 
         return [];
 
