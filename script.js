@@ -760,6 +760,8 @@ const response = await fetch(
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, "text/html");
+        
+        console.log("OOST PAGINA TEKST:", doc.body.innerText.substring(0,1000));
 
         console.log("OOST DEBUG", url);
 
