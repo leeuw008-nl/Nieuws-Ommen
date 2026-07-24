@@ -813,7 +813,13 @@ if (metaDate) {
     "";
 
 
-        return {
+        console.log("OOST RESULTAAT", {
+    title,
+    date,
+    text
+});
+
+return {
     title: title.trim(),
     link: url,
     date: date,
