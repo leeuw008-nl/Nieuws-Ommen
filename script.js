@@ -752,14 +752,12 @@ async function fetchOostArtikel(url) {
         // datum zoeken
         let date = new Date();
 
-const metaDate =
-    doc.querySelector('meta[property="article:published_time"]')?.content ||
-    doc.querySelector('meta[name="date"]')?.content ||
-    doc.querySelector('time')?.getAttribute("datetime");
+        const time =
+            doc.querySelector("time");
 
-if (metaDate) {
-    date = new Date(metaDate);
-}
+        if (time?.datetime) {
+            date = new Date(time.datetime);
+        }
 
 
         // intro
@@ -770,13 +768,12 @@ if (metaDate) {
 
 
         return {
-    title: title.trim(),
-    link: url,
-    date: date,
-    pubDate: date,
-    text: text,
-    source: "Oost"
-};
+            title: title.trim(),
+            link: url,
+            date: date,
+            text: text,
+            source: "Oost"
+        };
 
 
     } catch(e){
