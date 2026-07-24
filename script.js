@@ -708,6 +708,9 @@ for (const url of uniek.slice(0,10)) {
         artikelen.push(artikel);
     }
 
+    // even wachten zodat corsproxy.io niet blokkeert
+    await new Promise(resolve => setTimeout(resolve, 1200));
+
 }
 
 
