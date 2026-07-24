@@ -655,61 +655,55 @@ beschrijving = beschrijving
 
 async function fetchOostNieuws() {
 
-    console.log("=== RTV OOST STAP 2 ===");
+    console.log("=== RTV OOST START ===");
 
-    const sitemapIndex =
-        "https://www.oost.nl/sitemap/sitemap.xml.gz";
+    const url = "https://www.oost.nl/nieuws";
 
     try {
 
-        // sitemap-index ophalen
-        const res = await fetch(
-            PROXY + encodeURIComponent(sitemapIndex)
-        );
+        const response = await fetch(PROXY + encodeURIComponent(url));
 
-        if (!res.ok)
-            throw new Error("Sitemap index niet bereikbaar");
+        if (!response.ok) {
+            throw new Error("Oost pagina niet bereikbaar");
+        }
 
-        const xmlText = await res.text();
+        const html = await response.text();
 
-        const xml = new DOMParser()
-            .parseFromString(xmlText, "text/xml");
+        console.log("Oost HTML lengte:", html.length);
 
-        // alle sitemap-url's verzamelen
-        const sitemapUrls =
-            Array.from(xml.getElementsByTagName("loc"))
-                 .map(loc => loc.textContent.trim());
 
-        console.log("Aantal sitemaps:", sitemapUrls.length);
-        console.log(sitemapUrls);
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
 
-        // voorlopig alleen de eerste sitemap openen
-        if (sitemapUrls.length === 0)
-            return [];
 
-        const res2 = await fetch(
-            PROXY + encodeURIComponent(sitemapUrls[0])
-        );
+        const links = [...doc.querySelectorAll("a")]
+            .map(a => a.href)
+            .filter(href =>
+                href &&
+                href.includes("oost.nl") &&
+                href.includes("/nieuws/")
+            );
 
-        console.log("Sitemap 0 status:", res2.status);
 
-        const xml2 = await res2.text();
+        const uniek = [...new Set(links)];
 
-        console.log(xml2.substring(0,1000));
+        console.log("Oost nieuwslinks:", uniek.length);
 
+
+        return uniek.slice(0,10).map(url => ({
+            title: "RTV Oost nieuws",
+            link: url,
+            date: new Date(),
+            source: "Oost"
+        }));
+
+
+    } catch(e){
+
+        console.error("Oost fout:",e);
         return [];
-
     }
-    catch(err){
-
-        console.error("RTV Oost:", err);
-
-        return [];
-
-    }
-
 }
-
 
 async function fetchGemeenteDatum(url) {
 
