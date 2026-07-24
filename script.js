@@ -748,9 +748,11 @@ async function fetchOostArtikel(url) {
 
     try {
 
-        const response = await fetch(
-            PROXY + encodeURIComponent(url)
-        );
+        await new Promise(r => setTimeout(r, 500));
+
+const response = await fetch(
+    PROXY + encodeURIComponent(url)
+);
 
         if (!response.ok) return null;
 
