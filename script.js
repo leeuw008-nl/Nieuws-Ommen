@@ -678,13 +678,23 @@ async function fetchOostNieuws() {
 
         const links = [...doc.querySelectorAll("a")]
     .map(a => a.href)
-    .filter(Boolean);
+    .filter(href =>
+        href &&
+        href.includes("/nieuws/") &&
+        /\/nieuws\/\d+\//.test(href)
+    )
+    .map(href =>
+        href.replace(
+            "https://leeuw008-nl.github.io",
+            "https://www.oost.nl"
+        )
+    );
 
-        console.log("Alle Oost links:", links.slice(0,100));
 
-        const uniek = [...new Set(links)];
+const uniek = [...new Set(links)];
 
-        console.log("Oost nieuwslinks:", uniek.length);
+console.log("Oost nieuwslinks:", uniek.length);
+console.log(uniek.slice(0,10));
 
 
         return uniek.slice(0,10).map(url => ({
