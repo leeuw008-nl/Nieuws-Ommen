@@ -661,7 +661,9 @@ async function fetchOostNieuws() {
 
     try {
 
-        const response = await fetch(PROXY + encodeURIComponent(url));
+        const response = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
 
         if (!response.ok) {
             throw new Error("Oost pagina niet bereikbaar");
@@ -669,181 +671,231 @@ async function fetchOostNieuws() {
 
         const html = await response.text();
 
-        console.log("Oost HTML lengte:", html.length);
+        console.log(
+            "Oost HTML lengte:",
+            html.length
+        );
 
 
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, "text/html");
+        const doc =
+            new DOMParser()
+            .parseFromString(
+                html,
+                "text/html"
+            );
 
 
-        const links = [...doc.querySelectorAll("a")]
-    .map(a => a.href)
-    .filter(href =>
-        href &&
-        href.includes("/nieuws/") &&
-        /\/nieuws\/\d+\//.test(href)
-    )
-    .map(href =>
-        href.replace(
-            "https://leeuw008-nl.github.io",
-            "https://www.oost.nl"
-        )
-    );
+        const links =
+            [...doc.querySelectorAll("a")]
+            .map(a => a.href)
+            .filter(href =>
+                href &&
+                href.includes("/nieuws/") &&
+                /\/nieuws\/\d+\//.test(href)
+            )
+            .map(href =>
+                href.replace(
+                    "https://leeuw008-nl.github.io",
+                    "https://www.oost.nl"
+                )
+            );
 
 
-const uniek = [...new Set(links)];
+        const uniek =
+            [...new Set(links)];
 
-console.log("Oost nieuwslinks:", uniek.length);
-console.log(uniek.slice(0,10));
+
+        console.log(
+            "Oost nieuwslinks:",
+            uniek.length
+        );
+
+        console.log(
+            uniek.slice(0,10)
+        );
 
 
         const artikelen = [];
 
-const nieuwsItems = [...doc.querySelectorAll("a")]
-    .filter(a =>
-        a.href &&
-        a.href.includes("/nieuws/") &&
-        /\/nieuws\/\d+\//.test(a.href)
-    )
-    .slice(0,10);
+
+        for (
+            const link of uniek.slice(0,10)
+        ) {
 
 
-for (const item of nieuwsItems) {
-
-    const titel = item.innerText.trim();
-
-    if (!titel) continue;
-
-    artikelen.push({
-        title: titel,
-        link: item.href.replace(
-            "https://leeuw008-nl.github.io",
-            "https://www.oost.nl"
-        ),
-        date: new Date(),
-        pubDate: new Date(),
-        text: "",
-        source: "Oost"
-    });
-
-}
+            const artikel =
+                await fetchOostArtikel(link);
 
 
-console.log(
-    "Oost artikelen:",
-    artikelen.length
-);
+            if (artikel) {
 
-return artikelen;
+                artikelen.push(artikel);
+
+            }
 
 
-    } catch(e){
+        }
 
-        console.error("Oost fout:",e);
-        return [];
+
+        console.log(
+            "Oost artikelen:",
+            artikelen.length
+        );
+
+
+        return artikelen;
+
+
     }
+    catch(e) {
+
+        console.error(
+            "Oost fout:",
+            e
+        );
+
+        return [];
+
+    }
+
 }
 
 async function fetchOostArtikel(url) {
 
     try {
 
-        const response = await fetch(
-            PROXY + encodeURIComponent(url)
-        );
+        const response =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
 
         if (!response.ok) {
-            console.log("Oost artikel niet bereikbaar:", url);
+
+            console.log(
+                "Oost artikel niet bereikbaar:",
+                url
+            );
+
             return null;
+
         }
 
-        const html = await response.text();
 
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, "text/html");
-
-        console.log("OOST ARTIKEL HTML", doc.body.innerHTML.substring(0,3000));
+        const html =
+            await response.text();
 
 
-        // titel
+        const doc =
+            new DOMParser()
+            .parseFromString(
+                html,
+                "text/html"
+            );
+
+
         const title =
-            doc.querySelector("h1")?.innerText ||
+            doc.querySelector("h1")
+            ?.innerText
+            ?.trim()
+            ||
             "RTV Oost";
 
 
-        // datum zoeken
-        let date = null;
+        let datum = "";
 
 
-        const mogelijkeDatums = [
+        // eerst metadata proberen
 
-            doc.querySelector('meta[property="article:published_time"]')?.content,
-
-            doc.querySelector('meta[name="date"]')?.content,
-
-            doc.querySelector('time')?.getAttribute("datetime"),
-
-            ...[...doc.querySelectorAll("*")]
-                .map(el => el.innerText)
-                .filter(t =>
-                    t &&
-                    /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+202\d/.test(t)
-                )
-                .slice(0,1)
-
-        ];
+        const metaDatum =
+            doc.querySelector(
+                'meta[property="article:published_time"]'
+            )?.content
+            ||
+            doc.querySelector(
+                'meta[name="date"]'
+            )?.content
+            ||
+            doc.querySelector(
+                "time"
+            )?.getAttribute("datetime");
 
 
-        for (const d of mogelijkeDatums) {
+        if (metaDatum) {
 
-            if (d) {
+            datum = metaDatum;
 
-                const test = new Date(d);
+        }
 
-                if (!isNaN(test)) {
-                    date = test;
-                    break;
-                }
+
+        // daarna tekst zoeken
+
+        if (!datum) {
+
+            const tekst =
+                doc.body.innerText;
+
+
+            const match =
+                tekst.match(
+                    /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i
+                );
+
+
+            if (match) {
+
+                datum = match[0];
 
             }
 
         }
 
 
-        // als fallback
-        if (!date) {
-            date = new Date();
-        }
+        const timestamp =
+            datum
+            ? Date.parse(datum)
+            : Date.now();
 
 
-        // omschrijving
-        const text =
-            doc.querySelector('meta[name="description"]')?.content ||
-            doc.querySelector('meta[property="og:description"]')?.content ||
+
+        const description =
+            doc.querySelector(
+                'meta[name="description"]'
+            )?.content
+            ||
+            doc.querySelector(
+                'meta[property="og:description"]'
+            )?.content
+            ||
             "";
+
 
 
         console.log(
             "Oost artikel:",
             title,
-            date,
-            text.substring(0,80)
+            datum
         );
+
 
 
         return {
 
-            title: title.trim(),
+            title: title,
+
             link: url,
-            date: date,
-            pubDate: date,
-            text: text,
+
+            description: description,
+
+            timestamp: timestamp,
+
             source: "RTV Oost"
 
         };
 
 
-    } catch(e){
+    }
+    catch(e) {
 
         console.error(
             "Oost artikel fout:",
@@ -851,9 +903,10 @@ async function fetchOostArtikel(url) {
         );
 
         return null;
-    }
-}
 
+    }
+
+}
 async function fetchGemeenteDatum(url) {
 
     try {
