@@ -989,7 +989,8 @@ addArticles(rtvArtikelen, "RTV Vechtdal");
 console.log("RTV Oost klaar");
 addArticles(oostArtikelen, "RTV Oost");
 
-// Nu alles tonen
+finalizeArticles();
+
 searchNews();
     
 }
