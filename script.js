@@ -1209,37 +1209,66 @@ gemeenteArtikelen.forEach(article => {
 
     const seen = new Set();
 
+async function loadNews() {
 
-    allArticles =
-        allArticles.filter(article => {
+    const container = document.getElementById("news-container");
+    container.innerHTML = "<p>Nieuws laden...</p>";
 
+    allArticles = [];
 
-            if (seen.has(article.link)) {
+    // =========================
+    // RSS
+    // =========================
+    console.log("RSS ophalen...");
 
-                return false;
+    const results = await Promise.all(
 
-            }
+        feeds.map(async feed => ({
 
+            source: feed.name,
+            articles: await fetchRSS(feed.url)
 
-            seen.add(article.link);
+        }))
 
-
-            return true;
-
-
-        });
-
-
-
-    // nieuwste eerst
-
-    allArticles.sort(
-        (a,b) =>
-            b.timestamp - a.timestamp
     );
 
-    searchNews();
+    results.forEach(result => {
+        addArticles(result.articles, result.source);
+    });
 
+    console.log("RSS klaar");
+
+    // =========================
+    // Gemeente
+    // =========================
+    console.log("Gemeente ophalen...");
+
+    const gemeenteArtikelen = await fetchGemeenteNieuws();
+    addArticles(gemeenteArtikelen, "Gemeente Ommen");
+
+    console.log("Gemeente klaar");
+
+    // =========================
+    // RTV Vechtdal
+    // =========================
+    console.log("RTV Vechtdal ophalen...");
+
+    const rtvArtikelen = await fetchRTVVechtdalNieuws();
+    addArticles(rtvArtikelen, "RTV Vechtdal");
+
+    console.log("RTV Vechtdal klaar");
+
+    // =========================
+    // RTV Oost
+    // =========================
+    console.log("RTV Oost ophalen...");
+
+    const oostArtikelen = await fetchOostNieuws();
+    addArticles(oostArtikelen, "RTV Oost");
+
+    console.log("RTV Oost klaar");
+
+    searchNews();
 }
 function renderArticles(articles) {
 
