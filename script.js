@@ -148,17 +148,29 @@ return items
                     "Geen titel",
 
 
-                description:
-                    (
-                        item.querySelector(
-                            "description, summary, content"
-                        )
-                        ?.textContent
-                        ||
-                        ""
-                    )
-                    .replace(/<[^>]+>/g, "")
-                    .trim(),
+                description: (() => {
+
+    let tekst =
+        item.querySelector("content\\:encoded")
+            ?.textContent
+        ||
+        item.querySelector("description")
+            ?.textContent
+        ||
+        "";
+
+    // HTML verwijderen
+    tekst = tekst.replace(/<[^>]+>/g, " ");
+
+    // "The post..." verwijderen
+    tekst = tekst.replace(/The post.*$/is, "");
+
+    // dubbele spaties opruimen
+    tekst = tekst.replace(/\s+/g, " ").trim();
+
+    return tekst;
+
+})(),
 
 
                 link:
