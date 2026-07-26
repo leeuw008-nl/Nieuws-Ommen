@@ -1007,7 +1007,7 @@ async function loadNews() {
 
  // RSS en Gemeente tegelijk ophalen
 
-const [results, gemeenteArtikelen, rtvArtikelen, ommerArtikelen, oostArtikelen] =
+const [results, gemeenteArtikelen, rtvArtikelen, oostArtikelen] =
     await Promise.all([
 
         Promise.all(
