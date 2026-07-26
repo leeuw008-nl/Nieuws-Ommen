@@ -614,8 +614,8 @@ return artikelen.filter(artikel => artikel !== null);
 
 async function fetchVechtdalCentraalNieuws() {
 
-    const url = "https://www.vechtdalcentraal.nl/nieuws/";
-    
+    const url = "https://www.vechtdalcentraal.nl/";
+
     try {
 
         const response = await fetch(
@@ -637,7 +637,7 @@ async function fetchVechtdalCentraalNieuws() {
                     .map(a => a.href)
                     .filter(href =>
                         href &&
-                        href.startsWith("https://www.vechtdalcentraal.nl/nieuws/") &&
+                        href.startsWith("https://www.vechtdalcentraal.nl/") &&
                         !href.includes("/category/") &&
                         !href.includes("/tag/") &&
                         !href.endsWith("/")
@@ -1014,10 +1014,6 @@ async function loadNews() {
 
     console.log("RSS klaar");
 
-    const links = await fetchVechtdalCentraalNieuws();
-
-console.log(links);
-    
 // =========================
 // Gemeente + RTV + Oost tegelijk
 // =========================
@@ -1046,7 +1042,6 @@ addArticles(oostArtikelen, "RTV Oost");
 finalizeArticles();
 
 searchNews();
-    console.log("searchNews gestart", allArticles.length);
     
 }
 function renderArticles(articles) {
