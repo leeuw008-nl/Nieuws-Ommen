@@ -614,8 +614,8 @@ return artikelen.filter(artikel => artikel !== null);
 
 async function fetchVechtdalCentraalNieuws() {
 
-    const url = "https://www.vechtdalcentraal.nl/";
-
+    const url = "https://www.vechtdalcentraal.nl/nieuws/";
+    
     try {
 
         const response = await fetch(
