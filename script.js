@@ -1046,6 +1046,7 @@ addArticles(oostArtikelen, "RTV Oost");
 finalizeArticles();
 
 searchNews();
+    console.log("searchNews gestart", allArticles.length);
     
 }
 function renderArticles(articles) {
