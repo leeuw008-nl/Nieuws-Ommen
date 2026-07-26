@@ -192,15 +192,15 @@ return items
     }
     catch(error) {
 
-        console.error(
-            "RSS ophalen mislukt:",
-            url,
-            error
-        );
+    console.error(
+        "RSS ophalen mislukt:",
+        url,
+        error
+    );
 
-        return [];
+    return [];
 
-    }
+}
 
 }
 
