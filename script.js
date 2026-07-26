@@ -591,68 +591,6 @@ beschrijving = beschrijving
         ""
     )
 
-// eventuele scripts verwijderen
-    .replace(
-        /<script.*?<\/script>/gi,
-        ""
-    )
-
-// overtollige witruimte
-    .replace(/\s+/g," ")
-    .trim()
-    .substring(0,300);
-
-
-
-                    return {
-
-                        title:
-                            artikel.title,
-
-                        link:
-                            artikel.link,
-
-                        description:
-                            beschrijving + "...",
-
-                        timestamp:
-                            datum
-                            ? Date.parse(datum[0])
-                            : Date.now()
-
-                    };
-
-
-                })
-
-            );
-
-
-        console.log(
-            "Ommer Nieuws artikelen:",
-            artikelen.length
-        );
-
-
-        return artikelen;
-
-
-    }
-    catch(error) {
-
-
-        console.error(
-            "Ommer Nieuws fout:",
-            error
-        );
-
-
-        return [];
-
-    }
-
-}
-
 async function fetchOostNieuws() {
 
     console.log("=== RTV OOST START ===");
