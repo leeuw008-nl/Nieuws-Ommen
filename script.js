@@ -45,6 +45,7 @@ let allArticles = [];
 
 
 async function fetchRSS(url) {
+    console.log("RSS ophalen:", url);
 
     try {
 
