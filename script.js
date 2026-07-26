@@ -262,16 +262,13 @@ async function fetchGemeenteNieuws() {
                 .map(async artikel => {
 
 
-                    const datum =
-                        await fetchGemeenteDatum(
-                            artikel.link
-                        );
+                    const gegevens =
+    await fetchGemeenteGegevens(
+        artikel.link
+    );
 
-
-                    const tekst =
-                        await fetchGemeenteTekst(
-                            artikel.link
-                        );
+const datum = gegevens.datum;
+const tekst = gegevens.tekst;
 
 
                     return {
