@@ -891,8 +891,6 @@ const [results, gemeenteArtikelen, rtvArtikelen, oostArtikelen] =
 
         fetchRTVVechtdalNieuws(),
 
-        fetchOmmerNieuws(),
-
         fetchOostNieuws()
 
     ]);
