@@ -944,18 +944,6 @@ gemeenteArtikelen.forEach(article => {
 
 });
 
-    ommerArtikelen.forEach(article => {
-
-    allArticles.push({
-
-        ...article,
-
-        source:
-            "Ommer Nieuws"
-
-    });
-
-});
 
     oostArtikelen.forEach(article => {
 
