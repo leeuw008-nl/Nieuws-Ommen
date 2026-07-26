@@ -66,6 +66,7 @@ console.log("Fetch klaar", url);
         console.log("Tekst lezen", url);
 
 const text = await response.text();
+        console.log(url, text.substring(0,500));
 
 console.log("Tekst gelezen", url);   
 
