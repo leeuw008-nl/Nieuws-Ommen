@@ -912,6 +912,28 @@ function addArticles(artikelen, bron) {
 
 }
 
+function finalizeArticles() {
+
+    // Dubbele links verwijderen
+    const seen = new Set();
+
+    allArticles = allArticles.filter(article => {
+
+        if (seen.has(article.link)) {
+            return false;
+        }
+
+        seen.add(article.link);
+        return true;
+
+    });
+
+    // Nieuwste eerst
+    allArticles.sort(
+        (a, b) => b.timestamp - a.timestamp
+    );
+
+}
 
 async function loadNews() {
 
