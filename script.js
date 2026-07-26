@@ -1255,6 +1255,8 @@ window.addEventListener(
     "DOMContentLoaded",
     function() {
 
+        alert("script gestart");
+
         setupSearch();
 
         setupSources();
