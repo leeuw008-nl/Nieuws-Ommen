@@ -873,9 +873,6 @@ function addArticles(artikelen, bron) {
     // nieuwste eerst
     allArticles.sort((a, b) => b.timestamp - a.timestamp);
 
-    // direct opnieuw weergeven
-    searchNews();
-
 }
 
 
