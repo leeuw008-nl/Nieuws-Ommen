@@ -637,7 +637,7 @@ async function fetchVechtdalCentraalNieuws() {
                     .map(a => a.href)
                     .filter(href =>
                         href &&
-                        href.startsWith("https://www.vechtdalcentraal.nl/") &&
+                        href.startsWith("https://www.vechtdalcentraal.nl/nieuws/") &&
                         !href.includes("/category/") &&
                         !href.includes("/tag/") &&
                         !href.endsWith("/")
