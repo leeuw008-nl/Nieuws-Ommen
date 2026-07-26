@@ -1047,7 +1047,38 @@ function isOmmenNieuws(article) {
 }
 
 
+function addArticles(artikelen, bron) {
 
+    artikelen.forEach(article => {
+
+        allArticles.push({
+            ...article,
+            source: bron
+        });
+
+    });
+
+    // dubbele links verwijderen
+    const seen = new Set();
+
+    allArticles = allArticles.filter(article => {
+
+        if (seen.has(article.link)) {
+            return false;
+        }
+
+        seen.add(article.link);
+        return true;
+
+    });
+
+    // nieuwste eerst
+    allArticles.sort((a, b) => b.timestamp - a.timestamp);
+
+    // direct opnieuw weergeven
+    searchNews();
+
+}
 
 async function loadNews() {
 
