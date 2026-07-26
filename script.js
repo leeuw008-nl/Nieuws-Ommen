@@ -325,18 +325,15 @@ async function fetchGemeenteNieuws() {
 
 }
 
-
 async function fetchRTVVechtdalNieuws() {
 
     const url = "https://rtvvechtdal.nl/";
 
     try {
 
-        const res = await fetch(PROXY + encodeURIComponent(url));
-
-        if (!res.ok) {
-            throw new Error("RTV Vechtdal homepage niet bereikbaar");
-        }
+        const res = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
 
         const text = await res.text();
 
@@ -348,16 +345,18 @@ async function fetchRTVVechtdalNieuws() {
         html.querySelectorAll("a").forEach(a => {
 
             const href = new URL(
-                a.getAttribute("href"),
-                "https://rtvvechtdal.nl"
-            ).href;
+    a.getAttribute("href"),
+    "https://rtvvechtdal.nl"
+).href;
 
+            console.log(href);
+            
             const title = a.textContent.trim();
 
             if (
                 href.includes("type=detail") &&
                 title.length > 10 &&
-                !links.some(item => item.link === href)
+                !links.some(l => l.link === href)
             ) {
 
                 links.push({
@@ -369,79 +368,81 @@ async function fetchRTVVechtdalNieuws() {
 
         });
 
-        console.log("RTV links:", links.length);
+        const artikelen = await Promise.all(
 
-        const artikelen = [];
-
-        for (const artikel of links.slice(0, 10)) {
-
-            try {
+            links.slice(0,10).map(async artikel => {
 
                 const res2 = await fetch(
                     PROXY + encodeURIComponent(artikel.link)
                 );
 
-                if (!res2.ok) {
-                    console.log("Artikel overgeslagen:", artikel.link);
-                    continue;
-                }
-
                 const text2 = await res2.text();
 
                 const doc = new DOMParser()
-                    .parseFromString(text2, "text/html");
+                    .parseFromString(text2,"text/html");
 
                 const body =
-                    doc.body?.innerText
-                        ?.replace(/\s+/g, " ")
-                        ?.trim() || "";
+                    doc.body.innerText
+                        .replace(/\s+/g," ")
+                        .trim();
 
-                const match = body.match(
-                    /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i
-                );
+let schoneTekst = body;
 
-                const datum = match ? match[0] : "";
+// Alles vóór de eerste datum verwijderen
+schoneTekst = schoneTekst.replace(
+    /^.*?(\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4})/i,
+    "$1"
+);
+                
+                // Datum zoeken
+                const match =
+                    body.match(
+                        /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i
+                    );
 
-                let beschrijving = body;
+                const datum =
+                    match ? match[0] : "";
 
-                beschrijving = beschrijving.replace(
-                    /^.*?(\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4})/i,
-                    ""
-                );
+                // Eerste stuk tekst
+                let beschrijving = schoneTekst
+    .replace(artikel.title,"")
+    .replace(
+        /Home Vechtdal TV.*?Stichting RTV Vechtdal/i,
+        ""
+    )
+    .replace(
+        /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i,
+        ""
+    )
+    .trim()
+    .substring(0,300);
 
-                beschrijving = beschrijving
-                    .replace(artikel.title, "")
-                    .replace(/Home Vechtdal TV.*?Stichting RTV Vechtdal/i, "")
-                    .replace(/\s+/g, " ")
-                    .trim()
-                    .substring(0, 300);
-
-                artikelen.push({
+                return {
 
                     title: artikel.title,
+
                     link: artikel.link,
-                    description: beschrijving + "...",
-                    timestamp: datum ? Date.parse(datum) : Date.now()
 
-                });
+                    description:
+                        beschrijving + "...",
 
-            }
-            catch (e) {
+                    timestamp:
+                        datum
+                        ? Date.parse(datum)
+                        : Date.now()
 
-                console.log("Artikel mislukt:", artikel.link);
+                };
 
-            }
+            })
 
-        }
-
-        console.log("RTV artikelen:", artikelen.length);
+        );
 
         return artikelen;
 
     }
-    catch (error) {
+    catch(error) {
 
-        console.error("RTV Vechtdal fout:", error);
+        console.error("RTV:", error);
 
         return [];
 
@@ -449,6 +450,208 @@ async function fetchRTVVechtdalNieuws() {
 
 }
 
+async function fetchOmmerNieuws() {
+
+    const url =
+        "https://rtvvechtdal.nl/vechtdalnl/nieuws";
+
+
+    try {
+
+        const res =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+
+        const text =
+            await res.text();
+
+
+        const html =
+            new DOMParser()
+            .parseFromString(
+                text,
+                "text/html"
+            );
+
+
+        const links = [];
+
+
+        html.querySelectorAll("a")
+        .forEach(a => {
+
+
+            const href =
+                new URL(
+                    a.getAttribute("href"),
+                    "https://rtvvechtdal.nl"
+                ).href;
+
+
+            const title =
+                a.textContent.trim();
+
+
+
+            if (
+
+                href.includes("type=detail") &&
+                title.length > 10 &&
+                !links.some(
+                    item =>
+                    item.link === href
+                )
+
+            ) {
+
+
+                links.push({
+
+                    title,
+
+                    link: href
+
+                });
+
+
+            }
+
+
+        });
+
+
+
+        console.log(
+            "Ommer Nieuws links:",
+            links.length
+        );
+
+
+
+        const artikelen =
+            await Promise.all(
+
+                links
+                .slice(0,10)
+                .map(async artikel => {
+
+
+                    const res2 =
+                        await fetch(
+                            PROXY +
+                            encodeURIComponent(
+                                artikel.link
+                            )
+                        );
+
+
+                    const text2 =
+                        await res2.text();
+
+
+                    const doc =
+                        new DOMParser()
+                        .parseFromString(
+                            text2,
+                            "text/html"
+                        );
+
+
+                    const body =
+                        doc.body.innerText
+                        .replace(/\s+/g," ")
+                        .trim();
+
+
+
+                    const datum =
+                        body.match(
+                            /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i
+                        );
+
+
+
+                    let beschrijving = body;
+
+// verwijder alles vóór de datum
+beschrijving = beschrijving.replace(
+    /^.*?\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i,
+    ""
+);
+
+// titel verwijderen
+beschrijving = beschrijving
+    .replace(artikel.title, "")
+
+// JavaScript en website-code verwijderen
+    .replace(
+        /Vorige\s+jQuery\( document \).*$/i,
+        ""
+    )
+
+// eventuele scripts verwijderen
+    .replace(
+        /<script.*?<\/script>/gi,
+        ""
+    )
+
+// overtollige witruimte
+    .replace(/\s+/g," ")
+    .trim()
+    .substring(0,300);
+
+
+
+                    return {
+
+                        title:
+                            artikel.title,
+
+                        link:
+                            artikel.link,
+
+                        description:
+                            beschrijving + "...",
+
+                        timestamp:
+                            datum
+                            ? Date.parse(datum[0])
+                            : Date.now()
+
+                    };
+
+
+                })
+
+            );
+
+
+        console.log(
+            "Ommer Nieuws artikelen:",
+            artikelen.length
+        );
+
+
+        return artikelen;
+
+
+    }
+    catch(error) {
+
+
+        console.error(
+            "Ommer Nieuws fout:",
+            error
+        );
+
+
+        return [];
+
+    }
+
+}
 
 async function fetchOostNieuws() {
 
@@ -848,10 +1051,11 @@ function isOmmenNieuws(article) {
 
 async function loadNews() {
 
-    alert("loadNews gestart");
 
     const container =
-        document.getElementById("news-container");
+        document.getElementById(
+            "news-container"
+        );
 
 
     container.innerHTML =
@@ -865,22 +1069,31 @@ async function loadNews() {
 
  // RSS en Gemeente tegelijk ophalen
 
-const [results, gemeenteArtikelen, rtvArtikelen, oostArtikelen] =
+const [results, gemeenteArtikelen, rtvArtikelen, ommerArtikelen, oostArtikelen] =
     await Promise.all([
 
         Promise.all(
+
             feeds.map(feed =>
                 fetchRSS(feed.url)
                 .then(articles => ({
-                    source: feed.name,
-                    articles: articles
+
+                    source:
+                        feed.name,
+
+                    articles:
+                        articles
+
                 }))
             )
+
         ),
 
         fetchGemeenteNieuws(),
 
         fetchRTVVechtdalNieuws(),
+
+        fetchOmmerNieuws(),
 
         fetchOostNieuws()
 
@@ -935,6 +1148,18 @@ gemeenteArtikelen.forEach(article => {
 
 });
 
+    ommerArtikelen.forEach(article => {
+
+    allArticles.push({
+
+        ...article,
+
+        source:
+            "Ommer Nieuws"
+
+    });
+
+});
 
     oostArtikelen.forEach(article => {
 
@@ -1245,8 +1470,6 @@ function setupSources() {
 window.addEventListener(
     "DOMContentLoaded",
     function() {
-
-        alert("script gestart");
 
         setupSearch();
 
