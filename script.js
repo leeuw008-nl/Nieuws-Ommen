@@ -907,37 +907,34 @@ async function loadNews() {
 
     console.log("RSS klaar");
 
-    // =========================
-    // Gemeente
-    // =========================
-    console.log("Gemeente ophalen...");
+// =========================
+// Gemeente + RTV + Oost tegelijk
+// =========================
 
-    const gemeenteArtikelen = await fetchGemeenteNieuws();
-    addArticles(gemeenteArtikelen, "Gemeente Ommen");
+console.log("Gemeente, RTV Vechtdal en RTV Oost ophalen...");
 
-    console.log("Gemeente klaar");
+const [
+    gemeenteArtikelen,
+    rtvArtikelen,
+    oostArtikelen
+] = await Promise.all([
+    fetchGemeenteNieuws(),
+    fetchRTVVechtdalNieuws(),
+    fetchOostNieuws()
+]);
 
-    // =========================
-    // RTV Vechtdal
-    // =========================
-    console.log("RTV Vechtdal ophalen...");
+console.log("Gemeente klaar");
+addArticles(gemeenteArtikelen, "Gemeente Ommen");
 
-    const rtvArtikelen = await fetchRTVVechtdalNieuws();
-    addArticles(rtvArtikelen, "RTV Vechtdal");
+console.log("RTV Vechtdal klaar");
+addArticles(rtvArtikelen, "RTV Vechtdal");
 
-    console.log("RTV Vechtdal klaar");
+console.log("RTV Oost klaar");
+addArticles(oostArtikelen, "RTV Oost");
 
-    // =========================
-    // RTV Oost
-    // =========================
-    console.log("RTV Oost ophalen...");
-
-    const oostArtikelen = await fetchOostNieuws();
-    addArticles(oostArtikelen, "RTV Oost");
-
-    console.log("RTV Oost klaar");
-
-    searchNews();
+// Nu alles tonen
+searchNews();
+    
 }
 function renderArticles(articles) {
 
