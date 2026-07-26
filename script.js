@@ -325,6 +325,83 @@ async function fetchGemeenteNieuws() {
 
 }
 
+async function fetchGemeenteGegevens(url) {
+
+    try {
+
+        const res = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
+
+        if (!res.ok) {
+            return {
+                datum: "",
+                tekst: ""
+            };
+        }
+
+        const text = await res.text();
+
+        const html = new DOMParser()
+            .parseFromString(text, "text/html");
+
+        const bodyText = html.body?.innerText || "";
+
+        // ===== Datum =====
+
+        const match = bodyText.match(
+            /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}(,\s*\d{2}:\d{2})?/i
+        );
+
+        const datum = match ? match[0] : "";
+
+        // ===== Tekst =====
+
+        const regels = bodyText
+            .split("\n")
+            .map(regel => regel.trim())
+            .filter(regel =>
+                regel.length > 40 &&
+                !regel.includes("HomeActueel") &&
+                !regel.includes("Uitleg in eenvoudige taal") &&
+                !regel.includes("simpele tekst")
+            );
+
+        let tekst = "";
+
+        if (regels.length > 0) {
+            tekst = regels
+                .slice(1,4)
+                .join(" ")
+                .substring(0,350)
+                + "...";
+        }
+
+        return {
+            datum,
+            tekst
+        };
+
+    }
+
+    catch(error) {
+
+        console.error(
+            "Gemeentepagina ophalen mislukt:",
+            url,
+            error
+        );
+
+        return {
+            datum: "",
+            tekst: ""
+        };
+
+    }
+
+}
+
+
 async function fetchRTVVechtdalNieuws() {
 
     const url = "https://rtvvechtdal.nl/";
