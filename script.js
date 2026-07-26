@@ -587,35 +587,15 @@ async function fetchOostNieuws() {
         );
 
 
-        const artikelen = [];
+        const artikelen = await Promise.all(
 
+    uniek
+        .slice(0,10)
+        .map(link => fetchOostArtikel(link))
 
-        for (
-            const link of uniek.slice(0,10)
-        ) {
+);
 
-
-            const artikel =
-                await fetchOostArtikel(link);
-
-
-            if (artikel) {
-
-                artikelen.push(artikel);
-
-            }
-
-
-        }
-
-
-        console.log(
-            "Oost artikelen:",
-            artikelen.length
-        );
-
-
-        return artikelen;
+return artikelen.filter(artikel => artikel !== null);
 
 
     }
