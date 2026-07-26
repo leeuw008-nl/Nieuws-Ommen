@@ -49,9 +49,13 @@ async function fetchRSS(url) {
 
     try {
 
-        const response = await fetch(
-            PROXY + encodeURIComponent(url)
-        );
+        console.log("Start fetch", url);
+
+const response = await fetch(
+    PROXY + encodeURIComponent(url)
+);
+
+console.log("Fetch klaar", url);
 
 
         if (!response.ok) {
@@ -59,7 +63,11 @@ async function fetchRSS(url) {
         }
 
 
-        const text = await response.text();   
+        console.log("Tekst lezen", url);
+
+const text = await response.text();
+
+console.log("Tekst gelezen", url);   
 
         const xml =
             new DOMParser()
