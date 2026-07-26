@@ -535,61 +535,6 @@ async function fetchOmmerNieuws() {
 
                 links
                 .slice(0,10)
-                .map(async artikel => {
-
-
-                    const res2 =
-                        await fetch(
-                            PROXY +
-                            encodeURIComponent(
-                                artikel.link
-                            )
-                        );
-
-
-                    const text2 =
-                        await res2.text();
-
-
-                    const doc =
-                        new DOMParser()
-                        .parseFromString(
-                            text2,
-                            "text/html"
-                        );
-
-
-                    const body =
-                        doc.body.innerText
-                        .replace(/\s+/g," ")
-                        .trim();
-
-
-
-                    const datum =
-                        body.match(
-                            /\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i
-                        );
-
-
-
-                    let beschrijving = body;
-
-// verwijder alles vóór de datum
-beschrijving = beschrijving.replace(
-    /^.*?\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i,
-    ""
-);
-
-// titel verwijderen
-beschrijving = beschrijving
-    .replace(artikel.title, "")
-
-// JavaScript en website-code verwijderen
-    .replace(
-        /Vorige\s+jQuery\( document \).*$/i,
-        ""
-    )
 
 async function fetchOostNieuws() {
 
