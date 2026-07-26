@@ -948,26 +948,26 @@ async function loadNews() {
 
  // RSS en Gemeente tegelijk ophalen
 
-alert("RSS");
-const results = await Promise.all(
-    feeds.map(feed =>
-        fetchRSS(feed.url).then(articles => ({
-            source: feed.name,
-            articles: articles
-        }))
-    )
-);
+const [results, gemeenteArtikelen, rtvArtikelen, oostArtikelen] =
+    await Promise.all([
 
-alert("Gemeente");
-const gemeenteArtikelen = await fetchGemeenteNieuws();
+        Promise.all(
+            feeds.map(feed =>
+                fetchRSS(feed.url)
+                .then(articles => ({
+                    source: feed.name,
+                    articles: articles
+                }))
+            )
+        ),
 
-alert("RTV Vechtdal");
-const rtvArtikelen = await fetchRTVVechtdalNieuws();
+        fetchGemeenteNieuws(),
 
-alert("RTV Oost");
-const oostArtikelen = await fetchOostNieuws();
+        fetchRTVVechtdalNieuws(),
 
-alert("Alles opgehaald");
+        fetchOostNieuws()
+
+    ]);
 
 
 // RSS artikelen toevoegen
