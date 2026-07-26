@@ -12,10 +12,6 @@ const feeds = [
     {
         name: 'De Stentor',
         url: 'https://www.destentor.nl/ommen/rss.xml'
-    },
-    {
-    name: "Vechtdal Centraal",
-    url: "https://www.vechtdalcentraal.nl/category/nieuws/feed/"
     }
 
 ];
@@ -45,17 +41,12 @@ let allArticles = [];
 
 
 async function fetchRSS(url) {
-    console.log("RSS ophalen:", url);
 
     try {
 
-        console.log("Start fetch", url);
-
-const response = await fetch(
-    PROXY + encodeURIComponent(url)
-);
-
-console.log("Fetch klaar", url);
+        const response = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
 
 
         if (!response.ok) {
@@ -63,12 +54,7 @@ console.log("Fetch klaar", url);
         }
 
 
-        console.log("Tekst lezen", url);
-
-const text = await response.text();
-        console.log(url, text.substring(0,500));
-
-console.log("Tekst gelezen", url);   
+        const text = await response.text();   
 
         const xml =
             new DOMParser()
@@ -158,29 +144,17 @@ return items
                     "Geen titel",
 
 
-                description: (() => {
-
-    let tekst =
-        item.querySelector("content\\:encoded")
-            ?.textContent
-        ||
-        item.querySelector("description")
-            ?.textContent
-        ||
-        "";
-
-    // HTML verwijderen
-    tekst = tekst.replace(/<[^>]+>/g, " ");
-
-    // "The post..." verwijderen
-    tekst = tekst.replace(/The post.*$/is, "");
-
-    // dubbele spaties opruimen
-    tekst = tekst.replace(/\s+/g, " ").trim();
-
-    return tekst;
-
-})(),
+                description:
+                    (
+                        item.querySelector(
+                            "description, summary, content"
+                        )
+                        ?.textContent
+                        ||
+                        ""
+                    )
+                    .replace(/<[^>]+>/g, "")
+                    .trim(),
 
 
                 link:
@@ -201,15 +175,15 @@ return items
     }
     catch(error) {
 
-    console.error(
-        "RSS ophalen mislukt:",
-        url,
-        error
-    );
+        console.error(
+            "RSS ophalen mislukt:",
+            url,
+            error
+        );
 
-    return [];
+        return [];
 
-}
+    }
 
 }
 
