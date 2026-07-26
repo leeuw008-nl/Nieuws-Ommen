@@ -849,11 +849,10 @@ function isOmmenNieuws(article) {
 
 async function loadNews() {
 
+    alert("loadNews gestart");
 
     const container =
-        document.getElementById(
-            "news-container"
-        );
+        document.getElementById("news-container");
 
 
     container.innerHTML =
