@@ -1014,6 +1014,10 @@ async function loadNews() {
 
     console.log("RSS klaar");
 
+    const links = await fetchVechtdalCentraalNieuws();
+
+console.log(links);
+    
 // =========================
 // Gemeente + RTV + Oost tegelijk
 // =========================
