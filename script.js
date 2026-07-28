@@ -1301,6 +1301,118 @@ function setupSources() {
 
 }
 
+async function testVechtdalCentraal() {
+
+    const container =
+        document.getElementById("news-container");
+
+    container.innerHTML =
+        "<p>Vechtdal Centraal testen...</p>";
+
+    const url =
+        "https://www.vechtdalcentraal.nl/";
+
+    try {
+
+        const response =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+
+        const html =
+            await response.text();
+
+
+        const doc =
+            new DOMParser()
+            .parseFromString(
+                html,
+                "text/html"
+            );
+
+
+        let resultaat = "";
+
+        resultaat +=
+            "<h2>Vechtdal Centraal test</h2>";
+
+        resultaat +=
+            "<p>HTTP status: " +
+            response.status +
+            "</p>";
+
+        resultaat +=
+            "<p>HTML lengte: " +
+            html.length +
+            "</p>";
+
+        resultaat +=
+            "<p>Paginatitel: " +
+            doc.title +
+            "</p>";
+
+
+        const links =
+            [...doc.querySelectorAll("a")]
+            .map(a => ({
+                tekst:
+                    a.innerText.trim(),
+
+                link:
+                    a.href
+            }))
+            .filter(item =>
+                item.link.includes(
+                    "vechtdalcentraal.nl"
+                )
+            );
+
+
+        resultaat +=
+            "<p>Aantal links: " +
+            links.length +
+            "</p>";
+
+
+        resultaat +=
+            "<h3>Eerste links:</h3><ul>";
+
+
+        links.slice(0,20)
+        .forEach(item => {
+
+            resultaat +=
+                "<li>" +
+                item.tekst.substring(0,80) +
+                "<br>" +
+                item.link +
+                "</li><br>";
+
+        });
+
+
+        resultaat += "</ul>";
+
+
+        container.innerHTML =
+            resultaat;
+
+
+    }
+    catch(error) {
+
+        container.innerHTML =
+            "<p>Fout:</p><pre>" +
+            error +
+            "</pre>";
+
+    }
+
+}
+
+testVechtdalCentraal();
+
 window.addEventListener(
     "DOMContentLoaded",
     function() {
