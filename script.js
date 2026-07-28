@@ -664,7 +664,7 @@ async function fetchVechtdalCentraalNieuws() {
 async function testVechtdalAPI() {
 
     const url =
-        "https://www.vechtdalcentraal.nl/wp-json/wp/v2/posts?per_page=5";
+        "https://www.vechtdalcentraal.nl/";
 
     try {
 
