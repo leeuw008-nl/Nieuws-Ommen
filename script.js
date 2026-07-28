@@ -1446,6 +1446,58 @@ async function testVechtdalCentraal() {
 // testVechtdalCentraal();
 // testVechtdalAPI();
 
+
+async function testVechtdalCentraal() {
+
+    const url = "https://www.vechtdalcentraal.nl/";
+
+    try {
+
+        const response = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
+
+        const html = await response.text();
+
+        const doc = new DOMParser()
+            .parseFromString(html, "text/html");
+
+
+        console.log("=== VECHTDAL CENTRAAL TEST ===");
+        console.log("Status:", response.status);
+        console.log("HTML lengte:", html.length);
+        console.log("Titel:", doc.title);
+
+
+        const links = [...doc.querySelectorAll("a")]
+            .map(a => ({
+                tekst: a.innerText.trim(),
+                link: a.href
+            }))
+            .filter(x =>
+                x.link.includes("vechtdalcentraal.nl")
+            );
+
+
+        console.log("Aantal links:", links.length);
+
+        console.log(
+            links.slice(0,20)
+        );
+
+    }
+
+    catch(e) {
+
+        console.error(
+            "Vechtdal test fout:",
+            e
+        );
+
+    }
+
+}
+
 window.addEventListener(
     "DOMContentLoaded",
     function() {
