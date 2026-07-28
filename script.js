@@ -1498,6 +1498,9 @@ async function testVechtdalCentraal() {
 
 }
 
+
+testVechtdalCentraal();
+
 window.addEventListener(
     "DOMContentLoaded",
     function() {
