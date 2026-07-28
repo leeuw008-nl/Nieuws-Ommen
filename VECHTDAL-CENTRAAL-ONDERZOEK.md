@@ -8,53 +8,81 @@
 - Eerst bestaande testen controleren voordat nieuwe routes worden geprobeerd.
 
 
-# Vechtdal Centraal
+# Vechtdal Centraal - testlog
 
-## Doel
-Vechtdal Centraal toevoegen als nieuwsbron.
+Doel:
+Vechtdal Centraal toevoegen als nieuwsbron aan de Ommen Nieuws app.
 
 ---
 
 ## Test 1 - RSS feed
 
-URL:
+Getest:
 https://www.vechtdalcentraal.nl/feed/
 
 Resultaat:
-Geen bruikbare artikelen gevonden.
+Geen bruikbare nieuwsartikelen gevonden.
 
 Status:
-NIET GEBRUIKEN
+Mislukt.
 
 ---
 
 ## Test 2 - WordPress API
 
-URL:
+Getest:
 https://www.vechtdalcentraal.nl/wp-json/wp/v2/posts
 
 Resultaat:
-Geen bruikbare gegevens via huidige proxy-oplossing.
+Geen bruikbare resultaten verkregen via de gebruikte proxy/testmethode.
 
 Status:
-NIET VERDER ONDERZOEKEN
+Mislukt.
 
 ---
 
-## Test 3 - Website scraping
+## Test 3 - Website ophalen via proxy
 
-URL:
+Getest:
+https://www.vechtdalcentraal.nl/
+
+Methode:
+Pagina opgehaald via:
+
+https://corsproxy.io/
+Resultaat:
+
+- HTTP status: 202
+- HTML lengte: 1112 tekens
+- Geen paginatitel
+- Geen bruikbare links gevonden
+
+Status:
+Mislukt.
+
+---
+
+## Test 4 - Website links uitlezen
+
+Getest:
+Alle links op:
 https://www.vechtdalcentraal.nl/
 
 Resultaat:
-Proxy gaf:
-- HTTP status 202
-- HTML lengte 1112
-- geen titel
-- geen links
+Aantal gevonden bruikbare links:
+0
 
-Conclusie:
-Geen echte webpagina ontvangen.
+Status:
+Mislukt.
+
+---
+
+## Nog niet getest
+
+- sitemap.xml
+- alternatieve JSON endpoints
+- andere openbare feeds
+- andere scrapingmethode zonder huidige proxy
 
 Status:
 NIET GESCHIKT
