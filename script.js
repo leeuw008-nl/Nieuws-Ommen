@@ -1421,7 +1421,7 @@ window.addEventListener(
 
         setupSources();
 
-        loadNews();
+      //  loadNews();
 
     }
 );
