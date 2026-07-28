@@ -1444,7 +1444,7 @@ async function testVechtdalCentraal() {
 }
 
 // testVechtdalCentraal();
-testVechtdalAPI();
+// testVechtdalAPI();
 
 window.addEventListener(
     "DOMContentLoaded",
@@ -1454,7 +1454,7 @@ window.addEventListener(
 
         setupSources();
 
-      //  loadNews();
+        loadNews();
 
     }
 );
