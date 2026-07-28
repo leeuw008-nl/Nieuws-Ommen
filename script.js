@@ -45,7 +45,7 @@ async function fetchRSS(url) {
     try {
 
         const response = await fetch(
-            PROXY + encodeURIComponent(url)
+            "https://corsproxy.io/?url=" + encodeURIComponent(url)
         );
 
 
