@@ -661,6 +661,38 @@ async function fetchVechtdalCentraalNieuws() {
 
 }
 
+async function testVechtdalAPI() {
+
+    const url =
+        "https://www.vechtdalcentraal.nl/wp-json/wp/v2/posts?per_page=5";
+
+    try {
+
+        const response = await fetch(
+            PROXY + encodeURIComponent(url)
+        );
+
+        const tekst =
+            await response.text();
+
+        document.getElementById("news-container").innerHTML =
+            "<h2>API test</h2>" +
+            "<p>Status: " + response.status + "</p>" +
+            "<p>Lengte: " + tekst.length + "</p>" +
+            "<pre>" +
+            tekst.substring(0,1000) +
+            "</pre>";
+
+    }
+
+    catch(e) {
+
+        document.getElementById("news-container").innerHTML =
+            "API fout: " + e;
+
+    }
+
+}
 
 async function fetchOostArtikel(url) {
 
@@ -1412,6 +1444,7 @@ async function testVechtdalCentraal() {
 }
 
 testVechtdalCentraal();
+testVechtdalAPI();
 
 window.addEventListener(
     "DOMContentLoaded",
