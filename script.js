@@ -1443,7 +1443,7 @@ async function testVechtdalCentraal() {
 
 }
 
-testVechtdalCentraal();
+// testVechtdalCentraal();
 testVechtdalAPI();
 
 window.addEventListener(
