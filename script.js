@@ -771,7 +771,50 @@ async function fetchOostArtikel(url) {
             ||
             "";
 
+// Artikeltekst ophalen
+let content = "";
 
+const article =
+    doc.querySelector("article")
+    || doc.querySelector("main");
+
+if (article) {
+
+    content = article.innerHTML;
+
+    // scripts, styles enz. verwijderen
+    content = content
+        .replace(/<script[\s\S]*?<\/script>/gi, "")
+        .replace(/<style[\s\S]*?<\/style>/gi, "")
+        .replace(/<!--[\s\S]*?-->/g, "");
+
+    // Alleen nette HTML-tags behouden
+    const temp = document.createElement("div");
+    temp.innerHTML = content;
+
+    temp.querySelectorAll("*").forEach(el => {
+
+        const allowed = [
+            "P",
+            "BR",
+            "H2",
+            "H3",
+            "STRONG",
+            "EM",
+            "UL",
+            "OL",
+            "LI",
+            "BLOCKQUOTE"
+        ];
+
+        if (!allowed.includes(el.tagName)) {
+            el.replaceWith(...el.childNodes);
+        }
+
+    });
+
+    content = temp.innerHTML;
+}
 
         console.log(
             "Oost artikel:",
@@ -783,17 +826,19 @@ async function fetchOostArtikel(url) {
 
         return {
 
-            title: title,
+    title: title,
 
-            link: url,
+    link: url,
 
-            description: description,
+    description: description,
 
-            timestamp: timestamp,
+    content: content,
 
-            source: "RTV Oost"
+    timestamp: timestamp,
 
-        };
+    source: "RTV Oost"
+
+};
 
 
     }
