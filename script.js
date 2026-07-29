@@ -1472,12 +1472,114 @@ async function testVechtdalSitemaps() {
 
 }
 
+async function testGoogleNewsVechtdal() {
+
+    const urls = [
+
+        "https://news.google.com/rss/search?q=site:vechtdalcentraal.nl",
+
+        "https://news.google.com/rss/search?q=site:vechtdalcentraal.nl+Ommen",
+
+        "https://news.google.com/rss/search?q=Vechtdal+Centraal"
+
+    ];
+
+
+    let resultaat =
+        "<h2>Google News RSS test Vechtdal Centraal</h2>";
+
+
+    for (const url of urls) {
+
+        try {
+
+            const response =
+                await fetch(
+                    PROXY + encodeURIComponent(url)
+                );
+
+
+            const tekst =
+                await response.text();
+
+
+            const xml =
+                new DOMParser()
+                .parseFromString(
+                    tekst,
+                    "text/xml"
+                );
+
+
+            const items =
+                xml.getElementsByTagName("item");
+
+
+            resultaat +=
+                "<hr>" +
+                "<b>URL:</b><br>" +
+                url +
+                "<br><br>" +
+
+                "<b>Status:</b> " +
+                response.status +
+
+                "<br><b>Lengte:</b> " +
+                tekst.length +
+
+                "<br><b>Aantal artikelen:</b> " +
+                items.length;
+
+
+            if (items.length > 0) {
+
+                resultaat += "<ul>";
+
+                for (
+                    let i = 0;
+                    i < Math.min(items.length,5);
+                    i++
+                ) {
+
+                    resultaat +=
+                        "<li>" +
+                        items[i]
+                        .querySelector("title")
+                        ?.textContent +
+                        "</li>";
+
+                }
+
+                resultaat += "</ul>";
+
+            }
+
+
+        }
+
+        catch(error) {
+
+            resultaat +=
+                "<p>Fout:<br>" +
+                error +
+                "</p>";
+
+        }
+
+    }
+
+
+    document.getElementById(
+        "news-container"
+    ).innerHTML = resultaat;
+
+}
 
 window.addEventListener(
     "DOMContentLoaded",
     function() {
 
-        testVechtdalSitemaps();
+        testGoogleNewsVechtdal();
 
     }
 );
