@@ -335,6 +335,13 @@ Status onderzoek:
 Afgerond.
 ---
 
+Status onderzoek:
+
+Nog niet afgerond.
+
+Openstaande test:
+- Yoast sitemap index (/sitemap_index.xml)
+- Mogelijk uitlezen van sitemap via andere methode dan corsproxy.io
 
 # Besluiten
 
