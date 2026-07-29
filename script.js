@@ -1406,15 +1406,78 @@ function setupSources() {
 
 }
 
+async function testVechtdalSitemaps() {
+
+    const urls = [
+
+        "https://www.vechtdalcentraal.nl/sitemap_index.xml",
+
+        "https://www.vechtdalcentraal.nl/wp-sitemap.xml",
+
+        "https://www.vechtdalcentraal.nl/post-sitemap.xml",
+
+        "https://www.vechtdalcentraal.nl/post-sitemap1.xml"
+
+    ];
+
+
+    let resultaat = "<h2>Vechtdal sitemap onderzoek</h2>";
+
+
+    for (const url of urls) {
+
+        try {
+
+            const response = await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+
+            const tekst = await response.text();
+
+
+            resultaat +=
+                "<hr>" +
+                "<b>URL:</b> " + url +
+                "<br>" +
+                "<b>Status:</b> " + response.status +
+                "<br>" +
+                "<b>Lengte:</b> " + tekst.length +
+                "<br>" +
+                "<b>Eerste 300 tekens:</b><pre>" +
+                tekst.substring(0,300)
+                .replace(/</g,"&lt;")
+                .replace(/>/g,"&gt;") +
+                "</pre>";
+
+
+        }
+        catch(error) {
+
+            resultaat +=
+                "<p>Fout bij " +
+                url +
+                ": " +
+                error +
+                "</p>";
+
+        }
+
+    }
+
+
+    document.getElementById(
+        "news-container"
+    ).innerHTML = resultaat;
+
+}
+
+
 window.addEventListener(
     "DOMContentLoaded",
     function() {
 
-        setupSearch();
-
-        setupSources();
-
-        testVechtdalAPI();
+        testVechtdalSitemaps();
 
     }
 );
