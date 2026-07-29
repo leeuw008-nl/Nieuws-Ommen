@@ -236,6 +236,48 @@ Conclusie:
 
 De standaard WordPress RSS-feeds zijn via de huidige proxy niet toegankelijk.
 
+---
+
+## Test 5 - Sitemap ophalen via browser/proxy
+
+Getest:
+
+https://www.vechtdalcentraal.nl/post-sitemap.xml
+
+Resultaat:
+
+- HTTP status: 202
+- Inhoud bevat geen sitemap maar Cloudflare challenge pagina
+- Geen URLs kunnen uitlezen
+
+Status:
+
+Mislukt (geblokkeerd door Cloudflare).
+
+---
+
+## Test 6 - Alternatieve RSS URLs
+
+Getest:
+
+https://www.vechtdalcentraal.nl/?feed=rss2
+
+https://www.vechtdalcentraal.nl/feed/rss/
+
+https://www.vechtdalcentraal.nl/rss/
+
+Resultaat:
+
+- HTTP status: 202
+- Geen RSS XML ontvangen
+- Geen artikelen gevonden
+
+Status:
+
+Mislukt (geblokkeerd door Cloudflare).
+
+---
+
 # Besluiten
 
 - RTV Vechtdal blijft huidige bron.
