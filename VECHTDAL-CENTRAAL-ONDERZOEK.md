@@ -203,6 +203,39 @@ Conclusie:
 Vechtdal Centraal gebruikt Cloudflare bescherming die de huidige proxy blokkeert.
 Andere methode nodig.
 
+---
+
+## Test 6 - Alternatieve RSS feeds
+
+Getest:
+
+1. https://www.vechtdalcentraal.nl/?feed=rss2
+2. https://www.vechtdalcentraal.nl/feed/rss/
+3. https://www.vechtdalcentraal.nl/rss/
+
+Methode:
+
+Ophalen via:
+
+https://corsproxy.io/
+
+Resultaat:
+
+Alle drie de URL's geven:
+
+- HTTP status: 202
+- Geen RSS/XML ontvangen
+- Cloudflare challenge pagina ontvangen
+- 0 artikelen gevonden
+
+Status:
+
+Mislukt.
+
+Conclusie:
+
+De standaard WordPress RSS-feeds zijn via de huidige proxy niet toegankelijk.
+
 # Besluiten
 
 - RTV Vechtdal blijft huidige bron.
