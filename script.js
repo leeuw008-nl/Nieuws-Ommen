@@ -673,43 +673,26 @@ async function testVechtdalSitemap() {
                 PROXY + encodeURIComponent(url)
             );
 
-        const xmlText =
+        const tekst =
             await response.text();
 
 
-        const xml =
-            new DOMParser()
-            .parseFromString(
-                xmlText,
-                "text/xml"
-            );
-
-
-        const urls =
-            [...xml.querySelectorAll("loc")]
-            .map(loc => loc.textContent);
-
-
         document.getElementById("news-container").innerHTML =
-            "<h2>Vechtdal sitemap test</h2>" +
-            "<p>Aantal URLs: " +
-            urls.length +
-            "</p>" +
-            "<p>Eerste 10:</p>" +
-            "<ul>" +
-            urls.slice(0,10)
-            .map(url =>
-                "<li>" + url + "</li>"
-            )
-            .join("") +
-            "</ul>";
-
+            "<h2>Vechtdal sitemap inhoud test</h2>" +
+            "<p>Status: " + response.status + "</p>" +
+            "<p>Lengte: " + tekst.length + "</p>" +
+            "<pre>" +
+            tekst.substring(0,2000)
+            .replace(/</g,"&lt;")
+            .replace(/>/g,"&gt;") +
+            "</pre>";
 
     }
+
     catch(error) {
 
         document.getElementById("news-container").innerHTML =
-            "Sitemap fout: " + error;
+            "Fout: " + error;
 
     }
 
