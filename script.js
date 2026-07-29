@@ -614,46 +614,83 @@ return artikelen.filter(artikel => artikel !== null);
 
 async function fetchVechtdalCentraalNieuws() {
 
-    const url = "https://www.vechtdalcentraal.nl/";
+    const url =
+        "https://www.vechtdalcentraal.nl/?rest_route=/wp/v2/posts&per_page=10";
 
     try {
 
-        const response = await fetch(
-            PROXY + encodeURIComponent(url)
-        );
+        const response =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
 
         if (!response.ok) {
-            throw new Error("Vechtdal Centraal niet bereikbaar");
+
+            throw new Error(
+                "Vechtdal Centraal API fout"
+            );
+
         }
 
-        const html = await response.text();
 
-        const doc = new DOMParser()
-            .parseFromString(html, "text/html");
+        const data =
+            await response.json();
 
-        const links = [
-            ...new Set(
-                [...doc.querySelectorAll("a")]
-                    .map(a => a.href)
-                    .filter(href =>
-                        href &&
-                        href.startsWith("https://www.vechtdalcentraal.nl/") &&
-                        !href.includes("/category/") &&
-                        !href.includes("/tag/") &&
-                        !href.endsWith("/")
-                    )
-            )
-        ];
 
-        console.log("Vechtdal links:", links.length);
+        console.log(
+            "Vechtdal Centraal artikelen:",
+            data.length
+        );
 
-        return links;
+
+        return data.map(item => {
+
+
+            const datum =
+                item.date;
+
+
+            return {
+
+                title:
+                    item.title.rendered
+                    .replace(/&amp;/g,"&")
+                    .replace(/&#8217;/g,"'")
+                    .replace(/&rsquo;/g,"'")
+                    .replace(/&ldquo;/g,'"')
+                    .replace(/&rdquo;/g,'"'),
+
+
+                link:
+                    item.link,
+
+
+                description:
+                    item.excerpt.rendered
+                    .replace(/<[^>]+>/g,"")
+                    .trim()
+                    .substring(0,350)
+                    + "...",
+
+
+                timestamp:
+                    Date.parse(datum)
+
+            };
+
+
+        });
+
 
     }
 
-    catch(e) {
+    catch(error) {
 
-        console.error("Vechtdal fout:", e);
+        console.error(
+            "Vechtdal Centraal fout:",
+            error
+        );
 
         return [];
 
