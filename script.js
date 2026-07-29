@@ -624,30 +624,12 @@ async function fetchVechtdalCentraalNieuws() {
                 PROXY + encodeURIComponent(url)
             );
 
-
         const tekst =
             await response.text();
 
 
-        console.log(
-            "Vechtdal API status:",
-            response.status
-        );
-
-
-        console.log(
-            "Vechtdal API lengte:",
-            tekst.length
-        );
-
-
-        console.log(
-            tekst.substring(0,500)
-        );
-
-
         document.getElementById("news-container").innerHTML =
-            "<h2>Vechtdal API test</h2>" +
+            "<h2>Vechtdal API inhoud test</h2>" +
             "<p>Status: " + response.status + "</p>" +
             "<p>Lengte: " + tekst.length + "</p>" +
             "<pre>" +
@@ -661,13 +643,10 @@ async function fetchVechtdalCentraalNieuws() {
 
 
     }
-
     catch(error) {
 
-        console.error(
-            "Vechtdal Centraal fout:",
-            error
-        );
+        document.getElementById("news-container").innerHTML =
+            "Fout: " + error;
 
         return [];
 
