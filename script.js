@@ -111,7 +111,38 @@ async function fetchGemeenteNieuws(){ return []; } // tijdelijk uitgeschakeld om
 async function fetchRTVVechtdalNieuws(){ return []; }
 async function fetchOostNieuws(){ return []; }
 
-function isOmmenNieuws(a){ return ommenKeywords.some(k => (a.title+" "+a.description).toLowerCase().includes(k)); }
+async function fetchVechtdalCentraalNieuws() {
+    const rssUrl = "https://www.vechtdalcentraal.nl/feed/";
+    const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+
+    try {
+        setStatus("Vechtdal Centraal laden via rss2json...");
+        // 15 seconden timeout ipv 8
+        const res = await fetchWithTimeout(apiUrl, 15000);
+        if(!res.ok) throw new Error("HTTP " + res.status);
+        
+        const data = await res.json();
+        
+        if(data.status !== 'ok' || !data.items) {
+            throw new Error("rss2json gaf: " + (data.message || "geen items"));
+        }
+
+        setStatus(`Vechtdal Centraal: ${data.items.length} artikelen gevonden!`);
+        
+        return data.items.slice(0,10).map(item => ({
+            title: (item.title || "Geen titel").replace(/&#8217;/g,"'").replace(/&amp;/g,"&"),
+            link: item.link,
+            description: (item.description || "").replace(/<[^>]+>/g,"").trim().substring(0,350) + "...",
+            timestamp: Date.parse(item.pubDate) || Date.now()
+        }));
+
+    } catch(e) {
+        const log = document.getElementById("error-log");
+        if(log) log.innerHTML += `<div style="color:red">Vechtdal mislukt: ${e.message}. Probeer later opnieuw, feed is traag.</div>`;
+        setStatus(`Vechtdal Centraal mislukt: ${e.message}`);
+        return [];
+    }
+}
 function addArticles(arts,bron){ arts.forEach(a=>allArticles.push({...a,source:bron})); }
 function finalizeArticles(){
     const seen=new Set();
