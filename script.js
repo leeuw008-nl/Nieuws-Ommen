@@ -611,6 +611,70 @@ return artikelen.filter(artikel => artikel !== null);
     }
 
 }
+async function fetchVechtdalCentraalNieuws() {
+
+    const url =
+        "https://www.vechtdalcentraal.nl/?rest_route=/wp/v2/posts&per_page=10";
+
+    try {
+
+        const response =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+
+        const data =
+            await response.json();
+
+
+        console.log(
+            "Vechtdal Centraal artikelen:",
+            data.length
+        );
+
+
+        return data.map(item => {
+
+            return {
+
+                title:
+                    item.title.rendered
+                    .replace(/&#8217;/g,"'")
+                    .replace(/&amp;/g,"&"),
+
+                link:
+                    item.link,
+
+                description:
+                    item.excerpt.rendered
+                    .replace(/<[^>]+>/g,"")
+                    .trim()
+                    .substring(0,350)
+                    + "...",
+
+                timestamp:
+                    Date.parse(item.date)
+
+            };
+
+        });
+
+
+    }
+    catch(error) {
+
+        console.error(
+            "Vechtdal Centraal fout:",
+            error
+        );
+
+        return [];
+
+    }
+
+}
+
 
 async function fetchOostArtikel(url) {
 
