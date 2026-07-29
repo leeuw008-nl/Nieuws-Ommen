@@ -173,6 +173,36 @@ Response bevat waarschijnlijk geen direct uitleesbare XML via deze methode.
 Volgende stap:
 Werkelijke response-inhoud controleren.
 
+---
+
+## Test 5 - post sitemap uitlezen via proxy
+
+Getest:
+
+https://www.vechtdalcentraal.nl/post-sitemap.xml
+
+Methode:
+
+Ophalen via:
+
+https://corsproxy.io/
+
+Resultaat:
+
+- HTTP status: 202
+- Geen XML ontvangen
+- Cloudflare challenge pagina ontvangen
+- Sitemap kan daardoor niet automatisch uitgelezen worden
+
+Status:
+
+Mislukt via huidige proxy.
+
+Conclusie:
+
+Vechtdal Centraal gebruikt Cloudflare bescherming die de huidige proxy blokkeert.
+Andere methode nodig.
+
 # Besluiten
 
 - RTV Vechtdal blijft huidige bron.
