@@ -611,63 +611,49 @@ return artikelen.filter(artikel => artikel !== null);
     }
 
 }
+
 async function fetchVechtdalCentraalNieuws() {
 
-    const url =
-        "https://www.vechtdalcentraal.nl/?rest_route=/wp/v2/posts&per_page=10";
+    const url = "https://www.vechtdalcentraal.nl/";
 
     try {
 
-        const response =
-            await fetch(
-                PROXY + encodeURIComponent(url)
-            );
-
-
-        const data =
-            await response.json();
-
-
-        console.log(
-            "Vechtdal Centraal artikelen:",
-            data.length
+        const response = await fetch(
+            PROXY + encodeURIComponent(url)
         );
 
+        if (!response.ok) {
+            throw new Error("Vechtdal Centraal niet bereikbaar");
+        }
 
-        return data.map(item => {
+        const html = await response.text();
 
-            return {
+        const doc = new DOMParser()
+            .parseFromString(html, "text/html");
 
-                title:
-                    item.title.rendered
-                    .replace(/&#8217;/g,"'")
-                    .replace(/&amp;/g,"&"),
+        const links = [
+            ...new Set(
+                [...doc.querySelectorAll("a")]
+                    .map(a => a.href)
+                    .filter(href =>
+                        href &&
+                        href.startsWith("https://www.vechtdalcentraal.nl/") &&
+                        !href.includes("/category/") &&
+                        !href.includes("/tag/") &&
+                        !href.endsWith("/")
+                    )
+            )
+        ];
 
-                link:
-                    item.link,
+        console.log("Vechtdal links:", links.length);
 
-                description:
-                    item.excerpt.rendered
-                    .replace(/<[^>]+>/g,"")
-                    .trim()
-                    .substring(0,350)
-                    + "...",
-
-                timestamp:
-                    Date.parse(item.date)
-
-            };
-
-        });
-
+        return links;
 
     }
-    catch(error) {
 
-        console.error(
-            "Vechtdal Centraal fout:",
-            error
-        );
+    catch(e) {
+
+        console.error("Vechtdal fout:", e);
 
         return [];
 
@@ -1037,13 +1023,11 @@ console.log("Gemeente, RTV Vechtdal en RTV Oost ophalen...");
 const [
     gemeenteArtikelen,
     rtvArtikelen,
-    oostArtikelen,
-    vechtdalCentraalArtikelen
+    oostArtikelen
 ] = await Promise.all([
     fetchGemeenteNieuws(),
     fetchRTVVechtdalNieuws(),
-    fetchOostNieuws(),
-    fetchVechtdalCentraalNieuws()
+    fetchOostNieuws()
 ]);
 
 console.log("Gemeente klaar");
@@ -1054,10 +1038,6 @@ addArticles(rtvArtikelen, "RTV Vechtdal");
 
 console.log("RTV Oost klaar");
 addArticles(oostArtikelen, "RTV Oost");
-
-console.log("Vechtdal Centraal klaar");
-addArticles(vechtdalCentraalArtikelen, "Vechtdal Centraal"
-);    
 
 finalizeArticles();
 
