@@ -1,3 +1,4 @@
+
 const PROXY = 'https://corsproxy.io/?';
 
 const feeds = [
@@ -673,55 +674,6 @@ return artikelen.filter(artikel => artikel !== null);
             "Oost fout:",
             e
         );
-
-        return [];
-
-    }
-
-}
-
-async function fetchVechtdalCentraalNieuws() {
-
-    const url = "https://www.vechtdalcentraal.nl/";
-
-    try {
-
-        const response = await fetch(
-            PROXY + encodeURIComponent(url)
-        );
-
-        if (!response.ok) {
-            throw new Error("Vechtdal Centraal niet bereikbaar");
-        }
-
-        const html = await response.text();
-
-        const doc = new DOMParser()
-            .parseFromString(html, "text/html");
-
-        const links = [
-            ...new Set(
-                [...doc.querySelectorAll("a")]
-                    .map(a => a.href)
-                    .filter(href =>
-                        href &&
-                        href.startsWith("https://www.vechtdalcentraal.nl/") &&
-                        !href.includes("/category/") &&
-                        !href.includes("/tag/") &&
-                        !href.endsWith("/")
-                    )
-            )
-        ];
-
-        console.log("Vechtdal links:", links.length);
-
-        return links;
-
-    }
-
-    catch(e) {
-
-        console.error("Vechtdal fout:", e);
 
         return [];
 
