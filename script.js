@@ -661,6 +661,60 @@ async function fetchVechtdalCentraalNieuws() {
 
 }
 
+async function testVechtdalSitemap() {
+
+    const url =
+        "https://www.vechtdalcentraal.nl/post-sitemap.xml";
+
+    try {
+
+        const response =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+        const xmlText =
+            await response.text();
+
+
+        const xml =
+            new DOMParser()
+            .parseFromString(
+                xmlText,
+                "text/xml"
+            );
+
+
+        const urls =
+            [...xml.querySelectorAll("loc")]
+            .map(loc => loc.textContent);
+
+
+        document.getElementById("news-container").innerHTML =
+            "<h2>Vechtdal sitemap test</h2>" +
+            "<p>Aantal URLs: " +
+            urls.length +
+            "</p>" +
+            "<p>Eerste 10:</p>" +
+            "<ul>" +
+            urls.slice(0,10)
+            .map(url =>
+                "<li>" + url + "</li>"
+            )
+            .join("") +
+            "</ul>";
+
+
+    }
+    catch(error) {
+
+        document.getElementById("news-container").innerHTML =
+            "Sitemap fout: " + error;
+
+    }
+
+}
+
 
 async function fetchOostArtikel(url) {
 
@@ -1309,7 +1363,7 @@ window.addEventListener(
 
         setupSources();
 
-        loadNews();
+        testVechtdalSitemap();
 
     }
 );
