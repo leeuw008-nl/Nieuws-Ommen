@@ -524,6 +524,74 @@ schoneTekst = schoneTekst.replace(
 
 }
 
+async function fetchVechtdalCentraalNieuws() {
+
+    const url =
+        "https://www.vechtdalcentraal.nl/?rest_route=/wp/v2/posts&per_page=10";
+
+    try {
+
+        const response =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+
+        if (!response.ok) {
+            throw new Error("Vechtdal Centraal fout");
+        }
+
+
+        const data =
+            await response.json();
+
+
+        console.log(
+            "Vechtdal Centraal gevonden:",
+            data.length
+        );
+
+
+        return data.map(item => {
+
+            return {
+
+                title:
+                    item.title.rendered
+                    .replace(/&#8217;/g,"'")
+                    .replace(/&amp;/g,"&"),
+
+                link:
+                    item.link,
+
+                description:
+                    item.excerpt.rendered
+                    .replace(/<[^>]+>/g,"")
+                    .trim()
+                    .substring(0,350)
+                    + "...",
+
+                timestamp:
+                    Date.parse(item.date)
+
+            };
+
+        });
+
+
+    }
+    catch(error) {
+
+        console.error(
+            "Vechtdal Centraal fout:",
+            error
+        );
+
+        return [];
+
+    }
+
+}
 
 async function fetchOostNieuws() {
 
@@ -1023,11 +1091,13 @@ console.log("Gemeente, RTV Vechtdal en RTV Oost ophalen...");
 const [
     gemeenteArtikelen,
     rtvArtikelen,
-    oostArtikelen
+    oostArtikelen,
+    vechtdalCentraalArtikelen
 ] = await Promise.all([
     fetchGemeenteNieuws(),
     fetchRTVVechtdalNieuws(),
-    fetchOostNieuws()
+    fetchOostNieuws(),
+    fetchVechtdalCentraalNieuws()
 ]);
 
 console.log("Gemeente klaar");
@@ -1038,6 +1108,9 @@ addArticles(rtvArtikelen, "RTV Vechtdal");
 
 console.log("RTV Oost klaar");
 addArticles(oostArtikelen, "RTV Oost");
+
+console.log("Vechtdal Centraal klaar");
+addArticles(vechtdalCentraalArtikelen, "Vechtdal Centraal");
 
 finalizeArticles();
 
