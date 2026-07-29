@@ -298,6 +298,44 @@ Mislukt (geblokkeerd door Cloudflare).
 
 ---
 
+---
+
+# Conclusie Vechtdal Centraal onderzoek
+
+Geteste methodes:
+
+- RSS feeds
+- WordPress REST API
+- Homepage ophalen via proxy
+- Links uitlezen vanaf homepage
+- Sitemap (post-sitemap.xml)
+- Alternatieve RSS endpoints
+
+Resultaat:
+
+Alle automatische toegangsroutes geven een Cloudflare challenge pagina terug in plaats van de gevraagde inhoud.
+
+HTTP status:
+202
+
+Daarom kunnen via de huidige PWA-opzet (JavaScript in de browser + corsproxy.io) geen artikelen worden opgehaald.
+
+Conclusie:
+
+Vechtdal Centraal kan op dit moment niet rechtstreeks als bron worden toegevoegd aan de Ommen Nieuws app via de huidige technische aanpak.
+
+Mogelijke vervolgroutes:
+
+1. Server-side ophalen (backend/GitHub Actions)
+2. Een andere openbare gegevensbron gebruiken
+3. Geen aparte bron toevoegen omdat RTV Vechtdal al beschikbaar is
+
+Status onderzoek:
+
+Afgerond.
+---
+
+
 # Besluiten
 
 - RTV Vechtdal blijft huidige bron.
