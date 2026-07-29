@@ -615,7 +615,7 @@ return artikelen.filter(artikel => artikel !== null);
 async function fetchVechtdalCentraalNieuws() {
 
     const url =
-        "https://www.vechtdalcentraal.nl/?rest_route=/wp/v2/posts&per_page=10";
+        "https://www.vechtdalcentraal.nl/?rest_route=/wp/v2/posts&per_page=5";
 
     try {
 
@@ -625,62 +625,39 @@ async function fetchVechtdalCentraalNieuws() {
             );
 
 
-        if (!response.ok) {
-
-            throw new Error(
-                "Vechtdal Centraal API fout"
-            );
-
-        }
-
-
-        const data =
-            await response.json();
+        const tekst =
+            await response.text();
 
 
         console.log(
-            "Vechtdal Centraal artikelen:",
-            data.length
+            "Vechtdal API status:",
+            response.status
         );
 
 
-        return data.map(item => {
+        console.log(
+            "Vechtdal API lengte:",
+            tekst.length
+        );
 
 
-            const datum =
-                item.date;
+        console.log(
+            tekst.substring(0,500)
+        );
 
 
-            return {
-
-                title:
-                    item.title.rendered
-                    .replace(/&amp;/g,"&")
-                    .replace(/&#8217;/g,"'")
-                    .replace(/&rsquo;/g,"'")
-                    .replace(/&ldquo;/g,'"')
-                    .replace(/&rdquo;/g,'"'),
-
-
-                link:
-                    item.link,
+        document.getElementById("news-container").innerHTML =
+            "<h2>Vechtdal API test</h2>" +
+            "<p>Status: " + response.status + "</p>" +
+            "<p>Lengte: " + tekst.length + "</p>" +
+            "<pre>" +
+            tekst.substring(0,2000)
+            .replace(/</g,"&lt;")
+            .replace(/>/g,"&gt;") +
+            "</pre>";
 
 
-                description:
-                    item.excerpt.rendered
-                    .replace(/<[^>]+>/g,"")
-                    .trim()
-                    .substring(0,350)
-                    + "...",
-
-
-                timestamp:
-                    Date.parse(datum)
-
-            };
-
-
-        });
+        return [];
 
 
     }
