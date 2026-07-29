@@ -612,10 +612,6 @@ return artikelen.filter(artikel => artikel !== null);
 
 }
 
-://www.vechtdalcentraal.nl/?rest_route=/wp/v2/posts&per_page=10";
-
-
-
 async function fetchOostArtikel(url) {
 
     try {
