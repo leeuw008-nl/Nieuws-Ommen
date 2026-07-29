@@ -592,11 +592,17 @@ function renderArticles(articles) {
                     ${article.source}
                     —
                     ${
-                        article.timestamp
-                        ? new Date(article.timestamp)
-                            .toLocaleDateString('nl-NL')
-                        : ""
-                    }
+    article.timestamp
+    ? new Date(article.timestamp)
+        .toLocaleString('nl-NL', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        })
+    : ""
+}
                 </small>
                 <p>
                     ${article.description}
