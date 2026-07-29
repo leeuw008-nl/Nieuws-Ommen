@@ -1060,11 +1060,13 @@ console.log("Gemeente, RTV Vechtdal en RTV Oost ophalen...");
 const [
     gemeenteArtikelen,
     rtvArtikelen,
-    oostArtikelen
+    oostArtikelen,
+    vechtdalCentraalArtikelen
 ] = await Promise.all([
     fetchGemeenteNieuws(),
     fetchRTVVechtdalNieuws(),
-    fetchOostNieuws()
+    fetchOostNieuws(),
+    fetchVechtdalCentraalNieuws()
 ]);
 
 console.log("Gemeente klaar");
