@@ -1,6 +1,5 @@
 const PROXY = 'https://corsproxy.io/?';
-// Werkt corsproxy.io niet meer? Probeer deze:
-// const PROXY = 'https://api.allorigins.win/raw?url=';
+const TIMEOUT_MS = 8000; // 8 sec max per bron
 
 const feeds = [
     { name: 'Ommen City', url: 'https://ommencity.nl/feed/' },
@@ -8,146 +7,178 @@ const feeds = [
     { name: 'De Stentor', url: 'https://www.destentor.nl/ommen/rss.xml' }
 ];
 
-const ommenKeywords = [
-    "ommen", "arriën", "arrien", "beerze", "beerzerveld",
-    "besthmen", "diffelen", "giethmen", "junne", "lemele",
-    "stegeren", "vilsteren", "witharen", "varsen", "ommermars"
-];
-
+const ommenKeywords = ["ommen","arriën","arrien","beerze","beerzerveld","besthmen","diffelen","giethmen","junne","lemele","stegeren","vilsteren","witharen","varsen","ommermars"];
 let allArticles = [];
+
+// ===== NIEUW: fetch met timeout, zodat hij nooit blijft hangen =====
+async function fetchWithTimeout(url, ms = TIMEOUT_MS) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), ms);
+    try {
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(id);
+        return res;
+    } catch (e) {
+        clearTimeout(id);
+        throw e;
+    }
+}
 
 async function fetchRSS(url) {
     try {
-        const response = await fetch(PROXY + encodeURIComponent(url));
-        if (!response.ok) throw new Error(`RSS fout ${response.status}`);
+        const response = await fetchWithTimeout(PROXY + encodeURIComponent(url));
+        if (!response.ok) throw new Error("RSS fout " + response.status);
         const text = await response.text();
         const xml = new DOMParser().parseFromString(text, "text/xml");
-        if (xml.querySelector("parsererror")) {
-            console.warn("Parsererror voor", url, text.slice(0,200));
-            return [];
-        }
+        if (xml.querySelector("parsererror")) return [];
         const items = Array.from(xml.getElementsByTagName("item"));
-        console.log("RSS items gevonden:", url, items.length);
         return items.slice(0, 25).map(item => {
             let link = "";
-            const linkElement = item.querySelector("link");
-            if (linkElement) {
-                link = linkElement.getAttribute("href") || linkElement.textContent || "";
-            }
-            const date = item.querySelector("pubDate")?.textContent?.trim() || item.querySelector("published")?.textContent?.trim() || item.querySelector("updated")?.textContent?.trim() || "";
-            const timestamp = Date.parse(date);
+            const le = item.querySelector("link");
+            if (le) link = le.getAttribute("href") || le.textContent || "";
+            const date = item.querySelector("pubDate")?.textContent?.trim() || item.querySelector("published")?.textContent?.trim() || "";
             return {
                 title: item.querySelector("title")?.textContent?.trim() || "Geen titel",
                 description: (item.querySelector("description, summary, content")?.textContent || "").replace(/<[^>]+>/g, "").trim(),
                 link: link.trim(),
-                timestamp: isNaN(timestamp)? 0 : timestamp
+                timestamp: Date.parse(date) || 0
             };
         });
     } catch (error) {
-        console.error("RSS ophalen mislukt:", url, error);
+        console.error("RSS mislukt:", url, error);
         return [];
     }
 }
 
 async function fetchGemeenteNieuws() {
-    const url = "https://www.ommen.nl/actueel/";
     try {
-        const res = await fetch(PROXY + encodeURIComponent(url));
-        if (!res.ok) throw new Error("Gemeente pagina niet bereikbaar");
+        const res = await fetchWithTimeout(PROXY + encodeURIComponent("https://www.ommen.nl/actueel/"));
+        if (!res.ok) throw new Error("Gemeente niet bereikbaar");
         const text = await res.text();
         const html = new DOMParser().parseFromString(text, "text/html");
         const links = [];
-        for (const link of html.querySelectorAll("a")) {
-            const title = link.querySelector("h3, h2")?.textContent?.trim() || link.textContent.trim();
-            const href = link.href;
-            if (title && href.includes("/actueel/") && title.length > 10) {
-                links.push({ title: title, link: href });
-            }
+        for (const a of html.querySelectorAll("a")) {
+            const title = a.querySelector("h3, h2")?.textContent?.trim() || a.textContent.trim();
+            const href = a.href;
+            if (title && href.includes("/actueel/") && title.length > 10) links.push({ title, link: href });
         }
-        const artikelen = await Promise.all(
-            links.slice(0, 10).map(async artikel => {
-                const gegevens = await fetchGemeenteGegevens(artikel.link);
-                return {
-                    title: artikel.title,
-                    link: artikel.link,
-                    description: gegevens.tekst,
-                    pubDate: gegevens.datum,
-                    timestamp: gegevens.datum? Date.parse(gegevens.datum) : Date.now()
-                };
-            })
-        );
-        console.log("Gemeente Ommen gevonden:", artikelen.length);
-        return artikelen;
-    } catch (error) {
-        console.error("Fout gemeente Ommen:", error);
-        return [];
-    }
+        const arts = await Promise.all(links.slice(0,10).map(async art => {
+            try {
+                const g = await fetchGemeenteGegevens(art.link);
+                return { title: art.title, link: art.link, description: g.tekst, timestamp: g.datum? Date.parse(g.datum) : Date.now() };
+            } catch { return null; }
+        }));
+        return arts.filter(Boolean);
+    } catch(e){ return []; }
 }
 
 async function fetchGemeenteGegevens(url) {
     try {
-        const res = await fetch(PROXY + encodeURIComponent(url));
+        const res = await fetchWithTimeout(PROXY + encodeURIComponent(url), 5000);
         if (!res.ok) return { datum: "", tekst: "" };
         const text = await res.text();
         const html = new DOMParser().parseFromString(text, "text/html");
         const bodyText = html.body?.innerText || "";
         const match = bodyText.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}(,\s*\d{2}:\d{2})?/i);
-        const datum = match? match[0] : "";
-        const regels = bodyText.split("\n").map(r => r.trim()).filter(r => r.length > 40 &&!r.includes("HomeActueel") &&!r.includes("Uitleg in eenvoudige taal") &&!r.includes("simpele tekst"));
-        let tekst = "";
-        if (regels.length > 0) {
-            tekst = regels.slice(1, 4).join(" ").substring(0, 350) + "...";
-        }
-        return { datum, tekst };
-    } catch (error) {
-        console.error("Gemeentepagina ophalen mislukt:", url, error);
-        return { datum: "", tekst: "" };
-    }
+        const regels = bodyText.split("\n").map(r=>r.trim()).filter(r=>r.length>40 &&!r.includes("HomeActueel"));
+        return { datum: match?match[0]:"", tekst: regels.slice(1,4).join(" ").substring(0,350)+"..." };
+    } catch { return { datum: "", tekst: "" }; }
 }
 
 async function fetchRTVVechtdalNieuws() {
-    const url = "https://rtvvechtdal.nl/";
     try {
-        const res = await fetch(PROXY + encodeURIComponent(url));
-        const text = await res.text();
-        const html = new DOMParser().parseFromString(text, "text/html");
+        const res = await fetchWithTimeout(PROXY + encodeURIComponent("https://rtvvechtdal.nl/"));
+        const html = new DOMParser().parseFromString(await res.text(), "text/html");
         const links = [];
-        html.querySelectorAll("a").forEach(a => {
-            try {
+        html.querySelectorAll("a").forEach(a=>{
+            try{
                 const href = new URL(a.getAttribute("href"), "https://rtvvechtdal.nl").href;
                 const title = a.textContent.trim();
-                if (href.includes("type=detail") && title.length > 10 &&!links.some(l => l.link === href)) {
-                    links.push({ title, link: href });
-                }
-            } catch(e) {}
+                if (href.includes("type=detail") && title.length>10 &&!links.some(l=>l.link===href)) links.push({title,link:href});
+            }catch{}
         });
-        const artikelen = await Promise.all(
-            links.slice(0, 10).map(async artikel => {
-                const res2 = await fetch(PROXY + encodeURIComponent(artikel.link));
-                const text2 = await res2.text();
-                const doc = new DOMParser().parseFromString(text2, "text/html");
-                const body = doc.body.innerText.replace(/\s+/g, " ").trim();
-                let schoneTekst = body.replace(/^.*?(\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4})/i, "$1");
+        const arts = await Promise.all(links.slice(0,10).map(async art=>{
+            try{
+                const r2 = await fetchWithTimeout(PROXY + encodeURIComponent(art.link), 5000);
+                const doc = new DOMParser().parseFromString(await r2.text(),"text/html");
+                const body = doc.body.innerText.replace(/\s+/g," ").trim();
                 const match = body.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i);
-                const datum = match? match[0] : "";
-                let beschrijving = schoneTekst.replace(artikel.title, "").replace(/Home Vechtdal TV.*?Stichting RTV Vechtdal/i, "").replace(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i, "").trim().substring(0, 300);
-                return {
-                    title: artikel.title,
-                    link: artikel.link,
-                    description: beschrijving + "...",
-                    timestamp: datum? Date.parse(datum) : Date.now()
-                };
-            })
-        );
-        return artikelen;
-    } catch (error) {
-        console.error("RTV:", error);
-        return [];
-    }
+                return { title: art.title, link: art.link, description: body.replace(art.title,"").substring(0,300)+"...", timestamp: match?Date.parse(match[0]):Date.now() };
+            }catch{return null;}
+        }));
+        return arts.filter(Boolean);
+    }catch{return [];}
 }
 
-// ===== FIX VOOR VECHTDAL CENTRAAL =====
+// ===== VECHTDAL CENTRAAL - NU MET TIMEOUT EN FALLBACK =====
 async function fetchVechtdalCentraalNieuws() {
-    const urlsToTry = [
-        "https://www.vechtdalcentraal.nl/wp-json/wp/v2/posts?per_page=10&_embed",
-        "https://www.ve
+    const urls = [
+        "https://www.vechtdalcentraal.nl/wp-json/wp/v2/posts?per_page=10",
+        "https://www.vechtdalcentraal.nl/feed/"
+    ];
+    for (const url of urls) {
+        try {
+            const response = await fetchWithTimeout(PROXY + encodeURIComponent(url));
+            if (!response.ok) continue;
+            const text = await response.text();
+            if (text.trim().startsWith("[")) {
+                const data = JSON.parse(text);
+                if (data.length>0) return data.map(i=>({
+                    title: (i.title?.rendered||"").replace(/&#8217;/g,"'").replace(/&amp;/g,"&"),
+                    link: i.link,
+                    description: (i.excerpt?.rendered||"").replace(/<[^>]+>/g,"").trim().substring(0,350)+"...",
+                    timestamp: Date.parse(i.date)||Date.now()
+                }));
+            } else {
+                const xml = new DOMParser().parseFromString(text,"text/xml");
+                const items = Array.from(xml.getElementsByTagName("item"));
+                if (items.length>0) return items.slice(0,10).map(it=>({
+                    title: it.querySelector("title")?.textContent?.trim()||"Geen titel",
+                    link: it.querySelector("link")?.textContent?.trim()||"",
+                    description: (it.querySelector("description")?.textContent||"").replace(/<[^>]+>/g,"").trim().substring(0,350)+"...",
+                    timestamp: Date.parse(it.querySelector("pubDate")?.textContent||"")||Date.now()
+                }));
+            }
+        } catch(e) { /* probeer volgende */ }
+    }
+    return [];
+}
+
+async function fetchOostNieuws() {
+    try{
+        const res = await fetchWithTimeout(PROXY + encodeURIComponent("https://www.oost.nl/nieuws"));
+        if(!res.ok) return [];
+        const doc = new DOMParser().parseFromString(await res.text(),"text/html");
+        const links = [...new Set([...doc.querySelectorAll("a")].map(a=>a.href).filter(h=>h && h.includes("/nieuws/") && /\/nieuws\/\d+\//.test(h)).map(h=>h.replace("https://leeuw008-nl.github.io","https://www.oost.nl")))];
+        const arts = await Promise.all(links.slice(0,10).map(async l=>{
+            try{
+                const r = await fetchWithTimeout(PROXY + encodeURIComponent(l), 5000);
+                if(!r.ok) return null;
+                const d = new DOMParser().parseFromString(await r.text(),"text/html");
+                return { title: d.querySelector("h1")?.innerText?.trim()||"RTV Oost", link: l, description: d.querySelector('meta[name="description"]')?.content||"", timestamp: Date.now() };
+            }catch{return null;}
+        }));
+        return arts.filter(Boolean);
+    }catch{return [];}
+}
+
+function isOmmenNieuws(a){ const t=(a.title+" "+a.description).toLowerCase(); return ommenKeywords.some(k=>t.includes(k)); }
+function addArticles(arts,bron){ arts.forEach(a=>allArticles.push({...a,source:bron})); }
+function finalizeArticles(){
+    const seen=new Set();
+    allArticles=allArticles.filter(a=>{ if(seen.has(a.link)) return false; seen.add(a.link); return true; });
+    allArticles.sort((a,b)=>b.timestamp-a.timestamp);
+}
+
+async function loadNews() {
+    const container = document.getElementById("news-container");
+    allArticles = [];
+    container.innerHTML = "<p>Nieuws laden...<br><small id='load-status'></small></p>";
+    const statusEl = () => document.getElementById("load-status");
+
+    // Laad RSS eerst - snel zichtbaar resultaat
+    const rssResults = await Promise.allSettled(feeds.map(f=>fetchRSS(f.url).then(arts=>({source:f.name,arts}))));
+    rssResults.forEach(r=>{ if(r.status==='fulfilled') addArticles(r.value.arts, r.value.source); });
+    if(statusEl()) statusEl().innerText = `RSS klaar (${allArticles.length} artikelen)...`;
+    finalizeArticles();
+    search
