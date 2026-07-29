@@ -1063,7 +1063,7 @@ addArticles(oostArtikelen, "RTV Oost");
 
 console.log("Vechtdal Centraal klaar");
 addArticles(vechtdalCentraalArtikelen, "Vechtdal Centraal");
-console.log("ALLE ARTIKELEN:", allArticles);
+
 finalizeArticles();
 
 searchNews();
