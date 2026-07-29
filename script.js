@@ -615,7 +615,7 @@ return artikelen.filter(artikel => artikel !== null);
 async function fetchVechtdalCentraalNieuws() {
 
     const url =
-        "https://www.vechtdalcentraal.nl/?rest_route=/wp/v2/posts&per_page=5";
+        "https://www.vechtdalcentraal.nl/?rest_route=/wp/v2/posts&per_page=10";
 
     try {
 
@@ -624,29 +624,69 @@ async function fetchVechtdalCentraalNieuws() {
                 PROXY + encodeURIComponent(url)
             );
 
-        const tekst =
-            await response.text();
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Vechtdal Centraal API fout"
+            );
+
+        }
 
 
-        document.getElementById("news-container").innerHTML =
-            "<h2>Vechtdal API inhoud test</h2>" +
-            "<p>Status: " + response.status + "</p>" +
-            "<p>Lengte: " + tekst.length + "</p>" +
-            "<pre>" +
-            tekst.substring(0,2000)
-            .replace(/</g,"&lt;")
-            .replace(/>/g,"&gt;") +
-            "</pre>";
+        const data =
+            await response.json();
 
 
-        return [];
+        console.log(
+            "Vechtdal Centraal artikelen:",
+            data.length
+        );
+
+
+        return data.map(item => {
+
+
+            return {
+
+                title:
+                    item.title.rendered
+                    .replace(/&amp;/g,"&")
+                    .replace(/&#8217;/g,"'")
+                    .replace(/&rsquo;/g,"'")
+                    .replace(/&ldquo;/g,'"')
+                    .replace(/&rdquo;/g,'"'),
+
+
+                link:
+                    item.link,
+
+
+                description:
+                    item.excerpt.rendered
+                    .replace(/<[^>]+>/g,"")
+                    .trim()
+                    .substring(0,350)
+                    + "...",
+
+
+                timestamp:
+                    Date.parse(item.date)
+
+            };
+
+
+        });
 
 
     }
+
     catch(error) {
 
-        document.getElementById("news-container").innerHTML =
-            "Fout: " + error;
+        console.error(
+            "Vechtdal Centraal fout:",
+            error
+        );
 
         return [];
 
