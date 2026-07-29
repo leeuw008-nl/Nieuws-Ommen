@@ -1670,12 +1670,100 @@ async function testVechtdalBingHTML() {
     }
 
 }
+async function testVechtdalDuckDuckGo() {
+
+    const url =
+    "https://html.duckduckgo.com/html/?q=site%3Avechtdalcentraal.nl+Ommen";
+
+
+    try {
+
+        const response =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
+
+
+        const text =
+            await response.text();
+
+
+        const doc =
+            new DOMParser()
+            .parseFromString(
+                text,
+                "text/html"
+            );
+
+
+        const links =
+            [...doc.querySelectorAll("a.result__a")]
+            .map(a => ({
+                titel:
+                    a.innerText,
+
+                link:
+                    a.href
+            }));
+
+
+        let html =
+        "<h2>DuckDuckGo test</h2>";
+
+        html +=
+        "<p>Status: " +
+        response.status +
+        "</p>";
+
+        html +=
+        "<p>Lengte: " +
+        text.length +
+        "</p>";
+
+        html +=
+        "<p>Aantal resultaten: " +
+        links.length +
+        "</p>";
+
+        html += "<ul>";
+
+        links.slice(0,10)
+        .forEach(item => {
+
+            html +=
+            "<li>" +
+            item.titel +
+            "<br>" +
+            item.link +
+            "</li>";
+
+        });
+
+        html += "</ul>";
+
+
+        document.getElementById(
+            "news-container"
+        ).innerHTML = html;
+
+
+    }
+    catch(e){
+
+        document.getElementById(
+            "news-container"
+        ).innerHTML =
+        "Fout: " + e;
+
+    }
+
+}
 
 window.addEventListener(
     "DOMContentLoaded",
     function() {
 
-        testVechtdalBingHTML();
+        testVechtdalDuckDuckGo();
 
     }
 );
