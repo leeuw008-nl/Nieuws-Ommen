@@ -12,40 +12,56 @@ const ommenKeywords = [
 
 let allArticles = [];
 
-// ===== NIEUW: HTML opschonen maar opmaak behouden =====
 function cleanHTML(html) {
     if(!html) return "";
-    // rss2json geeft soms al ge-escaped HTML, eerst decoden
     const textarea = document.createElement("textarea");
     textarea.innerHTML = html;
     let decoded = textarea.value;
-
     const doc = new DOMParser().parseFromString(decoded, "text/html");
-    
-    // gevaarlijke dingen verwijderen
-    doc.querySelectorAll("script, style, iframe, form, object, embed, link").forEach(el=>el.remove());
-    
-    // alle attributen die met 'on' beginnen (onclick etc) verwijderen
+    doc.querySelectorAll("script, style, iframe, form, object, embed, link, noscript").forEach(el=>el.remove());
     doc.querySelectorAll("*").forEach(el=>{
         [...el.attributes].forEach(attr=>{
-            if(attr.name.startsWith("on") || attr.name === "style" && attr.value.includes("javascript")) {
-                el.removeAttribute(attr.name);
-            }
+            if(attr.name.startsWith("on")) el.removeAttribute(attr.name);
         });
     });
-
-    // links veilig maken
     doc.querySelectorAll("a").forEach(a=>{
         a.setAttribute("target","_blank");
         a.setAttribute("rel","noopener");
-        // relatieve links fixen
-        const href = a.getAttribute("href");
-        if(href && href.startsWith("/") && !href.startsWith("//")) {
-            // laat relatief, wordt via proxy/context opgelost
+    });
+    // behoud alleen veilige tags
+    let safe = "";
+    doc.body.childNodes.forEach(node=>{
+        if(node.nodeType === 3) { // text
+            safe += node.textContent;
+        } else if(["P","BR","STRONG","B","EM","I","U","A","UL","OL","LI","H2","H3","H4","BLOCKQUOTE"].includes(node.tagName)) {
+            safe += node.outerHTML;
+        } else if(node.tagName === "DIV" || node.tagName === "SPAN") {
+            safe += node.innerHTML + "<br>";
+        } else if(node.innerText && node.innerText.trim().length > 20) {
+            safe += "<p>" + node.innerHTML + "</p>";
         }
     });
-
-    return doc.body.innerHTML;
+    if(!safe.trim()) safe = doc.body.innerHTML;
+    // veilig inkorten zonder tags kapot te maken
+    if(safe.length > 800) {
+        const temp = document.createElement("div");
+        temp.innerHTML = safe;
+        let textLen = temp.innerText.length;
+        if(textLen > 500) {
+            // neem eerste 2 paragrafen
+            const ps = temp.querySelectorAll("p");
+            if(ps.length > 0) {
+                let out = "";
+                for(let p of ps) {
+                    if(out.length + p.innerHTML.length > 700) break;
+                    out += p.outerHTML;
+                }
+                return out || temp.innerText.substring(0,500) + "...";
+            }
+            return temp.innerText.substring(0,500) + "...";
+        }
+    }
+    return safe.substring(0,800);
 }
 
 async function fetchRSS(url) {
@@ -67,7 +83,7 @@ async function fetchRSS(url) {
             const rawDesc = item.querySelector("description, content\\:encoded, summary, content")?.textContent || "";
             return {
                 title: item.querySelector("title")?.textContent?.trim() || "Geen titel",
-                description: cleanHTML(rawDesc).substring(0, 800),
+                description: cleanHTML(rawDesc),
                 link: link.trim(),
                 timestamp: isNaN(timestamp) ? 0 : timestamp
             };
@@ -121,21 +137,22 @@ async function fetchGemeenteGegevens(url) {
         const bodyText = html.body?.innerText || "";
         const match = bodyText.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}(,\s*\d{2}:\d{2})?/i);
         const datum = match ? match[0] : "";
-        // Voor gemeente: probeer echte content div te pakken met HTML
-        let contentDiv = html.querySelector(".content, .text, article, [class*='content']");
+        let contentDiv = html.querySelector("article .content, .text-content, [class*='content'] p");
         let tekst = "";
         if(contentDiv) {
-            tekst = cleanHTML(contentDiv.innerHTML).substring(0,600);
+            let parent = contentDiv.closest("article") || contentDiv.parentElement;
+            tekst = cleanHTML(parent ? parent.innerHTML : contentDiv.innerHTML);
         } else {
-            const regels = bodyText.split("\n").map(r=>r.trim()).filter(r=>r.length>40 && !r.includes("HomeActueel") && !r.includes("Uitleg in eenvoudige taal"));
-            if(regels.length>0) tekst = regels.slice(1,4).join("<br><br>").substring(0,600);
+            const regels = bodyText.split("\n").map(r=>r.trim()).filter(r=>r.length>40 && !r.includes("HomeActueel"));
+            if(regels.length>0) tekst = regels.slice(1,3).join("<br><br>").substring(0,500);
         }
-        return { datum, tekst: tekst + (tekst.length>=600 ? "..." : "") };
+        return { datum, tekst };
     } catch(error) {
         return { datum: "", tekst: "" };
     }
 }
 
+// FIXED: RTV Vechtdal gebruikt weer platte tekst zodat hij niks kapot maakt
 async function fetchRTVVechtdalNieuws() {
     const url = "https://rtvvechtdal.nl/";
     try {
@@ -158,16 +175,16 @@ async function fetchRTVVechtdalNieuws() {
                     const res2 = await fetch(PROXY + encodeURIComponent(artikel.link));
                     const text2 = await res2.text();
                     const doc = new DOMParser().parseFromString(text2,"text/html");
-                    const bodyEl = doc.querySelector(".content, article, .news-content") || doc.body;
-                    const bodyText = bodyEl.innerText.replace(/\s+/g," ").trim();
-                    let schoneTekst = bodyText.replace(/^.*?(\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4})/i, "$1");
-                    const match = bodyText.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i);
+                    let bodyText = doc.body.innerText.replace(/\s+/g," ").trim();
+                    bodyText = bodyText.replace(/^.*?(\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4})/i, "");
+                    bodyText = bodyText.replace(/Home Vechtdal TV.*?Stichting RTV Vechtdal/i, "").trim();
+                    const match = text2.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i);
                     const datum = match ? match[0] : "";
-                    let beschrijving = cleanHTML(bodyEl.innerHTML).replace(artikel.title,"").substring(0,600);
+                    // GEEN HTML hier, alleen veilige tekst
                     return {
                         title: artikel.title,
                         link: artikel.link,
-                        description: beschrijving + "...",
+                        description: bodyText.substring(0,350) + "...",
                         timestamp: datum ? Date.parse(datum) : Date.now()
                     };
                 } catch { return null; }
@@ -190,7 +207,7 @@ async function fetchVechtdalCentraalNieuws() {
         return data.items.slice(0,10).map(item => ({
             title: item.title.replace(/&#8217;/g,"'").replace(/&amp;/g,"&"),
             link: item.link,
-            description: cleanHTML(item.description).substring(0,800),
+            description: cleanHTML(item.description),
             timestamp: Date.parse(item.pubDate) || Date.now()
         }));
     } catch(error) {
@@ -228,9 +245,8 @@ async function fetchOostArtikel(url) {
             const match = doc.body.innerText.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i);
             if (match) datum = match[0];
         }
-        const descMeta = doc.querySelector('meta[name="description"]')?.content || "";
-        const contentEl = doc.querySelector("article p, .article__content p") ? doc.querySelector("article, .article__content") : null;
-        const description = contentEl ? cleanHTML(contentEl.innerHTML).substring(0,800) : descMeta;
+        const contentEl = doc.querySelector("article, .article__content");
+        const description = contentEl ? cleanHTML(contentEl.innerHTML) : (doc.querySelector('meta[name="description"]')?.content || "");
         return { title, link: url, description, timestamp: datum ? Date.parse(datum) : Date.now(), source: "RTV Oost" };
     } catch(e) { return null; }
 }
