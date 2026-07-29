@@ -661,40 +661,71 @@ async function fetchVechtdalCentraalNieuws() {
 
 }
 
-async function testVechtdalSitemap() {
+async function testVechtdalRSSVarianten() {
 
-    const url =
-        "https://www.vechtdalcentraal.nl/post-sitemap.xml";
+    const urls = [
+        "https://www.vechtdalcentraal.nl/?feed=rss2",
+        "https://www.vechtdalcentraal.nl/feed/rss/",
+        "https://www.vechtdalcentraal.nl/rss/"
+    ];
 
-    try {
+    let resultaat = "<h2>Vechtdal RSS test</h2>";
 
-        const response =
-            await fetch(
+    for (const url of urls) {
+
+        try {
+
+            const response = await fetch(
                 PROXY + encodeURIComponent(url)
             );
 
-        const tekst =
-            await response.text();
+            const tekst = await response.text();
+
+            const xml =
+                new DOMParser()
+                .parseFromString(
+                    tekst,
+                    "text/xml"
+                );
+
+            const items =
+                xml.querySelectorAll("item").length;
 
 
-        document.getElementById("news-container").innerHTML =
-            "<h2>Vechtdal sitemap inhoud test</h2>" +
-            "<p>Status: " + response.status + "</p>" +
-            "<p>Lengte: " + tekst.length + "</p>" +
-            "<pre>" +
-            tekst.substring(0,2000)
-            .replace(/</g,"&lt;")
-            .replace(/>/g,"&gt;") +
-            "</pre>";
+            resultaat +=
+                "<hr>" +
+                "<p><b>URL:</b><br>" +
+                url +
+                "</p>" +
+                "<p>Status: " +
+                response.status +
+                "</p>" +
+                "<p>Lengte: " +
+                tekst.length +
+                "</p>" +
+                "<p>Aantal artikelen: " +
+                items +
+                "</p>";
+
+        }
+
+        catch(error) {
+
+            resultaat +=
+                "<p>Fout bij " +
+                url +
+                ": " +
+                error +
+                "</p>";
+
+        }
 
     }
 
-    catch(error) {
 
-        document.getElementById("news-container").innerHTML =
-            "Fout: " + error;
-
-    }
+    document.getElementById(
+        "news-container"
+    ).innerHTML = resultaat;
 
 }
 
@@ -1346,7 +1377,7 @@ window.addEventListener(
 
         setupSources();
 
-        testVechtdalSitemap();
+        testVechtdalRSSVarianten();
 
     }
 );
