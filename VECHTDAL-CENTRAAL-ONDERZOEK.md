@@ -102,6 +102,44 @@ WERKENDE OPLOSSING
 
 ---
 
+---
+
+## Test 5 - Website ophalen via proxy (hercontrole)
+
+Getest:
+
+https://www.vechtdalcentraal.nl/
+
+Methode:
+
+Pagina opgehaald via:
+
+https://corsproxy.io/
+
+Resultaat:
+
+- HTTP status: 202
+- HTML lengte: 1123 tekens
+- Geen echte website-inhoud ontvangen
+- Proxy ontvangt een Cloudflare/SgCaptcha beveiligingspagina
+
+Kenmerk:
+
+De ontvangen HTML bevat:
+
+<meta http-equiv="refresh" content="0;/.well-known/sgcaptcha/...">
+
+Conclusie:
+
+De huidige proxy-methode krijgt geen toegang tot de website.
+Hierdoor kunnen links, artikelen of pagina-inhoud niet worden uitgelezen.
+
+Status:
+
+Mislukt door websitebeveiliging (niet door app-code).
+
+---
+
 # Besluiten
 
 - RTV Vechtdal blijft huidige bron.
