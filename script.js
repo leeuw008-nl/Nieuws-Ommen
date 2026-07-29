@@ -1568,6 +1568,93 @@ async function testGoogleNewsVechtdal() {
 
     }
 
+    
+
+    document.getElementById(
+        "news-container"
+    ).innerHTML = resultaat;
+
+}
+
+async function testVechtdalBingRSS() {
+
+    const urls = [
+
+        "https://www.bing.com/news/search?q=site%3Avechtdalcentraal.nl&format=rss",
+
+        "https://www.bing.com/news/search?q=Vechtdal+Centraal+Ommen&format=rss"
+
+    ];
+
+
+    let resultaat = "<h2>Bing RSS test</h2>";
+
+
+    for (const url of urls) {
+
+        try {
+
+            const response =
+                await fetch(
+                    PROXY + encodeURIComponent(url)
+                );
+
+
+            const text =
+                await response.text();
+
+
+            const xml =
+                new DOMParser()
+                .parseFromString(
+                    text,
+                    "text/xml"
+                );
+
+
+            const items =
+                xml.querySelectorAll("item");
+
+
+            resultaat +=
+                "<hr>" +
+                "<b>URL:</b> " + url +
+                "<br>Status: " +
+                response.status +
+                "<br>Lengte: " +
+                text.length +
+                "<br>Aantal artikelen: " +
+                items.length;
+
+
+            if(items.length){
+
+                resultaat += "<ul>";
+
+                [...items].slice(0,5).forEach(item=>{
+
+                    resultaat +=
+                    "<li>" +
+                    item.querySelector("title")?.textContent +
+                    "</li>";
+
+                });
+
+                resultaat += "</ul>";
+
+            }
+
+
+        }
+        catch(e){
+
+            resultaat +=
+            "<p>Fout: " + e + "</p>";
+
+        }
+
+    }
+
 
     document.getElementById(
         "news-container"
@@ -1579,7 +1666,7 @@ window.addEventListener(
     "DOMContentLoaded",
     function() {
 
-        testGoogleNewsVechtdal();
+        testVechtdalBingRSS();
 
     }
 );
