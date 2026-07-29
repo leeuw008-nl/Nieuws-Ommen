@@ -278,6 +278,26 @@ Mislukt (geblokkeerd door Cloudflare).
 
 ---
 
+---
+
+## Test 7 - WordPress REST API
+
+Getest:
+
+https://www.vechtdalcentraal.nl/wp-json/wp/v2/posts?per_page=5
+
+Resultaat:
+
+- HTTP status: 202
+- Inhoud bevat geen JSON maar Cloudflare challenge pagina
+- Geen WordPress artikelen ontvangen
+
+Status:
+
+Mislukt (geblokkeerd door Cloudflare).
+
+---
+
 # Besluiten
 
 - RTV Vechtdal blijft huidige bron.
