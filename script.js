@@ -1576,89 +1576,98 @@ async function testGoogleNewsVechtdal() {
 
 }
 
-async function testVechtdalBingRSS() {
+async function testVechtdalBingHTML() {
 
-    const urls = [
-
-        "https://www.bing.com/news/search?q=site%3Avechtdalcentraal.nl&format=rss",
-
-        "https://www.bing.com/news/search?q=Vechtdal+Centraal+Ommen&format=rss"
-
-    ];
+    const url =
+    "https://www.bing.com/news/search?q=Vechtdal+Centraal+Ommen";
 
 
-    let resultaat = "<h2>Bing RSS test</h2>";
+    try {
+
+        const response =
+            await fetch(
+                PROXY + encodeURIComponent(url)
+            );
 
 
-    for (const url of urls) {
-
-        try {
-
-            const response =
-                await fetch(
-                    PROXY + encodeURIComponent(url)
-                );
+        const text =
+            await response.text();
 
 
-            const text =
-                await response.text();
+        const doc =
+            new DOMParser()
+            .parseFromString(
+                text,
+                "text/html"
+            );
 
 
-            const xml =
-                new DOMParser()
-                .parseFromString(
-                    text,
-                    "text/xml"
-                );
+        const links =
+            [...doc.querySelectorAll("a")]
+            .map(a => ({
+                titel:
+                    a.innerText.trim(),
+
+                link:
+                    a.href
+            }))
+            .filter(item =>
+                item.link &&
+                item.link.includes("vechtdal")
+            );
 
 
-            const items =
-                xml.querySelectorAll("item");
+        let html =
+        "<h2>Bing HTML test</h2>";
+
+        html +=
+        "<p>Status: " +
+        response.status +
+        "</p>";
+
+        html +=
+        "<p>Lengte: " +
+        text.length +
+        "</p>";
+
+        html +=
+        "<p>Vechtdal links gevonden: " +
+        links.length +
+        "</p>";
 
 
-            resultaat +=
-                "<hr>" +
-                "<b>URL:</b> " + url +
-                "<br>Status: " +
-                response.status +
-                "<br>Lengte: " +
-                text.length +
-                "<br>Aantal artikelen: " +
-                items.length;
+        html += "<ul>";
+
+        links.slice(0,10)
+        .forEach(item => {
+
+            html +=
+            "<li>" +
+            item.titel +
+            "<br>" +
+            item.link +
+            "</li>";
+
+        });
 
 
-            if(items.length){
-
-                resultaat += "<ul>";
-
-                [...items].slice(0,5).forEach(item=>{
-
-                    resultaat +=
-                    "<li>" +
-                    item.querySelector("title")?.textContent +
-                    "</li>";
-
-                });
-
-                resultaat += "</ul>";
-
-            }
+        html += "</ul>";
 
 
-        }
-        catch(e){
+        document.getElementById(
+            "news-container"
+        ).innerHTML = html;
 
-            resultaat +=
-            "<p>Fout: " + e + "</p>";
-
-        }
 
     }
+    catch(e){
 
+        document.getElementById(
+            "news-container"
+        ).innerHTML =
+        "Fout: " + e;
 
-    document.getElementById(
-        "news-container"
-    ).innerHTML = resultaat;
+    }
 
 }
 
@@ -1666,7 +1675,7 @@ window.addEventListener(
     "DOMContentLoaded",
     function() {
 
-        testVechtdalBingRSS();
+        testVechtdalBingHTML();
 
     }
 );
