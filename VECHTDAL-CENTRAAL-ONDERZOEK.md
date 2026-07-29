@@ -140,6 +140,39 @@ Mislukt door websitebeveiliging (niet door app-code).
 
 ---
 
+## Test 5 - XML sitemap
+
+Getest:
+https://www.vechtdalcentraal.nl/post-sitemap.xml
+
+Resultaat:
+Sitemap bereikbaar.
+Bevat 61 sitemapbestanden.
+Meest recente artikelen lijken aanwezig in:
+post-sitemap.xml
+
+Conclusie:
+Website scraping via homepage mislukt door Cloudflare.
+Sitemap lijkt bruikbare alternatieve ingang.
+Status:
+Geslaagd.
+
+## Test 6 - post-sitemap.xml via JavaScript
+
+Getest:
+https://www.vechtdalcentraal.nl/post-sitemap.xml
+
+Methode:
+Ophalen via corsproxy.io en XML parser.
+
+Resultaat:
+0 URL's gevonden.
+
+Conclusie:
+Response bevat waarschijnlijk geen direct uitleesbare XML via deze methode.
+Volgende stap:
+Werkelijke response-inhoud controleren.
+
 # Besluiten
 
 - RTV Vechtdal blijft huidige bron.
