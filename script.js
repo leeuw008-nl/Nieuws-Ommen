@@ -1,27 +1,4 @@
-const PROXIES = [
-  'https://corsproxy.io/?',
-  'https://api.allorigins.win/raw?url=',
-  'https://api.codetabs.com/v1/proxy?quest='
-];
-async function fetchViaProxy(targetUrl, attempt=0){
-  if(attempt>=PROXIES.length) throw new Error('All proxies failed for '+targetUrl);
-  const proxyUrl = PROXIES[attempt] + encodeURIComponent(targetUrl);
-  try{
-    const res = await fetch(proxyUrl);
-    if(res.status===429) throw new Error('429');
-    if(!res.ok) throw new Error('Proxy '+res.status);
-    const text = await res.text();
-    if(!text || text.length<100) throw new Error('Empty');
-    return text;
-  }catch(e){
-    console.warn(`Proxy ${attempt} failed for ${targetUrl}: ${e.message}, trying next`);
-    // small delay
-    await new Promise(r=>setTimeout(r, 400*attempt));
-    return fetchViaProxy(targetUrl, attempt+1);
-  }
-}
-const PROXY = PROXIES[0]; // keep for compat
-
+const PROXY = 'https://corsproxy.io/?';
 
 const feeds = [
     { name: 'Ommen City', url: 'https://ommencity.nl/feed/' },
@@ -156,7 +133,9 @@ function cleanGemeenteHTML(html, maxLength = 650) {
 
 async function fetchRSS(url) {
     try {
-        const text = await fetchViaProxy(url);   
+        const response = await fetch(PROXY + encodeURIComponent(url));
+        if (!response.ok) throw new Error("RSS fout");
+        const text = await response.text();   
         const xml = new DOMParser().parseFromString(text,"text/xml");
         if (xml.querySelector("parsererror")) return [];
         const items = Array.from(xml.getElementsByTagName("item"));
@@ -175,7 +154,9 @@ async function fetchRSS(url) {
 async function fetchGemeenteNieuws() {
     const url = "https://www.ommen.nl/actueel/";
     try {
-        const text = await fetchViaProxy(url);
+        const res = await fetch(PROXY + encodeURIComponent(url));
+        if (!res.ok) throw new Error("Gemeente pagina niet bereikbaar");
+        const text = await res.text();
         const html = new DOMParser().parseFromString(text,"text/html");
         const links = [];
         for (const link of html.querySelectorAll("a")) {
@@ -192,8 +173,9 @@ async function fetchGemeenteNieuws() {
 }
 async function fetchGemeenteGegevens(url) {
     try {
-        let text;
-        try{ text = await fetchViaProxy(url); }catch{ return { datum: "", tekst: "" }; }
+        const res = await fetch(PROXY + encodeURIComponent(url));
+        if (!res.ok) return { datum: "", tekst: "" };
+        const text = await res.text();
         const html = new DOMParser().parseFromString(text, "text/html");
         const bodyText = html.body?.innerText || "";
         const match = bodyText.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}(,\s*\d{2}:\d{2})?/i);
@@ -246,7 +228,9 @@ async function fetchVechtdalCentraalNieuws() {
 async function fetchOostNieuws() {
     const url = "https://www.oost.nl/nieuws";
     try {
-        const html = await fetchViaProxy(url);
+        const response = await fetch(PROXY + encodeURIComponent(url));
+        if (!response.ok) throw new Error("Oost pagina niet bereikbaar");
+        const html = await response.text();
         const doc = new DOMParser().parseFromString(html, "text/html");
         const links = [...doc.querySelectorAll("a")].map(a => a.href).filter(href => href && href.includes("/nieuws/") && /\/nieuws\/\d+\//.test(href)).map(href => href.replace("https://leeuw008-nl.github.io","https://www.oost.nl"));
         const uniek = [...new Set(links)];
@@ -256,7 +240,9 @@ async function fetchOostNieuws() {
 }
 async function fetchOostArtikel(url) {
     try {
-        let html; try{ html = await fetchViaProxy(url); }catch{ return null; }
+        const response = await fetch(PROXY + encodeURIComponent(url));
+        if (!response.ok) return null;
+        const html = await response.text();
         const doc = new DOMParser().parseFromString(html, "text/html");
         const title = doc.querySelector("h1")?.innerText?.trim() || "RTV Oost";
         let datum = doc.querySelector('meta[property="article:published_time"]')?.content || doc.querySelector('meta[name="date"]')?.content || doc.querySelector("time")?.getAttribute("datetime") || "";
@@ -283,17 +269,11 @@ function urlBase64ToUint8Array(base64String) {
 
 async function subscribePush() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) { alert('Push wordt niet ondersteund'); return; }
-    // Haal VAPID key op als nog niet gedaan
-    if (!VAPID_PUBLIC_KEY) {
-        await getVapidKey();
-    }
-    if (!VAPID_PUBLIC_KEY || PUSH_WORKER_URL.includes('JOUW-WORKER') || (typeof VAPID_PUBLIC_KEY === 'string' && VAPID_PUBLIC_KEY.includes('VUL-HIER'))) {
-        alert('VAPID key nog niet beschikbaar - check of je Worker /vapid endpoint werkt: ' + PUSH_WORKER_URL + '/vapid');
-        console.log('PUSH_WORKER_URL', PUSH_WORKER_URL, 'VAPID', VAPID_PUBLIC_KEY);
+    if (PUSH_WORKER_URL.includes('JOUW-WORKER') || VAPID_PUBLIC_KEY.includes('VUL-HIER')) {
+        alert('Je moet eerst PUSH_WORKER_URL en VAPID_PUBLIC_KEY invullen bovenaan script.js - zie uitleg in bestanden.');
         return;
     }
-    const swPath = './service-worker.js';
-    const reg = await navigator.serviceWorker.register(swPath, {scope: './'});
+    const reg = await navigator.serviceWorker.register('/service-worker.js');
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') { alert('Geen toestemming voor notificaties'); return; }
     const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
@@ -313,8 +293,20 @@ async function unsubscribePush() {
 function updatePushButton() {
     const btn = document.getElementById('push-toggle');
     if(!btn) return;
-    if(localStorage.getItem('ommen_push_subscribed')==='1') { btn.textContent='🔔 Push aan (klik om uit te zetten)'; btn.style.background='#d4edda'; }
-    else { btn.textContent='🔔 Push aanzetten (ook als site dicht is)'; btn.style.background='#ffcc00'; }
+    const isOn = localStorage.getItem('ommen_push_subscribed')==='1';
+    if(isOn) { 
+        btn.textContent='🔔'; 
+        btn.style.background='#d4edda'; 
+        btn.style.borderColor='#a3d9a5';
+        btn.title='🔔 Push aan - klik om uit te zetten';
+        btn.setAttribute('aria-label','Push notificaties aan');
+    } else { 
+        btn.textContent='🔕'; 
+        btn.style.background='#ffffff'; 
+        btn.style.borderColor='#ccc';
+        btn.title='🔕 Push uit - klik om aan te zetten';
+        btn.setAttribute('aria-label','Push notificaties uit');
+    }
 }
 
 function ensureBanner() {
@@ -397,14 +389,23 @@ function setupSources() {
 }
 function injectPushButton(){
     if(document.getElementById('push-toggle')) return;
-    const parent = document.getElementById('search-input')?.parentElement || document.querySelector('header') || document.body;
+    const bronnenBtn = document.getElementById('source-button');
+    const parent = bronnenBtn?.parentElement || document.getElementById('search-input')?.parentElement || document.querySelector('header');
+    if(!parent) return;
     const btn = document.createElement('button');
-    btn.id='push-toggle'; btn.style.cssText='margin-left:8px;padding:6px 12px;border-radius:20px;border:1px solid #ccc;cursor:pointer;font-weight:600';
+    btn.id='push-toggle';
+    btn.style.cssText='margin-left:8px;padding:7px 11px;border-radius:20px;border:1px solid #ccc;cursor:pointer;font-size:18px;line-height:1;background:#fff;vertical-align:middle;transition:all 0.2s;';
     btn.onclick = async ()=>{
         if(localStorage.getItem('ommen_push_subscribed')==='1') await unsubscribePush();
         else await subscribePush();
     };
-    parent.appendChild(btn);
+    if(bronnenBtn && bronnenBtn.parentNode===parent){
+        bronnenBtn.insertAdjacentElement('afterend', btn);
+    } else if(bronnenBtn){
+        bronnenBtn.parentNode.insertBefore(btn, bronnenBtn.nextSibling);
+    } else {
+        parent.appendChild(btn);
+    }
     updatePushButton();
 }
 window.addEventListener("DOMContentLoaded", function() {
