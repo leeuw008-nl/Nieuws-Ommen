@@ -1,4 +1,4 @@
-const PROXY = 'https://ommen-push.leeuw008.workers.dev/proxy?url=';
+const PROXY = 'https://corsproxy.io/?';
 
 const feeds = [
     { name: 'Ommen City', url: 'https://ommencity.nl/feed/' },
