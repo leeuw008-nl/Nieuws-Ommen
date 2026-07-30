@@ -1,4 +1,27 @@
-const PROXY = 'https://corsproxy.io/?';
+const PROXIES = [
+  'https://corsproxy.io/?',
+  'https://api.allorigins.win/raw?url=',
+  'https://api.codetabs.com/v1/proxy?quest='
+];
+async function fetchViaProxy(targetUrl, attempt=0){
+  if(attempt>=PROXIES.length) throw new Error('All proxies failed for '+targetUrl);
+  const proxyUrl = PROXIES[attempt] + encodeURIComponent(targetUrl);
+  try{
+    const res = await fetch(proxyUrl);
+    if(res.status===429) throw new Error('429');
+    if(!res.ok) throw new Error('Proxy '+res.status);
+    const text = await res.text();
+    if(!text || text.length<100) throw new Error('Empty');
+    return text;
+  }catch(e){
+    console.warn(`Proxy ${attempt} failed for ${targetUrl}: ${e.message}, trying next`);
+    // small delay
+    await new Promise(r=>setTimeout(r, 400*attempt));
+    return fetchViaProxy(targetUrl, attempt+1);
+  }
+}
+const PROXY = PROXIES[0]; // keep for compat
+
 
 const feeds = [
     { name: 'Ommen City', url: 'https://ommencity.nl/feed/' },
@@ -133,9 +156,7 @@ function cleanGemeenteHTML(html, maxLength = 650) {
 
 async function fetchRSS(url) {
     try {
-        const response = await fetch(PROXY + encodeURIComponent(url));
-        if (!response.ok) throw new Error("RSS fout");
-        const text = await response.text();   
+        const text = await fetchViaProxy(url);   
         const xml = new DOMParser().parseFromString(text,"text/xml");
         if (xml.querySelector("parsererror")) return [];
         const items = Array.from(xml.getElementsByTagName("item"));
@@ -154,9 +175,7 @@ async function fetchRSS(url) {
 async function fetchGemeenteNieuws() {
     const url = "https://www.ommen.nl/actueel/";
     try {
-        const res = await fetch(PROXY + encodeURIComponent(url));
-        if (!res.ok) throw new Error("Gemeente pagina niet bereikbaar");
-        const text = await res.text();
+        const text = await fetchViaProxy(url);
         const html = new DOMParser().parseFromString(text,"text/html");
         const links = [];
         for (const link of html.querySelectorAll("a")) {
@@ -173,9 +192,8 @@ async function fetchGemeenteNieuws() {
 }
 async function fetchGemeenteGegevens(url) {
     try {
-        const res = await fetch(PROXY + encodeURIComponent(url));
-        if (!res.ok) return { datum: "", tekst: "" };
-        const text = await res.text();
+        let text;
+        try{ text = await fetchViaProxy(url); }catch{ return { datum: "", tekst: "" }; }
         const html = new DOMParser().parseFromString(text, "text/html");
         const bodyText = html.body?.innerText || "";
         const match = bodyText.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}(,\s*\d{2}:\d{2})?/i);
@@ -228,9 +246,7 @@ async function fetchVechtdalCentraalNieuws() {
 async function fetchOostNieuws() {
     const url = "https://www.oost.nl/nieuws";
     try {
-        const response = await fetch(PROXY + encodeURIComponent(url));
-        if (!response.ok) throw new Error("Oost pagina niet bereikbaar");
-        const html = await response.text();
+        const html = await fetchViaProxy(url);
         const doc = new DOMParser().parseFromString(html, "text/html");
         const links = [...doc.querySelectorAll("a")].map(a => a.href).filter(href => href && href.includes("/nieuws/") && /\/nieuws\/\d+\//.test(href)).map(href => href.replace("https://leeuw008-nl.github.io","https://www.oost.nl"));
         const uniek = [...new Set(links)];
@@ -240,9 +256,7 @@ async function fetchOostNieuws() {
 }
 async function fetchOostArtikel(url) {
     try {
-        const response = await fetch(PROXY + encodeURIComponent(url));
-        if (!response.ok) return null;
-        const html = await response.text();
+        let html; try{ html = await fetchViaProxy(url); }catch{ return null; }
         const doc = new DOMParser().parseFromString(html, "text/html");
         const title = doc.querySelector("h1")?.innerText?.trim() || "RTV Oost";
         let datum = doc.querySelector('meta[property="article:published_time"]')?.content || doc.querySelector('meta[name="date"]')?.content || doc.querySelector("time")?.getAttribute("datetime") || "";
@@ -278,7 +292,8 @@ async function subscribePush() {
         console.log('PUSH_WORKER_URL', PUSH_WORKER_URL, 'VAPID', VAPID_PUBLIC_KEY);
         return;
     }
-    const reg = await navigator.serviceWorker.register('/service-worker.js');
+    const swPath = './service-worker.js';
+    const reg = await navigator.serviceWorker.register(swPath, {scope: './'});
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') { alert('Geen toestemming voor notificaties'); return; }
     const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
