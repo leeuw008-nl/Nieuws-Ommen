@@ -71,39 +71,25 @@ function cleanHTML(html, maxLength = MAX_DESC) {
     if(plainText.length > maxLength) {
         let currentLen = 0;
         let result = "";
-        let wasCut = false;
 
         for(let child of Array.from(doc.body.childNodes)) {
             let textLen = (child.textContent || "").replace(/\s+/g," ").trim().length;
             if(!textLen) continue;
             
             if(currentLen + textLen > maxLength) {
-                wasCut = true;
                 let remaining = maxLength - currentLen;
-                if(child.nodeType === 3) {
-                    let cut = child.textContent.substring(0, remaining);
-                    let lastSpace = cut.lastIndexOf(" ");
-                    if(lastSpace > 30) cut = cut.substring(0, lastSpace);
-                    result += cut.trim();
+                let cut = child.textContent.substring(0, remaining);
+                let lastSpace = cut.lastIndexOf(" ");
+                if(lastSpace > 30) cut = cut.substring(0, lastSpace);
+                
+                let tag = child.tagName ? child.tagName.toLowerCase() : "";
+                if(tag === "a") {
+                    let href = child.getAttribute("href") || "#";
+                    result += `<a href="${href}" target="_blank" rel="noopener">${cut.trim()}</a>`;
+                } else if(["p","div","span","strong","b","em","i"].includes(tag)) {
+                    result += `<${tag}>${cut.trim()}</${tag}>`;
                 } else {
-                    let innerText = child.textContent.replace(/\s+/g," ").trim();
-                    if(innerText.length > remaining) {
-                        let cut = innerText.substring(0, remaining);
-                        let lastSpace = cut.lastIndexOf(" ");
-                        if(lastSpace > 20) cut = cut.substring(0, lastSpace);
-                        // probeer tag te behouden
-                        let tag = child.tagName ? child.tagName.toLowerCase() : "span";
-                        if(tag === "a") {
-                            let href = child.getAttribute("href") || "#";
-                            result += `<a href="${href}" target="_blank" rel="noopener">${cut.trim()}</a>`;
-                        } else if(["p","div","span","strong","b","em","i"].includes(tag)) {
-                            result += `<${tag}>${cut.trim()}</${tag}>`;
-                        } else {
-                            result += cut.trim();
-                        }
-                    } else {
-                        result += child.outerHTML || child.textContent;
-                    }
+                    result += cut.trim();
                 }
                 break;
             } else {
@@ -113,20 +99,23 @@ function cleanHTML(html, maxLength = MAX_DESC) {
         }
         
         result = stripFooters(result).trim();
-        // ALTIJD [...] toevoegen als we geknipt hebben
-        if(wasCut) {
-            // als result eindigt met een tag, zet [...] ervoor
-            if(result.endsWith("</p>") || result.endsWith("</div>")) {
-                result = result.replace(/<\/(p|div)>$/i, " [...]</$1>");
-            }
-            if(!result.includes("[...]")) {
-                result = result.trim() + " [...]";
-            }
+        if(result.endsWith("</p>") || result.endsWith("</div>")) {
+            result = result.replace(/<\/(p|div)>$/i, " [...]</$1>");
+        }
+        if(!result.includes("[...]")) {
+            result = result.trim() + " [...]";
         }
         return result;
     }
-    // niet geknipt, maar wel HTML behouden
-    return stripFooters(doc.body.innerHTML).trim();
+    let htmlOut = stripFooters(doc.body.innerHTML).trim();
+    if(htmlOut && !htmlOut.includes("[...]")) {
+        if(htmlOut.endsWith("</p>")) {
+            htmlOut = htmlOut.replace(/<\/p>$/i, " [...]</p>");
+        } else {
+            htmlOut = htmlOut.trim() + " [...]";
+        }
+    }
+    return htmlOut;
 }
 
 function cleanTextWithEllipsis(text, maxLength = MAX_DESC) {
@@ -139,6 +128,7 @@ function cleanTextWithEllipsis(text, maxLength = MAX_DESC) {
         if(lastSpace > 100) cut = cut.substring(0, lastSpace);
         return cut.trim() + " [...]";
     }
+    if(!text.includes("[...]")) return text + " [...]";
     return text;
 }
 
@@ -180,6 +170,9 @@ function cleanGemeenteHTML(html, maxLength = 650) {
         if(result.endsWith("</p>")) {
             result = result.replace(/<\/p>$/i, " [...]</p>");
         }
+        if(!result.includes("[...]")) result += " [...]";
+    } else if(!result.includes("[...]")) {
+        result = result.replace(/<\/p>$/i, " [...]</p>");
         if(!result.includes("[...]")) result += " [...]";
     }
     return result;
@@ -324,12 +317,19 @@ async function fetchVechtdalCentraalNieuws() {
         if (!response.ok) throw new Error("Vechtdal Centraal fout");
         const data = await response.json();
         if (data.status !== 'ok') throw new Error("rss2json fout");
-        return data.items.slice(0,10).map(item => ({
-            title: item.title.replace(/&#8217;/g,"'").replace(/&amp;/g,"&"),
-            link: item.link,
-            description: cleanHTML(item.description, MAX_DESC),
-            timestamp: Date.parse(item.pubDate) || Date.now()
-        }));
+        return data.items.slice(0,10).map(item => {
+            let desc = cleanHTML(item.description, MAX_DESC);
+            if(!desc.includes("[...]")) {
+                desc = desc.replace(/<\/p>$/i, " [...]</p>");
+                if(!desc.includes("[...]")) desc = desc.trim() + " [...]";
+            }
+            return {
+                title: item.title.replace(/&#8217;/g,"'").replace(/&amp;/g,"&"),
+                link: item.link,
+                description: desc,
+                timestamp: Date.parse(item.pubDate) || Date.now()
+            };
+        });
     } catch(error) {
         console.error("Vechtdal Centraal fout:", error);
         return [];
