@@ -12,24 +12,17 @@ const ommenKeywords = [
 
 let allArticles = [];
 
-function stripFooters(docOrHtml) {
-    // werkt zowel op string als op Document
-    if(typeof docOrHtml === 'string') {
-        let txt = docOrHtml;
-        // verwijder complete footer zinnen inclusief html
-        txt = txt.replace(/<p[^>]*>.*?Het bericht.*?verscheen eerst op.*?<\/p>/gis, "");
-        txt = txt.replace(/<p[^>]*>.*?The post.*?appeared first on.*?<\/p>/gis, "");
-        txt = txt.replace(/Het bericht[^<]*verscheen eerst op[^<]*\./gi, "");
-        txt = txt.replace(/The post[^<]*appeared first on[^<]*\./gi, "");
-        txt = txt.replace(/Het bericht.*verscheen eerst op.*/gi, "");
-        txt = txt.replace(/The post.*appeared first on.*/gi, "");
-        // restjes zoals nl">Ommen City." opruimen
-        txt = txt.replace(/nl"\s*>.*?Ommen City\.?/gi, "");
-        txt = txt.replace(/vechtdalcentraal\.nl\/?"\s*>.*?Vechtdal Centraal\.?/gi, "");
-        txt = txt.replace(/ommencity\.nl\/?"\s*>.*?Ommen City\.?/gi, "");
-        return txt;
-    }
-    return docOrHtml;
+function stripFooters(html) {
+    if(!html) return "";
+    let txt = html;
+    txt = txt.replace(/<p[^>]*>\s*(Het bericht|The post|De post)\s+.*?(verscheen eerst op|appeared first on).*?<\/p>/gis, "");
+    txt = txt.replace(/\s*Het bericht.*verscheen eerst op.*?(Ommen City|Vechtdal Centraal|OudOmmen)?\.?\s*(<\/p>)/gi, " $2");
+    txt = txt.replace(/\s*The post.*appeared first on.*?(Vechtdal Centraal|Ommen City)?\.?\s*(<\/p>)/gi, " $2");
+    txt = txt.replace(/\s*Het bericht[^<]{0,200}verscheen eerst op[^<]{0,200}\./gi, "");
+    txt = txt.replace(/\s*The post[^<]{0,200}appeared first on[^<]{0,200}\./gi, "");
+    txt = txt.replace(/nl"\s*>.*?(Ommen City|Vechtdal Centraal)\.?/gi, "");
+    txt = txt.replace(/"\s*>\s*(Ommen City|Vechtdal Centraal)\.?/gi, "");
+    return txt.trim();
 }
 
 function cleanHTML(html) {
@@ -39,20 +32,7 @@ function cleanHTML(html) {
     textarea.innerHTML = html;
     let decoded = textarea.value;
     decoded = stripFooters(decoded);
-    
     const doc = new DOMParser().parseFromString(decoded, "text/html");
-    
-    // VERWIJDER ELK ELEMENT DAT DE FOOTER TEKST BEVAT (voordat we html bouwen)
-    doc.body.querySelectorAll("*").forEach(el=>{
-        const t = el.innerText || "";
-        if(t.includes("verscheen eerst op") || t.includes("appeared first on")) {
-            // alleen verwijderen als het een klein stukje is (footer), niet heel artikel
-            if(t.length < 300) {
-                el.remove();
-            }
-        }
-    });
-
     doc.querySelectorAll("script, style, iframe, form, object, embed, link, noscript").forEach(el=>el.remove());
     doc.querySelectorAll("*").forEach(el=>{
         [...el.attributes].forEach(attr=>{
@@ -63,56 +43,23 @@ function cleanHTML(html) {
         a.setAttribute("target","_blank");
         a.setAttribute("rel","noopener");
     });
-
     let safe = "";
     doc.body.childNodes.forEach(node=>{
         if(node.nodeType === 3) {
-            const txt = node.textContent.trim();
-            if(txt && !txt.includes("verscheen eerst op") && !txt.includes("appeared first on") && !txt.includes('">Ommen City') && !txt.includes('">Vechtdal Centraal')) {
-                safe += node.textContent;
-            }
-        } else if(["P","BR","STRONG","B","EM","I","U","A","UL","OL","LI","H2","H3","H4","BLOCKQUOTE"].includes(node.tagName)) {
-            const inner = node.innerHTML || "";
-            const text = node.innerText || "";
-            if(!text.includes("verscheen eerst op") && !text.includes("appeared first on") && !inner.includes('">Ommen City') && !inner.includes('">Vechtdal Centraal')) {
-                safe += node.outerHTML;
-            }
-        } else if(node.tagName === "DIV" || node.tagName === "SPAN") {
-            if(!node.innerText.includes("verscheen eerst op") && !node.innerText.includes("appeared first on")) {
-                safe += node.innerHTML + "<br>";
-            }
-        } else if(node.innerText && node.innerText.trim().length > 20 && !node.innerText.includes("verscheen eerst op") && !node.innerText.includes("appeared first on")) {
-            safe += "<p>" + node.innerHTML + "</p>";
+            if(node.textContent.trim()) safe += node.textContent;
+        } else if(["P","BR","STRONG","B","EM","I","U","A","UL","OL","LI","H2","H3","H4","BLOCKQUOTE","DIV","SPAN"].includes(node.tagName)) {
+            let out = node.outerHTML;
+            out = stripFooters(out);
+            const textOnly = out.replace(/<[^>]*>/g,"").trim();
+            if(textOnly.length > 3) safe += out;
         }
     });
-    
-    if(!safe.trim()) safe = doc.body.innerHTML;
-    safe = stripFooters(safe);
-    
-    // laatste schoonmaak voor restjes
-    safe = safe.replace(/"\s*>\s*Ommen City\.?/gi, "");
-    safe = safe.replace(/"\s*>\s*Vechtdal Centraal\.?/gi, "");
-    safe = safe.replace(/nl"\s*>.*/gi, "");
-
-    if(safe.length > 800) {
-        const temp = document.createElement("div");
-        temp.innerHTML = safe;
-        if(temp.innerText.length > 500) {
-            const ps = temp.querySelectorAll("p");
-            if(ps.length > 0) {
-                let out = "";
-                for(let p of ps) {
-                    if(out.length + p.innerHTML.length > 700) break;
-                    if(!p.innerText.includes("verscheen eerst op") && !p.innerText.includes("appeared first on")) {
-                        out += p.outerHTML;
-                    }
-                }
-                return out || temp.innerText.substring(0,500) + "...";
-            }
-            return temp.innerText.substring(0,500) + "...";
-        }
+    if(!safe.trim()) {
+        safe = doc.body.innerHTML;
+        safe = stripFooters(safe);
     }
-    return safe.substring(0,800);
+    safe = stripFooters(safe);
+    return safe.substring(0,900);
 }
 
 async function fetchRSS(url) {
