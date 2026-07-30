@@ -13,9 +13,9 @@ const ommenKeywords = [
 let allArticles = [];
 const MAX_DESC = 380;
 
-// --- PUSH CONFIG ---
+// --- PUSH CONFIG - DEFINITIEF VOOR OMMEN ---
 const PUSH_WORKER_URL = 'https://ommen-push.leeuw008.workers.dev';
-let VAPID_PUBLIC_KEY = null;
+let VAPID_PUBLIC_KEY = null; // wordt automatisch opgehaald
 
 async function getVapidKey(){
   if(VAPID_PUBLIC_KEY) return VAPID_PUBLIC_KEY;
@@ -24,7 +24,10 @@ async function getVapidKey(){
     const j = await r.json();
     VAPID_PUBLIC_KEY = j.publicKey;
     return VAPID_PUBLIC_KEY;
-  }catch(e){ console.error('VAPID ophalen mislukt', e); return null; }
+  }catch(e){ 
+    console.error('VAPID ophalen mislukt', e); 
+    return null; 
+  }
 }
 
 const LS_SEEN_KEY = "ommen_nieuws_seen_links";
