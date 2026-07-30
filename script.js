@@ -1,4 +1,30 @@
-const PROXY = 'https://ommen-push.leeuw008.workers.dev/proxy?url=';
+const PROXIES = [
+  'https://ommen-push.leeuw008.workers.dev/proxy?url=',
+  'https://corsproxy.io/?',
+  'https://api.allorigins.win/raw?url=',
+  'https://api.codetabs.com/v1/proxy?quest='
+];
+const PROXY = PROXIES[0];
+
+async function fetchViaProxy(targetUrl, attempt=0){
+  if(attempt>=PROXIES.length) throw new Error('All proxies failed for '+targetUrl);
+  const proxyUrl = PROXIES[attempt] + encodeURIComponent(targetUrl);
+  try{
+    console.log(`Proxy attempt ${attempt+1}/${PROXIES.length} voor ${targetUrl} via ${PROXIES[attempt]}`);
+    const res = await fetch(proxyUrl);
+    if(res.status===429) throw new Error('429 Too Many Requests');
+    if(!res.ok) throw new Error('Proxy status '+res.status);
+    const text = await res.text();
+    if(!text || text.length<100) throw new Error('Lege response');
+    // Check if it's actually XML/HTML not error page
+    if(text.includes('Too Many Requests') || text.includes('rate limit')) throw new Error('Rate limited in body');
+    return text;
+  }catch(e){
+    console.warn(`Proxy ${PROXIES[attempt]} faalde voor ${targetUrl}:`, e.message);
+    await new Promise(r=>setTimeout(r, 300*attempt));
+    return fetchViaProxy(targetUrl, attempt+1);
+  }
+}
 
 const feeds = [
     { name: 'Ommen City', url: 'https://ommencity.nl/feed/' },
