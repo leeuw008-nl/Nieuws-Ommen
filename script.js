@@ -269,11 +269,16 @@ function urlBase64ToUint8Array(base64String) {
 
 async function subscribePush() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) { alert('Push wordt niet ondersteund'); return; }
-    if (PUSH_WORKER_URL.includes('JOUW-WORKER') || VAPID_PUBLIC_KEY.includes('VUL-HIER')) {
-        alert('Je moet eerst PUSH_WORKER_URL en VAPID_PUBLIC_KEY invullen bovenaan script.js - zie uitleg in bestanden.');
+    // Haal VAPID key op als nog niet gedaan (auto-fetch)
+    if (!VAPID_PUBLIC_KEY) {
+        await getVapidKey();
+    }
+    if (!VAPID_PUBLIC_KEY || PUSH_WORKER_URL.includes('JOUW-WORKER') || (typeof VAPID_PUBLIC_KEY === 'string' && VAPID_PUBLIC_KEY.includes('VUL-HIER'))) {
+        alert('VAPID key nog niet beschikbaar - check ' + PUSH_WORKER_URL + '/vapid');
+        console.log('VAPID:', VAPID_PUBLIC_KEY);
         return;
     }
-    const reg = await navigator.serviceWorker.register('/service-worker.js');
+    const reg = await navigator.serviceWorker.register('./service-worker.js', {scope: './'});
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') { alert('Geen toestemming voor notificaties'); return; }
     const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
@@ -298,14 +303,12 @@ function updatePushButton() {
         btn.textContent='🔔'; 
         btn.style.background='#d4edda'; 
         btn.style.borderColor='#a3d9a5';
-        btn.title='🔔 Push aan - klik om uit te zetten';
-        btn.setAttribute('aria-label','Push notificaties aan');
+        btn.title='Push aan - klik om uit te zetten';
     } else { 
         btn.textContent='🔕'; 
         btn.style.background='#ffffff'; 
         btn.style.borderColor='#ccc';
-        btn.title='🔕 Push uit - klik om aan te zetten';
-        btn.setAttribute('aria-label','Push notificaties uit');
+        btn.title='Push uit - klik om aan te zetten';
     }
 }
 
@@ -394,15 +397,13 @@ function injectPushButton(){
     if(!parent) return;
     const btn = document.createElement('button');
     btn.id='push-toggle';
-    btn.style.cssText='margin-left:8px;padding:7px 11px;border-radius:20px;border:1px solid #ccc;cursor:pointer;font-size:18px;line-height:1;background:#fff;vertical-align:middle;transition:all 0.2s;';
+    btn.style.cssText='margin-left:8px;padding:7px 11px;border-radius:20px;border:1px solid #ccc;cursor:pointer;font-size:18px;line-height:1;background:#fff;vertical-align:middle;';
     btn.onclick = async ()=>{
         if(localStorage.getItem('ommen_push_subscribed')==='1') await unsubscribePush();
         else await subscribePush();
     };
-    if(bronnenBtn && bronnenBtn.parentNode===parent){
+    if(bronnenBtn){
         bronnenBtn.insertAdjacentElement('afterend', btn);
-    } else if(bronnenBtn){
-        bronnenBtn.parentNode.insertBefore(btn, bronnenBtn.nextSibling);
     } else {
         parent.appendChild(btn);
     }
