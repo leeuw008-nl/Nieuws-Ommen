@@ -12,11 +12,24 @@ const ommenKeywords = [
 
 let allArticles = [];
 
+function stripFooters(html) {
+    if(!html) return "";
+    let txt = html;
+    txt = txt.replace(/Het bericht.*verscheen eerst op.*?\./gi, "");
+    txt = txt.replace(/Het bericht.*verscheen eerst op.*$/gi, "");
+    txt = txt.replace(/The post.*appeared first on.*?\./gi, "");
+    txt = txt.replace(/The post.*appeared first on.*$/gi, "");
+    txt = txt.replace(/De post.*verscheen eerst op.*?\./gi, "");
+    return txt.trim();
+}
+
 function cleanHTML(html) {
     if(!html) return "";
+    html = stripFooters(html);
     const textarea = document.createElement("textarea");
     textarea.innerHTML = html;
     let decoded = textarea.value;
+    decoded = stripFooters(decoded);
     const doc = new DOMParser().parseFromString(decoded, "text/html");
     doc.querySelectorAll("script, style, iframe, form, object, embed, link, noscript").forEach(el=>el.remove());
     doc.querySelectorAll("*").forEach(el=>{
@@ -28,10 +41,9 @@ function cleanHTML(html) {
         a.setAttribute("target","_blank");
         a.setAttribute("rel","noopener");
     });
-    // behoud alleen veilige tags
     let safe = "";
     doc.body.childNodes.forEach(node=>{
-        if(node.nodeType === 3) { // text
+        if(node.nodeType === 3) {
             safe += node.textContent;
         } else if(["P","BR","STRONG","B","EM","I","U","A","UL","OL","LI","H2","H3","H4","BLOCKQUOTE"].includes(node.tagName)) {
             safe += node.outerHTML;
@@ -42,23 +54,23 @@ function cleanHTML(html) {
         }
     });
     if(!safe.trim()) safe = doc.body.innerHTML;
-    // veilig inkorten zonder tags kapot te maken
+    safe = stripFooters(safe);
     if(safe.length > 800) {
         const temp = document.createElement("div");
         temp.innerHTML = safe;
         let textLen = temp.innerText.length;
         if(textLen > 500) {
-            // neem eerste 2 paragrafen
             const ps = temp.querySelectorAll("p");
             if(ps.length > 0) {
                 let out = "";
                 for(let p of ps) {
                     if(out.length + p.innerHTML.length > 700) break;
-                    out += p.outerHTML;
+                    let phtml = stripFooters(p.outerHTML);
+                    if(phtml.trim()) out += phtml;
                 }
-                return out || temp.innerText.substring(0,500) + "...";
+                return out || stripFooters(temp.innerText.substring(0,500) + "...");
             }
-            return temp.innerText.substring(0,500) + "...";
+            return stripFooters(temp.innerText.substring(0,500) + "...");
         }
     }
     return safe.substring(0,800);
@@ -152,7 +164,6 @@ async function fetchGemeenteGegevens(url) {
     }
 }
 
-// FIXED: RTV Vechtdal gebruikt weer platte tekst zodat hij niks kapot maakt
 async function fetchRTVVechtdalNieuws() {
     const url = "https://rtvvechtdal.nl/";
     try {
@@ -180,7 +191,6 @@ async function fetchRTVVechtdalNieuws() {
                     bodyText = bodyText.replace(/Home Vechtdal TV.*?Stichting RTV Vechtdal/i, "").trim();
                     const match = text2.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i);
                     const datum = match ? match[0] : "";
-                    // GEEN HTML hier, alleen veilige tekst
                     return {
                         title: artikel.title,
                         link: artikel.link,
