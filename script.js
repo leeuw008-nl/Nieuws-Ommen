@@ -1,4 +1,4 @@
-const PROXY = 'https://corsproxy.io/?';
+const PROXY = 'https://ommen-push.leeuw008.workers.dev/proxy?url=';
 
 const feeds = [
     { name: 'Ommen City', url: 'https://ommencity.nl/feed/' },
@@ -377,14 +377,23 @@ function setupSources() {
 }
 function injectPushButton(){
     if(document.getElementById('push-toggle')) return;
-    const parent = document.getElementById('search-input')?.parentElement || document.querySelector('header') || document.body;
+    // Plaats naast Bronnen-knop, niet naast zoekbalk
+    const bronBtn = document.getElementById('source-button');
+    const parent = bronBtn?.parentElement || document.getElementById('search-input')?.parentElement || document.querySelector('header') || document.body;
     const btn = document.createElement('button');
-    btn.id='push-toggle'; btn.style.cssText='margin-left:8px;padding:6px 12px;border-radius:20px;border:1px solid #ccc;cursor:pointer;font-weight:600';
+    btn.id='push-toggle'; 
+    btn.style.cssText='margin-left:8px;padding:6px 12px;border-radius:20px;border:1px solid #ccc;cursor:pointer;font-weight:600;background:#ffcc00;';
     btn.onclick = async ()=>{
         if(localStorage.getItem('ommen_push_subscribed')==='1') await unsubscribePush();
         else await subscribePush();
     };
-    parent.appendChild(btn);
+    if(bronBtn && bronBtn.nextSibling){
+        bronBtn.parentNode.insertBefore(btn, bronBtn.nextSibling);
+    } else if(bronBtn){
+        bronBtn.parentNode.appendChild(btn);
+    } else {
+        parent.appendChild(btn);
+    }
     updatePushButton();
 }
 window.addEventListener("DOMContentLoaded", function() {
