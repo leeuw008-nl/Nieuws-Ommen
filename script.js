@@ -11,6 +11,7 @@ const ommenKeywords = [
 ];
 
 let allArticles = [];
+const MAX_DESC = 380; // lengte voor alle bronnen
 
 function stripFooters(html) {
     if(!html) return "";
@@ -25,13 +26,14 @@ function stripFooters(html) {
     return txt.trim();
 }
 
-function cleanHTML(html) {
+function cleanHTML(html, maxLength = MAX_DESC) {
     if(!html) return "";
     html = stripFooters(html);
     const textarea = document.createElement("textarea");
     textarea.innerHTML = html;
     let decoded = textarea.value;
     decoded = stripFooters(decoded);
+
     const doc = new DOMParser().parseFromString(decoded, "text/html");
     doc.querySelectorAll("script, style, iframe, form, object, embed, link, noscript").forEach(el=>el.remove());
     doc.querySelectorAll("*").forEach(el=>{
@@ -43,23 +45,77 @@ function cleanHTML(html) {
         a.setAttribute("target","_blank");
         a.setAttribute("rel","noopener");
     });
-    let safe = "";
-    doc.body.childNodes.forEach(node=>{
-        if(node.nodeType === 3) {
-            if(node.textContent.trim()) safe += node.textContent;
-        } else if(["P","BR","STRONG","B","EM","I","U","A","UL","OL","LI","H2","H3","H4","BLOCKQUOTE","DIV","SPAN"].includes(node.tagName)) {
-            let out = node.outerHTML;
-            out = stripFooters(out);
-            const textOnly = out.replace(/<[^>]*>/g,"").trim();
-            if(textOnly.length > 3) safe += out;
+
+    let plainLength = doc.body.innerText.replace(/\s+/g," ").trim().length;
+    
+    // Als tekst te lang is, knip HTML op een nette manier af
+    if(plainLength > maxLength) {
+        let currentLen = 0;
+        let result = "";
+        const walker = document.createTreeWalker(doc.body, NodeFilter.SHOW_ALL);
+        const nodesToKeep = [];
+
+        // Verzamel alle top-level nodes tot maxLength
+        for(let child of Array.from(doc.body.childNodes)) {
+            let textLen = (child.textContent || "").length;
+            if(currentLen + textLen > maxLength) {
+                // Deze node moet ingekort worden
+                if(child.nodeType === 3) {
+                    let remaining = maxLength - currentLen;
+                    let cut = child.textContent.substring(0, remaining);
+                    let lastSpace = cut.lastIndexOf(" ");
+                    if(lastSpace > 50) cut = cut.substring(0, lastSpace);
+                    result += cut;
+                } else if(child.outerHTML) {
+                    // Knip innerText van dit element af
+                    let tempDiv = document.createElement("div");
+                    tempDiv.innerHTML = child.outerHTML;
+                    let txt = tempDiv.innerText;
+                    let remaining = maxLength - currentLen;
+                    if(txt.length > remaining) {
+                        let cut = txt.substring(0, remaining);
+                        let lastSpace = cut.lastIndexOf(" ");
+                        if(lastSpace > 20) cut = cut.substring(0, lastSpace);
+                        // behoud tag maar met ingekorte tekst
+                        if(child.tagName === "A") {
+                            result += `<a href="${child.getAttribute("href")}" target="_blank" rel="noopener">${cut}</a>`;
+                        } else {
+                            result += `<${child.tagName.toLowerCase()}>${cut}</${child.tagName.toLowerCase()}>`;
+                        }
+                    } else {
+                        result += child.outerHTML;
+                    }
+                }
+                break;
+            } else {
+                result += child.outerHTML || child.textContent;
+                currentLen += textLen;
+            }
         }
-    });
-    if(!safe.trim()) {
-        safe = doc.body.innerHTML;
-        safe = stripFooters(safe);
+        result = stripFooters(result);
+        // Voeg [...] toe, maar binnen de HTML netjes
+        if(result.includes("</p>")) {
+            result = result.replace(/<\/p>(?!.*<\/p>)/, " [...]</p>");
+            if(!result.includes("[...]")) result += " [...]";
+        } else {
+            result = result.trim() + " [...]";
+        }
+        return result;
     }
-    safe = stripFooters(safe);
-    return safe.substring(0,900);
+    return stripFooters(doc.body.innerHTML).trim();
+}
+
+function cleanTextWithEllipsis(text, maxLength = MAX_DESC) {
+    if(!text) return "";
+    text = text.replace(/\s+/g," ").trim();
+    text = stripFooters(text);
+    if(text.length > maxLength) {
+        let cut = text.substring(0, maxLength);
+        let lastSpace = cut.lastIndexOf(" ");
+        if(lastSpace > 100) cut = cut.substring(0, lastSpace);
+        return cut.trim() + " [...]";
+    }
+    return text;
 }
 
 async function fetchRSS(url) {
@@ -81,7 +137,7 @@ async function fetchRSS(url) {
             const rawDesc = item.querySelector("description, content\\:encoded, summary, content")?.textContent || "";
             return {
                 title: item.querySelector("title")?.textContent?.trim() || "Geen titel",
-                description: cleanHTML(rawDesc),
+                description: cleanHTML(rawDesc, MAX_DESC),
                 link: link.trim(),
                 timestamp: isNaN(timestamp) ? 0 : timestamp
             };
@@ -139,10 +195,10 @@ async function fetchGemeenteGegevens(url) {
         let tekst = "";
         if(contentDiv) {
             let parent = contentDiv.closest("article") || contentDiv.parentElement;
-            tekst = cleanHTML(parent ? parent.innerHTML : contentDiv.innerHTML);
+            tekst = cleanHTML(parent ? parent.innerHTML : contentDiv.innerHTML, MAX_DESC);
         } else {
             const regels = bodyText.split("\n").map(r=>r.trim()).filter(r=>r.length>40 && !r.includes("HomeActueel"));
-            if(regels.length>0) tekst = regels.slice(1,3).join("<br><br>").substring(0,500);
+            if(regels.length>0) tekst = cleanTextWithEllipsis(regels.slice(1,3).join(" "), MAX_DESC);
         }
         return { datum, tekst };
     } catch(error) {
@@ -180,7 +236,7 @@ async function fetchRTVVechtdalNieuws() {
                     return {
                         title: artikel.title,
                         link: artikel.link,
-                        description: bodyText.substring(0,350) + "...",
+                        description: cleanTextWithEllipsis(bodyText, MAX_DESC),
                         timestamp: datum ? Date.parse(datum) : Date.now()
                     };
                 } catch { return null; }
@@ -203,7 +259,7 @@ async function fetchVechtdalCentraalNieuws() {
         return data.items.slice(0,10).map(item => ({
             title: item.title.replace(/&#8217;/g,"'").replace(/&amp;/g,"&"),
             link: item.link,
-            description: cleanHTML(item.description),
+            description: cleanHTML(item.description, MAX_DESC),
             timestamp: Date.parse(item.pubDate) || Date.now()
         }));
     } catch(error) {
@@ -242,7 +298,7 @@ async function fetchOostArtikel(url) {
             if (match) datum = match[0];
         }
         const contentEl = doc.querySelector("article, .article__content");
-        const description = contentEl ? cleanHTML(contentEl.innerHTML) : (doc.querySelector('meta[name="description"]')?.content || "");
+        const description = contentEl ? cleanHTML(contentEl.innerHTML, MAX_DESC) : cleanTextWithEllipsis(doc.querySelector('meta[name="description"]')?.content || "", MAX_DESC);
         return { title, link: url, description, timestamp: datum ? Date.parse(datum) : Date.now(), source: "RTV Oost" };
     } catch(e) { return null; }
 }
