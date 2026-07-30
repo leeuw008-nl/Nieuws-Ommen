@@ -293,8 +293,20 @@ async function unsubscribePush() {
 function updatePushButton() {
     const btn = document.getElementById('push-toggle');
     if(!btn) return;
-    if(localStorage.getItem('ommen_push_subscribed')==='1') { btn.textContent='🔔 Push aan (klik om uit te zetten)'; btn.style.background='#d4edda'; }
-    else { btn.textContent='🔔 Push aanzetten (ook als site dicht is)'; btn.style.background='#ffcc00'; }
+    const isOn = localStorage.getItem('ommen_push_subscribed')==='1';
+    if(isOn) { 
+        btn.textContent='🔔'; 
+        btn.style.background='#d4edda'; 
+        btn.style.borderColor='#a3d9a5';
+        btn.title='🔔 Push aan - klik om uit te zetten';
+        btn.setAttribute('aria-label','Push notificaties aan');
+    } else { 
+        btn.textContent='🔕'; 
+        btn.style.background='#ffffff'; 
+        btn.style.borderColor='#ccc';
+        btn.title='🔕 Push uit - klik om aan te zetten';
+        btn.setAttribute('aria-label','Push notificaties uit');
+    }
 }
 
 function ensureBanner() {
@@ -377,14 +389,23 @@ function setupSources() {
 }
 function injectPushButton(){
     if(document.getElementById('push-toggle')) return;
-    const parent = document.getElementById('search-input')?.parentElement || document.querySelector('header') || document.body;
+    const bronnenBtn = document.getElementById('source-button');
+    const parent = bronnenBtn?.parentElement || document.getElementById('search-input')?.parentElement || document.querySelector('header');
+    if(!parent) return;
     const btn = document.createElement('button');
-    btn.id='push-toggle'; btn.style.cssText='margin-left:8px;padding:6px 12px;border-radius:20px;border:1px solid #ccc;cursor:pointer;font-weight:600';
+    btn.id='push-toggle';
+    btn.style.cssText='margin-left:8px;padding:7px 11px;border-radius:20px;border:1px solid #ccc;cursor:pointer;font-size:18px;line-height:1;background:#fff;vertical-align:middle;transition:all 0.2s;';
     btn.onclick = async ()=>{
         if(localStorage.getItem('ommen_push_subscribed')==='1') await unsubscribePush();
         else await subscribePush();
     };
-    parent.appendChild(btn);
+    if(bronnenBtn && bronnenBtn.parentNode===parent){
+        bronnenBtn.insertAdjacentElement('afterend', btn);
+    } else if(bronnenBtn){
+        bronnenBtn.parentNode.insertBefore(btn, bronnenBtn.nextSibling);
+    } else {
+        parent.appendChild(btn);
+    }
     updatePushButton();
 }
 window.addEventListener("DOMContentLoaded", function() {
