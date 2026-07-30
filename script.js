@@ -31,6 +31,7 @@ async function getVapidKey(){
 }
 
 const LS_SEEN_KEY = "ommen_nieuws_seen_links";
+const LS_SOURCES_KEY = "ommen_selected_sources";
 
 function stripFooters(html) {
     if(!html) return "";
@@ -282,7 +283,9 @@ async function subscribePush() {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') { alert('Geen toestemming voor notificaties'); return; }
     const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
-    await fetch(PUSH_WORKER_URL + '/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub) });
+    const sources = getSelectedSources();
+    const subWithPrefs = {...sub.toJSON(), sources: sources};
+    await fetch(PUSH_WORKER_URL + '/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(subWithPrefs) });
     localStorage.setItem('ommen_push_subscribed','1');
     updatePushButton();
     alert('🔔 Push aan! Je krijgt nu melding ook als site dicht is.');
@@ -382,13 +385,52 @@ function setupSearch() {
     if (switchOmmen) switchOmmen.addEventListener("change", function() { if(searchInput) searchInput.value = ""; searchNews(); });
 }
 function refreshNews() { loadNews(false); }
+
+function saveSelectedSources(){
+    const selected = Array.from(document.querySelectorAll(".source-filter:checked")).map(cb=>cb.value);
+    localStorage.setItem(LS_SOURCES_KEY, JSON.stringify(selected));
+    // update push subscription on server with new preferences if subscribed
+    updatePushPreferences();
+}
+function loadSelectedSources(){
+    try{
+        const saved = JSON.parse(localStorage.getItem(LS_SOURCES_KEY)||"null");
+        if(!saved || !Array.isArray(saved) || saved.length===0) return;
+        document.querySelectorAll(".source-filter").forEach(cb=>{
+            cb.checked = saved.includes(cb.value);
+        });
+    }catch(e){}
+}
+function getSelectedSources(){
+    return Array.from(document.querySelectorAll(".source-filter:checked")).map(cb=>cb.value);
+}
+async function updatePushPreferences(){
+    if(localStorage.getItem('ommen_push_subscribed')!=='1') return;
+    try{
+        const reg = await navigator.serviceWorker.getRegistration();
+        if(!reg) return;
+        const sub = await reg.pushManager.getSubscription();
+        if(!sub) return;
+        const sources = getSelectedSources();
+        await fetch(PUSH_WORKER_URL + '/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({...sub.toJSON(), sources: sources})
+        });
+        console.log('Push voorkeuren bijgewerkt:', sources);
+    }catch(e){ console.warn('Push prefs update failed', e); }
+}
+
 function setupSources() {
     const button = document.getElementById("source-button");
     const menu = document.getElementById("source-menu");
     if(menu) menu.style.display = "none";
+    loadSelectedSources();
     if (!button || !menu) return;
     button.addEventListener("click", function() { if (menu.style.display === "none") { menu.style.display = "block"; button.innerHTML = "Bronnen ▲"; } else { menu.style.display = "none"; button.innerHTML = "Bronnen ▼"; } });
-    document.querySelectorAll(".source-filter").forEach(box => { box.addEventListener("change", function() { searchNews(); }); });
+    document.querySelectorAll(".source-filter").forEach(box => {
+        box.addEventListener("change", function() { saveSelectedSources(); searchNews(); });
+    });
 }
 function injectPushButton(){
     if(document.getElementById('push-toggle')) return;
