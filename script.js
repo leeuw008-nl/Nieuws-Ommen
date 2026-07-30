@@ -11,7 +11,7 @@ const ommenKeywords = [
 ];
 
 let allArticles = [];
-const MAX_DESC = 380; // lengte voor alle bronnen
+const MAX_DESC = 380;
 
 function stripFooters(html) {
     if(!html) return "";
@@ -26,6 +26,32 @@ function stripFooters(html) {
     return txt.trim();
 }
 
+// ORIGINEEL voor OudOmmen - geen afkappen
+function cleanHTMLOriginal(html) {
+    if(!html) return "";
+    html = stripFooters(html);
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = html;
+    let decoded = textarea.value;
+    decoded = stripFooters(decoded);
+    const doc = new DOMParser().parseFromString(decoded, "text/html");
+    doc.querySelectorAll("script, style, iframe, form, object, embed, link, noscript").forEach(el=>el.remove());
+    doc.querySelectorAll("a").forEach(a=>{
+        a.setAttribute("target","_blank");
+        a.setAttribute("rel","noopener");
+    });
+    let safe = "";
+    doc.body.childNodes.forEach(node=>{
+        if(node.nodeType === 3) {
+            if(node.textContent.trim()) safe += node.textContent;
+        } else if(["P","BR","STRONG","B","EM","I","U","A","UL","OL","LI","H2","H3","H4","BLOCKQUOTE","DIV","SPAN"].includes(node.tagName)) {
+            safe += node.outerHTML;
+        }
+    });
+    if(!safe.trim()) safe = doc.body.innerHTML;
+    return stripFooters(safe).trim();
+}
+
 function cleanHTML(html, maxLength = MAX_DESC) {
     if(!html) return "";
     html = stripFooters(html);
@@ -33,33 +59,19 @@ function cleanHTML(html, maxLength = MAX_DESC) {
     textarea.innerHTML = html;
     let decoded = textarea.value;
     decoded = stripFooters(decoded);
-
     const doc = new DOMParser().parseFromString(decoded, "text/html");
     doc.querySelectorAll("script, style, iframe, form, object, embed, link, noscript").forEach(el=>el.remove());
-    doc.querySelectorAll("*").forEach(el=>{
-        [...el.attributes].forEach(attr=>{
-            if(attr.name.startsWith("on")) el.removeAttribute(attr.name);
-        });
-    });
     doc.querySelectorAll("a").forEach(a=>{
         a.setAttribute("target","_blank");
         a.setAttribute("rel","noopener");
     });
-
     let plainLength = doc.body.innerText.replace(/\s+/g," ").trim().length;
-    
-    // Als tekst te lang is, knip HTML op een nette manier af
     if(plainLength > maxLength) {
         let currentLen = 0;
         let result = "";
-        const walker = document.createTreeWalker(doc.body, NodeFilter.SHOW_ALL);
-        const nodesToKeep = [];
-
-        // Verzamel alle top-level nodes tot maxLength
         for(let child of Array.from(doc.body.childNodes)) {
             let textLen = (child.textContent || "").length;
             if(currentLen + textLen > maxLength) {
-                // Deze node moet ingekort worden
                 if(child.nodeType === 3) {
                     let remaining = maxLength - currentLen;
                     let cut = child.textContent.substring(0, remaining);
@@ -67,7 +79,6 @@ function cleanHTML(html, maxLength = MAX_DESC) {
                     if(lastSpace > 50) cut = cut.substring(0, lastSpace);
                     result += cut;
                 } else if(child.outerHTML) {
-                    // Knip innerText van dit element af
                     let tempDiv = document.createElement("div");
                     tempDiv.innerHTML = child.outerHTML;
                     let txt = tempDiv.innerText;
@@ -76,7 +87,6 @@ function cleanHTML(html, maxLength = MAX_DESC) {
                         let cut = txt.substring(0, remaining);
                         let lastSpace = cut.lastIndexOf(" ");
                         if(lastSpace > 20) cut = cut.substring(0, lastSpace);
-                        // behoud tag maar met ingekorte tekst
                         if(child.tagName === "A") {
                             result += `<a href="${child.getAttribute("href")}" target="_blank" rel="noopener">${cut}</a>`;
                         } else {
@@ -93,7 +103,6 @@ function cleanHTML(html, maxLength = MAX_DESC) {
             }
         }
         result = stripFooters(result);
-        // Voeg [...] toe, maar binnen de HTML netjes
         if(result.includes("</p>")) {
             result = result.replace(/<\/p>(?!.*<\/p>)/, " [...]</p>");
             if(!result.includes("[...]")) result += " [...]";
@@ -118,6 +127,49 @@ function cleanTextWithEllipsis(text, maxLength = MAX_DESC) {
     return text;
 }
 
+// FIX voor Gemeente: pak meerdere alinea's en pas daarna afkappen
+function cleanGemeenteHTML(html, maxLength = 600) {
+    if(!html) return "";
+    html = stripFooters(html);
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    doc.querySelectorAll("script, style, iframe, form, object, embed, link, noscript").forEach(el=>el.remove());
+    doc.querySelectorAll("a").forEach(a=>{
+        a.setAttribute("target","_blank");
+        a.setAttribute("rel","noopener");
+    });
+    
+    // Pak alle <p> elementen die echte content zijn
+    let paragraphs = Array.from(doc.querySelectorAll("p"))
+        .map(p => p.outerHTML)
+        .filter(p => {
+            let txt = p.replace(/<[^>]*>/g,"").trim();
+            return txt.length > 30 && !txt.includes("verscheen eerst op") && !txt.includes("appeared first on");
+        });
+    
+    if(paragraphs.length === 0) {
+        return cleanHTML(html, maxLength);
+    }
+    
+    // Combineer alinea's tot maxLength
+    let result = "";
+    let currentLen = 0;
+    for(let p of paragraphs) {
+        let textLen = p.replace(/<[^>]*>/g,"").length;
+        if(currentLen + textLen > maxLength && currentLen > 200) break; // minimaal 200 chars, daarna stoppen
+        result += p;
+        currentLen += textLen;
+        if(currentLen >= maxLength) break;
+    }
+    
+    result = stripFooters(result);
+    // Alleen [...] als er echt nog meer alinea's waren
+    if(paragraphs.join("").length > result.length) {
+        result = result.replace(/<\/p>(?!.*<\/p>)/, " [...]</p>");
+        if(!result.includes("[...]")) result += " [...]";
+    }
+    return result;
+}
+
 async function fetchRSS(url) {
     try {
         const response = await fetch(PROXY + encodeURIComponent(url));
@@ -135,9 +187,11 @@ async function fetchRSS(url) {
             const date = item.querySelector("pubDate")?.textContent?.trim() || item.querySelector("published")?.textContent?.trim() || item.querySelector("updated")?.textContent?.trim() || "";
             const timestamp = Date.parse(date);
             const rawDesc = item.querySelector("description, content\\:encoded, summary, content")?.textContent || "";
+            
+            const isOudOmmen = url.includes("oudommen");
             return {
                 title: item.querySelector("title")?.textContent?.trim() || "Geen titel",
-                description: cleanHTML(rawDesc, MAX_DESC),
+                description: isOudOmmen ? cleanHTMLOriginal(rawDesc) : cleanHTML(rawDesc, MAX_DESC),
                 link: link.trim(),
                 timestamp: isNaN(timestamp) ? 0 : timestamp
             };
@@ -195,10 +249,10 @@ async function fetchGemeenteGegevens(url) {
         let tekst = "";
         if(contentDiv) {
             let parent = contentDiv.closest("article") || contentDiv.parentElement;
-            tekst = cleanHTML(parent ? parent.innerHTML : contentDiv.innerHTML, MAX_DESC);
+            tekst = cleanGemeenteHTML(parent ? parent.innerHTML : contentDiv.innerHTML, 650);
         } else {
             const regels = bodyText.split("\n").map(r=>r.trim()).filter(r=>r.length>40 && !r.includes("HomeActueel"));
-            if(regels.length>0) tekst = cleanTextWithEllipsis(regels.slice(1,3).join(" "), MAX_DESC);
+            if(regels.length>0) tekst = cleanTextWithEllipsis(regels.slice(0,3).join(" "), 650);
         }
         return { datum, tekst };
     } catch(error) {
