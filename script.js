@@ -26,7 +26,6 @@ function stripFooters(html) {
     return txt.trim();
 }
 
-// ORIGINEEL voor OudOmmen - geen afkappen
 function cleanHTMLOriginal(html) {
     if(!html) return "";
     html = stripFooters(html);
@@ -65,35 +64,45 @@ function cleanHTML(html, maxLength = MAX_DESC) {
         a.setAttribute("target","_blank");
         a.setAttribute("rel","noopener");
     });
-    let plainLength = doc.body.innerText.replace(/\s+/g," ").trim().length;
-    if(plainLength > maxLength) {
+
+    let plainText = doc.body.innerText.replace(/\s+/g," ").trim();
+    plainText = stripFooters(plainText);
+    
+    if(plainText.length > maxLength) {
         let currentLen = 0;
         let result = "";
+        let wasCut = false;
+
         for(let child of Array.from(doc.body.childNodes)) {
-            let textLen = (child.textContent || "").length;
+            let textLen = (child.textContent || "").replace(/\s+/g," ").trim().length;
+            if(!textLen) continue;
+            
             if(currentLen + textLen > maxLength) {
+                wasCut = true;
+                let remaining = maxLength - currentLen;
                 if(child.nodeType === 3) {
-                    let remaining = maxLength - currentLen;
                     let cut = child.textContent.substring(0, remaining);
                     let lastSpace = cut.lastIndexOf(" ");
-                    if(lastSpace > 50) cut = cut.substring(0, lastSpace);
-                    result += cut;
-                } else if(child.outerHTML) {
-                    let tempDiv = document.createElement("div");
-                    tempDiv.innerHTML = child.outerHTML;
-                    let txt = tempDiv.innerText;
-                    let remaining = maxLength - currentLen;
-                    if(txt.length > remaining) {
-                        let cut = txt.substring(0, remaining);
+                    if(lastSpace > 30) cut = cut.substring(0, lastSpace);
+                    result += cut.trim();
+                } else {
+                    let innerText = child.textContent.replace(/\s+/g," ").trim();
+                    if(innerText.length > remaining) {
+                        let cut = innerText.substring(0, remaining);
                         let lastSpace = cut.lastIndexOf(" ");
                         if(lastSpace > 20) cut = cut.substring(0, lastSpace);
-                        if(child.tagName === "A") {
-                            result += `<a href="${child.getAttribute("href")}" target="_blank" rel="noopener">${cut}</a>`;
+                        // probeer tag te behouden
+                        let tag = child.tagName ? child.tagName.toLowerCase() : "span";
+                        if(tag === "a") {
+                            let href = child.getAttribute("href") || "#";
+                            result += `<a href="${href}" target="_blank" rel="noopener">${cut.trim()}</a>`;
+                        } else if(["p","div","span","strong","b","em","i"].includes(tag)) {
+                            result += `<${tag}>${cut.trim()}</${tag}>`;
                         } else {
-                            result += `<${child.tagName.toLowerCase()}>${cut}</${child.tagName.toLowerCase()}>`;
+                            result += cut.trim();
                         }
                     } else {
-                        result += child.outerHTML;
+                        result += child.outerHTML || child.textContent;
                     }
                 }
                 break;
@@ -102,15 +111,21 @@ function cleanHTML(html, maxLength = MAX_DESC) {
                 currentLen += textLen;
             }
         }
-        result = stripFooters(result);
-        if(result.includes("</p>")) {
-            result = result.replace(/<\/p>(?!.*<\/p>)/, " [...]</p>");
-            if(!result.includes("[...]")) result += " [...]";
-        } else {
-            result = result.trim() + " [...]";
+        
+        result = stripFooters(result).trim();
+        // ALTIJD [...] toevoegen als we geknipt hebben
+        if(wasCut) {
+            // als result eindigt met een tag, zet [...] ervoor
+            if(result.endsWith("</p>") || result.endsWith("</div>")) {
+                result = result.replace(/<\/(p|div)>$/i, " [...]</$1>");
+            }
+            if(!result.includes("[...]")) {
+                result = result.trim() + " [...]";
+            }
         }
         return result;
     }
+    // niet geknipt, maar wel HTML behouden
     return stripFooters(doc.body.innerHTML).trim();
 }
 
@@ -127,8 +142,7 @@ function cleanTextWithEllipsis(text, maxLength = MAX_DESC) {
     return text;
 }
 
-// FIX voor Gemeente: pak meerdere alinea's en pas daarna afkappen
-function cleanGemeenteHTML(html, maxLength = 600) {
+function cleanGemeenteHTML(html, maxLength = 650) {
     if(!html) return "";
     html = stripFooters(html);
     const doc = new DOMParser().parseFromString(html, "text/html");
@@ -138,7 +152,6 @@ function cleanGemeenteHTML(html, maxLength = 600) {
         a.setAttribute("rel","noopener");
     });
     
-    // Pak alle <p> elementen die echte content zijn
     let paragraphs = Array.from(doc.querySelectorAll("p"))
         .map(p => p.outerHTML)
         .filter(p => {
@@ -150,21 +163,23 @@ function cleanGemeenteHTML(html, maxLength = 600) {
         return cleanHTML(html, maxLength);
     }
     
-    // Combineer alinea's tot maxLength
     let result = "";
     let currentLen = 0;
+    let totalLen = paragraphs.join("").replace(/<[^>]*>/g,"").length;
+    
     for(let p of paragraphs) {
         let textLen = p.replace(/<[^>]*>/g,"").length;
-        if(currentLen + textLen > maxLength && currentLen > 200) break; // minimaal 200 chars, daarna stoppen
+        if(currentLen + textLen > maxLength && currentLen > 200) break;
         result += p;
         currentLen += textLen;
         if(currentLen >= maxLength) break;
     }
     
     result = stripFooters(result);
-    // Alleen [...] als er echt nog meer alinea's waren
-    if(paragraphs.join("").length > result.length) {
-        result = result.replace(/<\/p>(?!.*<\/p>)/, " [...]</p>");
+    if(totalLen > currentLen) {
+        if(result.endsWith("</p>")) {
+            result = result.replace(/<\/p>$/i, " [...]</p>");
+        }
         if(!result.includes("[...]")) result += " [...]";
     }
     return result;
@@ -187,7 +202,6 @@ async function fetchRSS(url) {
             const date = item.querySelector("pubDate")?.textContent?.trim() || item.querySelector("published")?.textContent?.trim() || item.querySelector("updated")?.textContent?.trim() || "";
             const timestamp = Date.parse(date);
             const rawDesc = item.querySelector("description, content\\:encoded, summary, content")?.textContent || "";
-            
             const isOudOmmen = url.includes("oudommen");
             return {
                 title: item.querySelector("title")?.textContent?.trim() || "Geen titel",
