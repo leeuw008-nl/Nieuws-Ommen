@@ -36,20 +36,13 @@ const LS_SOURCES_KEY = "ommen_selected_sources";
 function stripFooters(html) {
     if(!html) return "";
     let txt = html;
-    // NL: Het bericht <titel> verscheen eerst op <bron>.
-    txt = txt.replace(/<p[^>]*>\s*(Het bericht|The post|De post)[\s\S]*?(verscheen eerst op|appeared first on)[\s\S]*?<\/p>/gi, "");
-    // Directe zin zonder p
-    txt = txt.replace(/Het bericht [^<]*? verscheen eerst op [^<]*?(Ommen City|Vechtdal Centraal|OudOmmen|RTV Vechtdal|De Stentor|Gemeente Ommen|RTV Oost)\.?/gi, "");
-    txt = txt.replace(/The post [^<]*? appeared first on [^<]*?(Vechtdal Centraal|Ommen City|OudOmmen)\.?/gi, "");
-    txt = txt.replace(/\s*Het bericht.*verscheen eerst op.*?(Ommen City|Vechtdal Centraal|OudOmmen)?\.?\s*(<\/p>)?/gi, " ");
-    txt = txt.replace(/\s*The post.*appeared first on.*?(Vechtdal Centraal|Ommen City)?\.?\s*(<\/p>)?/gi, " ");
-    txt = txt.replace(/\s*Het bericht[^<]{0,400}verscheen eerst op[^<]{0,400}\./gi, "");
-    txt = txt.replace(/\s*The post[^<]{0,400}appeared first on[^<]{0,400}\./gi, "");
+    txt = txt.replace(/<p[^>]*>\s*(Het bericht|The post|De post)\s+.*?(verscheen eerst op|appeared first on).*?<\/p>/gis, "");
+    txt = txt.replace(/\s*Het bericht.*verscheen eerst op.*?(Ommen City|Vechtdal Centraal|OudOmmen)?\.?\s*(<\/p>)/gi, " $2");
+    txt = txt.replace(/\s*The post.*appeared first on.*?(Vechtdal Centraal|Ommen City)?\.?\s*(<\/p>)/gi, " $2");
+    txt = txt.replace(/\s*Het bericht[^<]{0,200}verscheen eerst op[^<]{0,200}\./gi, "");
+    txt = txt.replace(/\s*The post[^<]{0,200}appeared first on[^<]{0,200}\./gi, "");
     txt = txt.replace(/nl"\s*>.*?(Ommen City|Vechtdal Centraal)\.?/gi, "");
     txt = txt.replace(/"\s*>\s*(Ommen City|Vechtdal Centraal)\.?/gi, "");
-    // Extra: verwijder lege overblijfsels
-    txt = txt.replace(/Het bericht\s*$/gi, "");
-    txt = txt.replace(/The post\s*$/gi, "");
     return txt.trim();
 }
 
