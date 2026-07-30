@@ -269,13 +269,8 @@ function urlBase64ToUint8Array(base64String) {
 
 async function subscribePush() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) { alert('Push wordt niet ondersteund'); return; }
-    // Haal VAPID key op als nog niet gedaan
-    if (!VAPID_PUBLIC_KEY) {
-        await getVapidKey();
-    }
-    if (!VAPID_PUBLIC_KEY || PUSH_WORKER_URL.includes('JOUW-WORKER') || (typeof VAPID_PUBLIC_KEY === 'string' && VAPID_PUBLIC_KEY.includes('VUL-HIER'))) {
-        alert('VAPID key nog niet beschikbaar - check of je Worker /vapid endpoint werkt: ' + PUSH_WORKER_URL + '/vapid');
-        console.log('PUSH_WORKER_URL', PUSH_WORKER_URL, 'VAPID', VAPID_PUBLIC_KEY);
+    if (PUSH_WORKER_URL.includes('JOUW-WORKER') || VAPID_PUBLIC_KEY.includes('VUL-HIER')) {
+        alert('Je moet eerst PUSH_WORKER_URL en VAPID_PUBLIC_KEY invullen bovenaan script.js - zie uitleg in bestanden.');
         return;
     }
     const reg = await navigator.serviceWorker.register('/service-worker.js');
