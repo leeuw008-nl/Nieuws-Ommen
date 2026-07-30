@@ -1,4 +1,6 @@
-const PROXY = 'https://corsproxy.io/?';
+const PROXIES = ['https://corsproxy.io/?','https://api.allorigins.win/raw?url=','https://api.codetabs.com/v1/proxy?quest='];
+async function fetchViaProxy(targetUrl, attempt=0){ if(attempt>=PROXIES.length) throw new Error('All proxies failed'); const proxyUrl = PROXIES[attempt] + encodeURIComponent(targetUrl); try{ const res = await fetch(proxyUrl); if(res.status===429) throw new Error('429'); if(!res.ok) throw new Error('Proxy '+res.status); const text = await res.text(); if(!text || text.length<100) throw new Error('Empty'); return text; }catch(e){ await new Promise(r=>setTimeout(r, 400*attempt)); return fetchViaProxy(targetUrl, attempt+1); } }
+const PROXY = PROXIES[0];
 
 const feeds = [
     { name: 'Ommen City', url: 'https://ommencity.nl/feed/' },
@@ -134,9 +136,7 @@ function cleanGemeenteHTML(html, maxLength = 650) {
 
 async function fetchRSS(url) {
     try {
-        const response = await fetch(PROXY + encodeURIComponent(url));
-        if (!response.ok) throw new Error("RSS fout");
-        const text = await response.text();   
+        const text = await fetchViaProxy(url);   
         const xml = new DOMParser().parseFromString(text,"text/xml");
         if (xml.querySelector("parsererror")) return [];
         const items = Array.from(xml.getElementsByTagName("item"));
@@ -269,26 +269,31 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 async function subscribePush() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) { alert('Push wordt niet ondersteund'); return; }
-    // Haal VAPID key op als nog niet gedaan (auto-fetch)
-    if (!VAPID_PUBLIC_KEY) {
-        await getVapidKey();
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) { alert('Push wordt niet ondersteund in deze browser'); return; }
+    if (!VAPID_PUBLIC_KEY) { await getVapidKey(); }
+    if (!VAPID_PUBLIC_KEY) { alert('VAPID key nog niet beschikbaar'); return; }
+    try {
+        const reg = await navigator.serviceWorker.register('./service-worker.js', {scope: './'});
+        if (Notification.permission === 'denied') {
+            alert('Meldingen zijn geblokkeerd.\n\nIn Edge/Chrome: klik op het slotje in de adresbalk > Meldingen > Toestaan.');
+            return;
+        }
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') { 
+            alert('Geen toestemming voor notificaties ('+permission+'). In Edge: slotje > Meldingen > Toestaan');
+            return; 
+        }
+        const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+        const sources = (typeof getSelectedSources === 'function') ? getSelectedSources() : [];
+        const payload = Object.assign({}, sub.toJSON(), {sources: sources});
+        await fetch(PUSH_WORKER_URL + '/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        localStorage.setItem('ommen_push_subscribed','1');
+        updatePushButton();
+        alert('Push aan! Meldingen van de app "Ommen Nieuws" geactiveerd');
+    } catch(e){
+        console.error(e);
+        alert('Push mislukt: ' + e.message);
     }
-    if (!VAPID_PUBLIC_KEY || PUSH_WORKER_URL.includes('JOUW-WORKER') || (typeof VAPID_PUBLIC_KEY === 'string' && VAPID_PUBLIC_KEY.includes('VUL-HIER'))) {
-        alert('VAPID key nog niet beschikbaar - check ' + PUSH_WORKER_URL + '/vapid');
-        console.log('VAPID:', VAPID_PUBLIC_KEY);
-        return;
-    }
-    const reg = await navigator.serviceWorker.register('./service-worker.js', {scope: './'});
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') { alert('Geen toestemming voor notificaties'); return; }
-    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
-    const sources = getSelectedSources();
-    const subWithPrefs = {...sub.toJSON(), sources: sources};
-    await fetch(PUSH_WORKER_URL + '/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(subWithPrefs) });
-    localStorage.setItem('ommen_push_subscribed','1');
-    updatePushButton();
-    alert('🔔 Push aan! Je krijgt nu melding ook als site dicht is.');
 }
 
 async function unsubscribePush() {
@@ -385,11 +390,9 @@ function setupSearch() {
     if (switchOmmen) switchOmmen.addEventListener("change", function() { if(searchInput) searchInput.value = ""; searchNews(); });
 }
 function refreshNews() { loadNews(false); }
-
 function saveSelectedSources(){
     const selected = Array.from(document.querySelectorAll(".source-filter:checked")).map(cb=>cb.value);
     localStorage.setItem(LS_SOURCES_KEY, JSON.stringify(selected));
-    // update push subscription on server with new preferences if subscribed
     updatePushPreferences();
 }
 function loadSelectedSources(){
@@ -417,10 +420,8 @@ async function updatePushPreferences(){
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({...sub.toJSON(), sources: sources})
         });
-        console.log('Push voorkeuren bijgewerkt:', sources);
-    }catch(e){ console.warn('Push prefs update failed', e); }
+    }catch(e){}
 }
-
 function setupSources() {
     const button = document.getElementById("source-button");
     const menu = document.getElementById("source-menu");
