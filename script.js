@@ -22,65 +22,22 @@ async function fetchViaProxy(targetUrl, attempt=0){
   }
 }
 
-// FIX: Nederlandse datum + tijd parser - RTV Vechtdal gaf 00:00 omdat Date.parse geen NL maanden snapt
+// FIX RTV 00:00 - NL maanden parser
 const NL_MONTHS = {januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
-
-function parseDutchDateTime(str){
+function parseDutchDate(str){
   if(!str) return 0;
-  // Probeer "28 mei 2025 14:32" of "28 mei 2025 om 14:32" of "28 mei 2025, 14:32"
   let m = str.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})[^\d]{0,10}(\d{1,2}):(\d{2})/i);
   if(m){
     const month = NL_MONTHS[m[2].toLowerCase()];
     if(month!==undefined) return new Date(parseInt(m[3]),month,parseInt(m[1]),parseInt(m[4]),parseInt(m[5])).getTime();
   }
-  // Alleen datum
   m = str.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
   if(m){
     const month = NL_MONTHS[m[2].toLowerCase()];
-    if(month!==undefined) return new Date(parseInt(m[3]),month,parseInt(m[1])).getTime();
+    if(month!==undefined) return new Date(parseInt(m[3]),month,parseInt(m[1]),12,0).getTime();
   }
   const ts = Date.parse(str);
   return isNaN(ts)?0:ts;
-}
-
-function extractRTVTime(html){
-  try{
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    // 1. <time datetime="2025-05-28T14:32:00+02:00">
-    const timeEl = doc.querySelector('time[datetime]');
-    if(timeEl){
-      const ts = Date.parse(timeEl.getAttribute('datetime'));
-      if(!isNaN(ts)) return ts;
-    }
-    // 2. meta article:published_time
-    const meta = doc.querySelector('meta[property="article:published_time"]')?.content || doc.querySelector('meta[property="og:updated_time"]')?.content;
-    if(meta){
-      const ts = Date.parse(meta);
-      if(!isNaN(ts)) return ts;
-    }
-    // 3. JSON-LD
-    const ld = doc.querySelector('script[type="application/ld+json"]');
-    if(ld){
-      try{
-        const j = JSON.parse(ld.textContent);
-        const d = j.datePublished || j.dateModified;
-        if(d){
-          const ts = Date.parse(d);
-          if(!isNaN(ts)) return ts;
-        }
-      }catch{}
-    }
-  }catch{}
-  // 4. Zoek in HTML naar "28 mei 2025 14:32"
-  const mt = html.match(/\d{1,2}\s+(?:januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}[^<]{0,20}\d{1,2}:\d{2}/i);
-  if(mt) {
-    const ts = parseDutchDateTime(mt[0]);
-    if(ts) return ts;
-  }
-  // 5. Alleen datum
-  const md = html.match(/\d{1,2}\s+(?:januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i);
-  if(md) return parseDutchDateTime(md[0]);
-  return 0;
 }
 
 
@@ -226,7 +183,7 @@ async function fetchRSS(url) {
             let link = ""; const linkElement = item.querySelector("link");
             if (linkElement) link = linkElement.getAttribute("href") || linkElement.textContent || "";
             const date = item.querySelector("pubDate")?.textContent?.trim() || item.querySelector("published")?.textContent?.trim() || item.querySelector("updated")?.textContent?.trim() || "";
-            const timestamp = Date.parse(date) || parseDutchDateTime(date);
+            const timestamp = Date.parse(date);
             const rawDesc = item.querySelector("description, content\\:encoded, summary, content")?.textContent || "";
             const isOudOmmen = url.includes("oudommen");
             return { title: item.querySelector("title")?.textContent?.trim() || "Geen titel", description: isOudOmmen ? cleanHTMLOriginal(rawDesc) : cleanHTML(rawDesc, MAX_DESC), link: link.trim(), timestamp: isNaN(timestamp) ? 0 : timestamp };
@@ -237,7 +194,9 @@ async function fetchRSS(url) {
 async function fetchGemeenteNieuws() {
     const url = "https://www.ommen.nl/actueel/";
     try {
-        const text = await fetchViaProxy(url);
+        const res = await fetch(PROXY + encodeURIComponent(url));
+        if (!res.ok) throw new Error("Gemeente pagina niet bereikbaar");
+        const text = await res.text();
         const html = new DOMParser().parseFromString(text,"text/html");
         const links = [];
         for (const link of html.querySelectorAll("a")) {
@@ -247,14 +206,16 @@ async function fetchGemeenteNieuws() {
         }
         const artikelen = await Promise.all(links.slice(0,10).map(async artikel => {
             const gegevens = await fetchGemeenteGegevens(artikel.link);
-            return { title: artikel.title, link: artikel.link, description: gegevens.tekst, pubDate: gegevens.datum, timestamp: gegevens.datum ? parseDutchDateTime(gegevens.datum) : Date.now() };
+            return { title: artikel.title, link: artikel.link, description: gegevens.tekst, pubDate: gegevens.datum, timestamp: gegevens.datum ? Date.parse(gegevens.datum) : Date.now() };
         }));
         return artikelen;
     } catch(error) { console.error("Fout gemeente Ommen:", error); return []; }
 }
 async function fetchGemeenteGegevens(url) {
     try {
-        const text = await fetchViaProxy(url);
+        const res = await fetch(PROXY + encodeURIComponent(url));
+        if (!res.ok) return { datum: "", tekst: "" };
+        const text = await res.text();
         const html = new DOMParser().parseFromString(text, "text/html");
         const bodyText = html.body?.innerText || "";
         const match = bodyText.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}(,\s*\d{2}:\d{2})?/i);
@@ -276,13 +237,21 @@ async function fetchRTVVechtdalNieuws() {
         const artikelen = await Promise.all(links.slice(0,10).map(async artikel => {
             try {
                 const text2 = await fetchViaProxy(artikel.link);
-                const doc = new DOMParser().parseFromString(text2,"text/html");
-                let bodyText = doc.body.innerText.replace(/\s+/g," ").trim();
-                bodyText = bodyText.replace(/^.*?(\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4})/i, "");
-                bodyText = bodyText.replace(/Home Vechtdal TV.*?Stichting RTV Vechtdal/i, "").trim();
-                const ts = extractRTVTime(text2);
+                let bodyText = "";
+                try{
+                  const doc = new DOMParser().parseFromString(text2,"text/html");
+                  bodyText = doc.body.innerText.replace(/\s+/g," ").trim();
+                  bodyText = bodyText.replace(/^.*?(\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4})/i, "");
+                  bodyText = bodyText.replace(/Home Vechtdal TV.*?Stichting RTV Vechtdal/i, "").trim();
+                }catch{}
+                let datumStr = "";
+                const timeMatch = text2.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}[^\d]*\d{1,2}:\d{2}/i);
+                const dateMatch = text2.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i);
+                if(timeMatch) datumStr = timeMatch[0];
+                else if(dateMatch) datumStr = dateMatch[0];
+                const ts = datumStr ? parseDutchDate(datumStr) : Date.now();
                 return { title: artikel.title, link: artikel.link, description: cleanTextWithEllipsis(bodyText, MAX_DESC), timestamp: ts || Date.now() };
-            } catch { return null; }
+            } catch(e){ return null; }
         }));
         return artikelen.filter(Boolean);
     } catch(error) { console.error("RTV:", error); return []; }
@@ -304,7 +273,9 @@ async function fetchVechtdalCentraalNieuws() {
 async function fetchOostNieuws() {
     const url = "https://www.oost.nl/nieuws";
     try {
-        const html = await fetchViaProxy(url);
+        const response = await fetch(PROXY + encodeURIComponent(url));
+        if (!response.ok) throw new Error("Oost pagina niet bereikbaar");
+        const html = await response.text();
         const doc = new DOMParser().parseFromString(html, "text/html");
         const links = [...doc.querySelectorAll("a")].map(a => a.href).filter(href => href && href.includes("/nieuws/") && /\/nieuws\/\d+\//.test(href)).map(href => href.replace("https://leeuw008-nl.github.io","https://www.oost.nl"));
         const uniek = [...new Set(links)];
@@ -314,14 +285,16 @@ async function fetchOostNieuws() {
 }
 async function fetchOostArtikel(url) {
     try {
-        const html = await fetchViaProxy(url);
+        const response = await fetch(PROXY + encodeURIComponent(url));
+        if (!response.ok) return null;
+        const html = await response.text();
         const doc = new DOMParser().parseFromString(html, "text/html");
         const title = doc.querySelector("h1")?.innerText?.trim() || "RTV Oost";
         let datum = doc.querySelector('meta[property="article:published_time"]')?.content || doc.querySelector('meta[name="date"]')?.content || doc.querySelector("time")?.getAttribute("datetime") || "";
         if (!datum) { const match = doc.body.innerText.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i); if (match) datum = match[0]; }
         const contentEl = doc.querySelector("article, .article__content");
         const description = contentEl ? cleanHTML(contentEl.innerHTML, MAX_DESC) : cleanTextWithEllipsis(doc.querySelector('meta[name="description"]')?.content || "", MAX_DESC);
-        return { title, link: url, description, timestamp: datum ? parseDutchDateTime(datum) : Date.now(), source: "RTV Oost" };
+        return { title, link: url, description, timestamp: datum ? Date.parse(datum) : Date.now(), source: "RTV Oost" };
     } catch(e) { return null; }
 }
 
@@ -438,7 +411,7 @@ function renderArticles(articles) {
     const container = document.getElementById("news-container");
     let html = `<p><strong>${articles.length} artikelen gevonden</strong></p>`;
     if (articles.length === 0) html += "<p>Geen artikelen gevonden.</p>";
-    else html += articles.map(article => `<div class="article"><h2><a href="${article.link}" target="_blank" rel="noopener">${article.title}</a></h2><small>${article.source} — ${article.timestamp ? new Date(article.timestamp).toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ""}</small><div class="article-content">${article.description}</div></div>`).join("");
+    else html += articles.map(article => `<div class="article"><h2><a href="${article.link}" target="_blank" rel="noopener">${article.title}</a></h2><small>${article.source} — ${(() => { if(!article.timestamp) return ""; const d = new Date(article.timestamp); const h = d.getHours(); const m = d.getMinutes(); if(h===0 && m===0){ return d.toLocaleString("nl-NL", { day: "2-digit", month: "2-digit", year: "numeric" }); } return d.toLocaleString("nl-NL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }); })()}</small><div class="article-content">${article.description}</div></div>`).join("");
     container.innerHTML = html;
 }
 function searchNews() {
@@ -458,7 +431,7 @@ function setupSearch() {
     const searchInput = document.getElementById("search-input");
     const switchOmmen = document.getElementById("only-ommen");
     if(searchInput) searchInput.addEventListener("input", searchNews);
-    if (switchOmmen) switchOmmen.addEventListener("change", function() { searchNews(); }); // FIX: zoekterm blijft staan
+    if (switchOmmen) switchOmmen.addEventListener("change", function() { searchNews(); }); // zoekterm blijft staan
 }
 function refreshNews() { loadNews(false); }
 function saveSelectedSources(){
