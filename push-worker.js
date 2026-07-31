@@ -156,7 +156,7 @@ export default {
     }
 
     if (url.pathname === '/test' || url.pathname === '/send-test') {
-      // Force push to all - for testing, also cleans up dead subs
+      // Force push to all - FIX: only delete dead subs (410/404), not all failures
       const list = await env.PUSH_SUBS.list();
       let sent = 0, failed = 0, cleaned = 0;
       let failedIds = [];
@@ -170,9 +170,11 @@ export default {
         }catch(e){
           failed++;
           failedIds.push(k.name + ':' + e.message.slice(0,80));
-          // delete ANY failed on test to clean up mess from unregister tests
-          await env.PUSH_SUBS.delete(k.name);
-          cleaned++;
+          // FIX 3: alleen verwijderen als echt dood (410 Gone / 404 Not Found)
+          if(e.message.includes('410') || e.message.includes('404')) {
+            await env.PUSH_SUBS.delete(k.name);
+            cleaned++;
+          }
         }
       }
       return new Response(JSON.stringify({ status: 'test-push-sent', sent, failed, cleaned, total: list.keys.filter(k=>!k.name.startsWith('__')).length, failedIds }), { headers: cors });
