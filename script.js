@@ -22,7 +22,7 @@ async function fetchViaProxy(targetUrl, attempt=0){
   }
 }
 
-// FIX RTV 00:00 - NL maanden parser
+// FIX RTV 00:00 - Date.parse snapt geen NL maanden
 const NL_MONTHS = {januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
 function parseDutchDate(str){
   if(!str) return 0;
@@ -238,20 +238,36 @@ async function fetchRTVVechtdalNieuws() {
             try {
                 const text2 = await fetchViaProxy(artikel.link);
                 let bodyText = "";
+                let datumStr = "";
                 try{
                   const doc = new DOMParser().parseFromString(text2,"text/html");
+                  // EXACT FIX voor jouw HTML: <time itemprop="datePublished">31 juli 2026</time> en <span title="Gepubliceerd: 31 juli 2026">
+                  const timeTag = doc.querySelector('time[itemprop="datePublished"]')?.textContent?.trim();
+                  const publishedTitle = doc.querySelector('span.published')?.getAttribute('title')?.replace('Gepubliceerd:', '').trim();
+                  const metaDate = doc.querySelector('meta[property="article:published_time"]')?.content;
+                  
+                  if(timeTag) datumStr = timeTag;
+                  else if(publishedTitle) datumStr = publishedTitle;
+                  else if(metaDate) {
+                    // ISO date fallback
+                    const ts = Date.parse(metaDate);
+                    if(!isNaN(ts)) return { title: artikel.title, link: artikel.link, description: cleanTextWithEllipsis(doc.body.innerText, MAX_DESC), timestamp: ts };
+                  }
+                  
                   bodyText = doc.body.innerText.replace(/\s+/g," ").trim();
                   bodyText = bodyText.replace(/^.*?(\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4})/i, "");
                   bodyText = bodyText.replace(/Home Vechtdal TV.*?Stichting RTV Vechtdal/i, "").trim();
                 }catch{}
-                let datumStr = "";
-                const timeMatch = text2.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}[^\d]*\d{1,2}:\d{2}/i);
-                const dateMatch = text2.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i);
-                if(timeMatch) datumStr = timeMatch[0];
-                else if(dateMatch) datumStr = dateMatch[0];
+                // Fallback: zoek in raw HTML als bovenstaande niet werkt
+                if(!datumStr){
+                  const timeMatch = text2.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}[^\d]*\d{1,2}:\d{2}/i);
+                  const dateMatch = text2.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i);
+                  if(timeMatch) datumStr = timeMatch[0];
+                  else if(dateMatch) datumStr = dateMatch[0];
+                }
                 const ts = datumStr ? parseDutchDate(datumStr) : Date.now();
                 return { title: artikel.title, link: artikel.link, description: cleanTextWithEllipsis(bodyText, MAX_DESC), timestamp: ts || Date.now() };
-            } catch(e){ return null; }
+            } catch(e){ console.error("RTV detail fout", e); return null; }
         }));
         return artikelen.filter(Boolean);
     } catch(error) { console.error("RTV:", error); return []; }
@@ -273,9 +289,7 @@ async function fetchVechtdalCentraalNieuws() {
 async function fetchOostNieuws() {
     const url = "https://www.oost.nl/nieuws";
     try {
-        const response = await fetch(PROXY + encodeURIComponent(url));
-        if (!response.ok) throw new Error("Oost pagina niet bereikbaar");
-        const html = await response.text();
+        const html = await fetchViaProxy(url);
         const doc = new DOMParser().parseFromString(html, "text/html");
         const links = [...doc.querySelectorAll("a")].map(a => a.href).filter(href => href && href.includes("/nieuws/") && /\/nieuws\/\d+\//.test(href)).map(href => href.replace("https://leeuw008-nl.github.io","https://www.oost.nl"));
         const uniek = [...new Set(links)];
@@ -285,9 +299,7 @@ async function fetchOostNieuws() {
 }
 async function fetchOostArtikel(url) {
     try {
-        const response = await fetch(PROXY + encodeURIComponent(url));
-        if (!response.ok) return null;
-        const html = await response.text();
+        const html = await fetchViaProxy(url);
         const doc = new DOMParser().parseFromString(html, "text/html");
         const title = doc.querySelector("h1")?.innerText?.trim() || "RTV Oost";
         let datum = doc.querySelector('meta[property="article:published_time"]')?.content || doc.querySelector('meta[name="date"]')?.content || doc.querySelector("time")?.getAttribute("datetime") || "";
@@ -411,7 +423,20 @@ function renderArticles(articles) {
     const container = document.getElementById("news-container");
     let html = `<p><strong>${articles.length} artikelen gevonden</strong></p>`;
     if (articles.length === 0) html += "<p>Geen artikelen gevonden.</p>";
-    else html += articles.map(article => `<div class="article"><h2><a href="${article.link}" target="_blank" rel="noopener">${article.title}</a></h2><small>${article.source} — ${(() => { if(!article.timestamp) return ""; const d = new Date(article.timestamp); const h = d.getHours(); const m = d.getMinutes(); if(h===0 && m===0){ return d.toLocaleString("nl-NL", { day: "2-digit", month: "2-digit", year: "numeric" }); } return d.toLocaleString("nl-NL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }); })()}</small><div class="article-content">${article.description}</div></div>`).join("");
+    else html += articles.map(article => {
+        let timeStr = "";
+        if(article.timestamp){
+            const d = new Date(article.timestamp);
+            const h = d.getHours(); const m = d.getMinutes();
+            // Als tijd 00:00 of 12:00 fallback is, toon alleen datum (geen 00:00 meer)
+            if((h===0 && m===0) || (h===12 && m===0 && article.source==="RTV Vechtdal")){
+                timeStr = d.toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            } else {
+                timeStr = d.toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            }
+        }
+        return `<div class="article"><h2><a href="${article.link}" target="_blank" rel="noopener">${article.title}</a></h2><small>${article.source} — ${timeStr}</small><div class="article-content">${article.description}</div></div>`;
+    }).join("");
     container.innerHTML = html;
 }
 function searchNews() {
@@ -431,7 +456,7 @@ function setupSearch() {
     const searchInput = document.getElementById("search-input");
     const switchOmmen = document.getElementById("only-ommen");
     if(searchInput) searchInput.addEventListener("input", searchNews);
-    if (switchOmmen) switchOmmen.addEventListener("change", function() { searchNews(); }); // zoekterm blijft staan
+    if (switchOmmen) switchOmmen.addEventListener("change", function() { searchNews(); });
 }
 function refreshNews() { loadNews(false); }
 function saveSelectedSources(){
