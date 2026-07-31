@@ -22,18 +22,18 @@ async function fetchViaProxy(targetUrl, attempt=0){
   }
 }
 
-// FIX RTV Vechtdal tijd - zoekt echte tijd uit <time>, meta en tekst
+// FIX: Nederlandse datum + tijd parser - RTV Vechtdal gaf 00:00 omdat Date.parse geen NL maanden snapt
 const NL_MONTHS = {januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
 
 function parseDutchDateTime(str){
   if(!str) return 0;
-  // 28 mei 2025 14:32 of 28 mei 2025 om 14:32
+  // Probeer "28 mei 2025 14:32" of "28 mei 2025 om 14:32" of "28 mei 2025, 14:32"
   let m = str.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})[^\d]{0,10}(\d{1,2}):(\d{2})/i);
   if(m){
     const month = NL_MONTHS[m[2].toLowerCase()];
     if(month!==undefined) return new Date(parseInt(m[3]),month,parseInt(m[1]),parseInt(m[4]),parseInt(m[5])).getTime();
   }
-  // alleen datum
+  // Alleen datum
   m = str.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
   if(m){
     const month = NL_MONTHS[m[2].toLowerCase()];
@@ -46,20 +46,38 @@ function parseDutchDateTime(str){
 function extractRTVTime(html){
   try{
     const doc = new DOMParser().parseFromString(html, "text/html");
+    // 1. <time datetime="2025-05-28T14:32:00+02:00">
     const timeEl = doc.querySelector('time[datetime]');
     if(timeEl){
       const ts = Date.parse(timeEl.getAttribute('datetime'));
       if(!isNaN(ts)) return ts;
     }
-    const meta = doc.querySelector('meta[property="article:published_time"]')?.content;
+    // 2. meta article:published_time
+    const meta = doc.querySelector('meta[property="article:published_time"]')?.content || doc.querySelector('meta[property="og:updated_time"]')?.content;
     if(meta){
       const ts = Date.parse(meta);
       if(!isNaN(ts)) return ts;
     }
+    // 3. JSON-LD
+    const ld = doc.querySelector('script[type="application/ld+json"]');
+    if(ld){
+      try{
+        const j = JSON.parse(ld.textContent);
+        const d = j.datePublished || j.dateModified;
+        if(d){
+          const ts = Date.parse(d);
+          if(!isNaN(ts)) return ts;
+        }
+      }catch{}
+    }
   }catch{}
-  // zoek in html naar datum + tijd
+  // 4. Zoek in HTML naar "28 mei 2025 14:32"
   const mt = html.match(/\d{1,2}\s+(?:januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}[^<]{0,20}\d{1,2}:\d{2}/i);
-  if(mt) return parseDutchDateTime(mt[0]);
+  if(mt) {
+    const ts = parseDutchDateTime(mt[0]);
+    if(ts) return ts;
+  }
+  // 5. Alleen datum
   const md = html.match(/\d{1,2}\s+(?:januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i);
   if(md) return parseDutchDateTime(md[0]);
   return 0;
@@ -219,9 +237,7 @@ async function fetchRSS(url) {
 async function fetchGemeenteNieuws() {
     const url = "https://www.ommen.nl/actueel/";
     try {
-        const res = await fetch(PROXY + encodeURIComponent(url));
-        if (!res.ok) throw new Error("Gemeente pagina niet bereikbaar");
-        const text = await res.text();
+        const text = await fetchViaProxy(url);
         const html = new DOMParser().parseFromString(text,"text/html");
         const links = [];
         for (const link of html.querySelectorAll("a")) {
@@ -253,7 +269,8 @@ async function fetchGemeenteGegevens(url) {
 async function fetchRTVVechtdalNieuws() {
     const url = "https://rtvvechtdal.nl/";
     try {
-        const text = await fetchViaProxy(url);
+        const res = await fetch(PROXY + encodeURIComponent(url));
+        const text = await res.text();
         const html = new DOMParser().parseFromString(text, "text/html");
         const links = [];
         html.querySelectorAll("a").forEach(a => { try { const href = new URL(a.getAttribute("href"), "https://rtvvechtdal.nl").href; const title = a.textContent.trim(); if (href.includes("type=detail") && title.length > 10 && !links.some(l => l.link === href)) links.push({ title, link: href }); } catch {} });
@@ -447,7 +464,7 @@ function setupSearch() {
     const searchInput = document.getElementById("search-input");
     const switchOmmen = document.getElementById("only-ommen");
     if(searchInput) searchInput.addEventListener("input", searchNews);
-    if (switchOmmen) switchOmmen.addEventListener("change", function() { searchNews(); });
+    if (switchOmmen) switchOmmen.addEventListener("change", function() { if(searchInput) searchInput.value = ""; searchNews(); });
 }
 function refreshNews() { loadNews(false); }
 function saveSelectedSources(){
