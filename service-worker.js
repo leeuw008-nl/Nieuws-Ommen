@@ -1,12 +1,12 @@
-// service-worker.js - voor Ommen Nieuws (GitHub Pages submap) - FIXED voor notificaties
+// service-worker.js - voor Ommen Nieuws (GitHub Pages submap) - FIXED 31-07-2026
 self.addEventListener('install', function(event) {
     self.skipWaiting();
-    console.log('Ommen SW installed');
+    console.log('Ommen SW install #2367');
 });
 
 self.addEventListener('activate', function(event) {
     event.waitUntil(clients.claim());
-    console.log('Ommen SW activated');
+    console.log('Ommen SW activate');
 });
 
 self.addEventListener('push', function(event) {
@@ -24,7 +24,7 @@ self.addEventListener('push', function(event) {
             }
         } 
     } catch(e){
-        console.log('Push data parse failed, using defaults', e);
+        console.log('Push parse fail, defaults', e);
     }
     
     const options = {
@@ -34,25 +34,24 @@ self.addEventListener('push', function(event) {
         data: { url: data.url || './' },
         vibrate: [100, 50, 100],
         tag: 'ommen-nieuws',
-        renotify: true,
-        requireInteraction: false
+        renotify: true
     };
-    console.log('Toon notificatie:', data.title, options);
+    
     event.waitUntil(
         self.registration.showNotification(data.title, options).catch(err => {
-            console.error('showNotification failed:', err);
-            // Fallback zonder icon/badge als die falen
+            console.error('showNotification met icon failed:', err);
+            // Fallback zonder icon
             return self.registration.showNotification(data.title, {
                 body: data.body,
                 data: { url: data.url || './' },
-                tag: 'ommen-nieuws'
+                tag: 'ommen-nieuws',
+                vibrate: [100, 50, 100]
             });
         })
     );
 });
 
 self.addEventListener('notificationclick', function(event) {
-    console.log('Notification clicked', event);
     event.notification.close();
     let urlToOpen = event.notification.data?.url || './';
     if(urlToOpen === '/') urlToOpen = './';
@@ -70,8 +69,4 @@ self.addEventListener('notificationclick', function(event) {
             }
         })
     );
-});
-
-self.addEventListener('notificationclose', function(event) {
-    console.log('Notification closed');
 });
