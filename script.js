@@ -226,7 +226,7 @@ async function fetchRSS(url) {
             let link = ""; const linkElement = item.querySelector("link");
             if (linkElement) link = linkElement.getAttribute("href") || linkElement.textContent || "";
             const date = item.querySelector("pubDate")?.textContent?.trim() || item.querySelector("published")?.textContent?.trim() || item.querySelector("updated")?.textContent?.trim() || "";
-            const timestamp = Date.parse(date);
+            const timestamp = Date.parse(date) || parseDutchDateTime(date);
             const rawDesc = item.querySelector("description, content\\:encoded, summary, content")?.textContent || "";
             const isOudOmmen = url.includes("oudommen");
             return { title: item.querySelector("title")?.textContent?.trim() || "Geen titel", description: isOudOmmen ? cleanHTMLOriginal(rawDesc) : cleanHTML(rawDesc, MAX_DESC), link: link.trim(), timestamp: isNaN(timestamp) ? 0 : timestamp };
@@ -247,7 +247,7 @@ async function fetchGemeenteNieuws() {
         }
         const artikelen = await Promise.all(links.slice(0,10).map(async artikel => {
             const gegevens = await fetchGemeenteGegevens(artikel.link);
-            return { title: artikel.title, link: artikel.link, description: gegevens.tekst, pubDate: gegevens.datum, timestamp: gegevens.datum ? Date.parse(gegevens.datum) : Date.now() };
+            return { title: artikel.title, link: artikel.link, description: gegevens.tekst, pubDate: gegevens.datum, timestamp: gegevens.datum ? parseDutchDateTime(gegevens.datum) : Date.now() };
         }));
         return artikelen;
     } catch(error) { console.error("Fout gemeente Ommen:", error); return []; }
@@ -269,15 +269,13 @@ async function fetchGemeenteGegevens(url) {
 async function fetchRTVVechtdalNieuws() {
     const url = "https://rtvvechtdal.nl/";
     try {
-        const res = await fetch(PROXY + encodeURIComponent(url));
-        const text = await res.text();
+        const text = await fetchViaProxy(url);
         const html = new DOMParser().parseFromString(text, "text/html");
         const links = [];
         html.querySelectorAll("a").forEach(a => { try { const href = new URL(a.getAttribute("href"), "https://rtvvechtdal.nl").href; const title = a.textContent.trim(); if (href.includes("type=detail") && title.length > 10 && !links.some(l => l.link === href)) links.push({ title, link: href }); } catch {} });
         const artikelen = await Promise.all(links.slice(0,10).map(async artikel => {
             try {
-                const res2 = await fetch(PROXY + encodeURIComponent(artikel.link));
-                const text2 = await res2.text();
+                const text2 = await fetchViaProxy(artikel.link);
                 const doc = new DOMParser().parseFromString(text2,"text/html");
                 let bodyText = doc.body.innerText.replace(/\s+/g," ").trim();
                 bodyText = bodyText.replace(/^.*?(\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4})/i, "");
@@ -306,9 +304,7 @@ async function fetchVechtdalCentraalNieuws() {
 async function fetchOostNieuws() {
     const url = "https://www.oost.nl/nieuws";
     try {
-        const response = await fetch(PROXY + encodeURIComponent(url));
-        if (!response.ok) throw new Error("Oost pagina niet bereikbaar");
-        const html = await response.text();
+        const html = await fetchViaProxy(url);
         const doc = new DOMParser().parseFromString(html, "text/html");
         const links = [...doc.querySelectorAll("a")].map(a => a.href).filter(href => href && href.includes("/nieuws/") && /\/nieuws\/\d+\//.test(href)).map(href => href.replace("https://leeuw008-nl.github.io","https://www.oost.nl"));
         const uniek = [...new Set(links)];
@@ -318,16 +314,14 @@ async function fetchOostNieuws() {
 }
 async function fetchOostArtikel(url) {
     try {
-        const response = await fetch(PROXY + encodeURIComponent(url));
-        if (!response.ok) return null;
-        const html = await response.text();
+        const html = await fetchViaProxy(url);
         const doc = new DOMParser().parseFromString(html, "text/html");
         const title = doc.querySelector("h1")?.innerText?.trim() || "RTV Oost";
         let datum = doc.querySelector('meta[property="article:published_time"]')?.content || doc.querySelector('meta[name="date"]')?.content || doc.querySelector("time")?.getAttribute("datetime") || "";
         if (!datum) { const match = doc.body.innerText.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i); if (match) datum = match[0]; }
         const contentEl = doc.querySelector("article, .article__content");
         const description = contentEl ? cleanHTML(contentEl.innerHTML, MAX_DESC) : cleanTextWithEllipsis(doc.querySelector('meta[name="description"]')?.content || "", MAX_DESC);
-        return { title, link: url, description, timestamp: datum ? Date.parse(datum) : Date.now(), source: "RTV Oost" };
+        return { title, link: url, description, timestamp: datum ? parseDutchDateTime(datum) : Date.now(), source: "RTV Oost" };
     } catch(e) { return null; }
 }
 
@@ -464,7 +458,7 @@ function setupSearch() {
     const searchInput = document.getElementById("search-input");
     const switchOmmen = document.getElementById("only-ommen");
     if(searchInput) searchInput.addEventListener("input", searchNews);
-    if (switchOmmen) switchOmmen.addEventListener("change", function() { if(searchInput) searchInput.value = ""; searchNews(); });
+    if (switchOmmen) switchOmmen.addEventListener("change", function() { searchNews(); }); // FIX: zoekterm blijft staan
 }
 function refreshNews() { loadNews(false); }
 function saveSelectedSources(){
