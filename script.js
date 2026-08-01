@@ -22,7 +22,6 @@ async function fetchViaProxy(targetUrl, attempt=0){
   }
 }
 
-// FIX RTV 00:00 - Date.parse snapt geen NL maanden
 const NL_MONTHS = {januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
 function parseDutchDate(str){
   if(!str) return 0;
@@ -40,7 +39,6 @@ function parseDutchDate(str){
   return isNaN(ts)?0:ts;
 }
 
-
 const feeds = [
     { name: 'Ommen City', url: 'https://ommencity.nl/feed/' },
     { name: 'OudOmmen', url: 'https://weblog.oudommen.nl/feed/' },
@@ -54,9 +52,8 @@ const ommenKeywords = [
 let allArticles = [];
 const MAX_DESC = 380;
 
-// --- PUSH CONFIG - DEFINITIEF VOOR OMMEN ---
 const PUSH_WORKER_URL = 'https://ommen-push.leeuw008.workers.dev';
-let VAPID_PUBLIC_KEY = null; // wordt automatisch opgehaald
+let VAPID_PUBLIC_KEY = null;
 
 async function getVapidKey(){
   if(VAPID_PUBLIC_KEY) return VAPID_PUBLIC_KEY;
@@ -241,24 +238,19 @@ async function fetchRTVVechtdalNieuws() {
                 let datumStr = "";
                 try{
                   const doc = new DOMParser().parseFromString(text2,"text/html");
-                  // EXACT FIX voor jouw HTML: <time itemprop="datePublished">31 juli 2026</time> en <span title="Gepubliceerd: 31 juli 2026">
                   const timeTag = doc.querySelector('time[itemprop="datePublished"]')?.textContent?.trim();
                   const publishedTitle = doc.querySelector('span.published')?.getAttribute('title')?.replace('Gepubliceerd:', '').trim();
                   const metaDate = doc.querySelector('meta[property="article:published_time"]')?.content;
-                  
                   if(timeTag) datumStr = timeTag;
                   else if(publishedTitle) datumStr = publishedTitle;
                   else if(metaDate) {
-                    // ISO date fallback
                     const ts = Date.parse(metaDate);
                     if(!isNaN(ts)) return { title: artikel.title, link: artikel.link, description: cleanTextWithEllipsis(doc.body.innerText, MAX_DESC), timestamp: ts };
                   }
-                  
                   bodyText = doc.body.innerText.replace(/\s+/g," ").trim();
                   bodyText = bodyText.replace(/^.*?(\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4})/i, "");
                   bodyText = bodyText.replace(/Home Vechtdal TV.*?Stichting RTV Vechtdal/i, "").trim();
                 }catch{}
-                // Fallback: zoek in raw HTML als bovenstaande niet werkt
                 if(!datumStr){
                   const timeMatch = text2.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}[^\d]*\d{1,2}:\d{2}/i);
                   const dateMatch = text2.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i);
@@ -314,7 +306,6 @@ function isOmmenNieuws(article) { const text = (article.title + " " + (article.d
 function addArticles(artikelen, bron) { artikelen.forEach(article => { allArticles.push({ ...article, source: bron }); }); }
 function finalizeArticles() { const seen = new Set(); allArticles = allArticles.filter(article => { if (seen.has(article.link)) return false; seen.add(article.link); return true; }); allArticles.sort((a,b) => b.timestamp - a.timestamp); }
 
-// --- PUSH LOGICA ---
 function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -428,7 +419,6 @@ function renderArticles(articles) {
         if(article.timestamp){
             const d = new Date(article.timestamp);
             const h = d.getHours(); const m = d.getMinutes();
-            // Als tijd 00:00 of 12:00 fallback is, toon alleen datum (geen 00:00 meer)
             if((h===0 && m===0) || (h===12 && m===0 && article.source==="RTV Vechtdal")){
                 timeStr = d.toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
             } else {
@@ -448,7 +438,13 @@ function searchNews() {
     if (onlyOmmenChecked) articles = articles.filter(article => isOmmenNieuws(article));
     if (zoekterm !== "") articles = articles.filter(article => { const text = (article.title + " " + (article.description||"")).toLowerCase().replace(/<[^>]*>/g," "); return text.includes(zoekterm); });
     const gekozenBronnen = Array.from(document.querySelectorAll(".source-filter:checked")).map(box => box.value);
-    if(gekozenBronnen.length>0) articles = articles.filter(article => gekozenBronnen.includes(article.source));
+    // FIX: als niks aangevinkt is -> 0 artikelen tonen (was eerder zo)
+    if(gekozenBronnen.length===0){
+        const container = document.getElementById("news-container");
+        if(container) container.innerHTML = "<p><strong>0 artikelen gevonden</strong></p><p>Selecteer minimaal één bron bij 'Bronnen' om artikelen te zien.</p>";
+        return;
+    }
+    articles = articles.filter(article => gekozenBronnen.includes(article.source));
     articles.sort((a,b) => b.timestamp - a.timestamp);
     renderArticles(articles);
 }
