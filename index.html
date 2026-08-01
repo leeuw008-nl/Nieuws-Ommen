@@ -1,100 +1,49 @@
 <!DOCTYPE html>
 <html lang="nl">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Ommen Nieuws</title>
-
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" href="icon-192x192.png" type="image/png">
-
 </head>
-
-
 <body>
-
-
 <header>
-
     <h1>📰 Ommen Nieuws</h1>
     <div class="search-row">
-
-    <input
-        type="text"
-        id="search-input"
-        placeholder="Zoek in nieuws...">
-
-</div>
-
-
-<div class="filter-row">
-
-    <div class="controls-row">
-
-    <label class="switch-label">
-
-        <span>Regio</span>
-
-        <input type="checkbox" id="only-ommen" checked>
-
-        <span class="slider"></span>
-
-        <span>Gemeente</span>
-
-    </label>
-
-    <div class="source-wrapper">
-
-        <button id="source-button">
-            Bronnen ▼
-        </button>
-
-        <div id="source-menu" class="source-menu">
-    <label><input type="checkbox" class="source-filter" value="De Stentor" checked> De Stentor</label>
-    <label><input type="checkbox" class="source-filter" value="Gemeente Ommen" checked> Gemeente Ommen</label>
-    <label><input type="checkbox" class="source-filter" value="Ommen City" checked> Ommen City</label>
-    <label><input type="checkbox" class="source-filter" value="OudOmmen" checked> OudOmmen</label>
-    <label><input type="checkbox" class="source-filter" value="RTV Oost" checked> RTV Oost</label>
-    <label><input type="checkbox" class="source-filter" value="RTV Vechtdal" checked> RTV Vechtdal</label>
-    <label><input type="checkbox" class="source-filter" value="Vechtdal Centraal" checked> Vechtdal Centraal</label>
-</div>
+        <input type="text" id="search-input" placeholder="Zoek in nieuws...">
     </div>
-</div>
-
+    <div class="filter-row">
+        <div class="controls-row">
+            <label class="switch-label">
+                <span>Regio</span>
+                <input type="checkbox" id="only-ommen" checked>
+                <span class="slider"></span>
+                <span>Gemeente</span>
+            </label>
+            <div class="source-wrapper">
+                <button id="source-button">Bronnen ▼</button>
+                <div id="source-menu" class="source-menu">
+                    <label><input type="checkbox" class="source-filter" value="De Stentor" checked> De Stentor</label>
+                    <label><input type="checkbox" class="source-filter" value="Gemeente Ommen" checked> Gemeente Ommen</label>
+                    <label><input type="checkbox" class="source-filter" value="Ommen City" checked> Ommen City</label>
+                    <label><input type="checkbox" class="source-filter" value="OudOmmen" checked> OudOmmen</label>
+                    <label><input type="checkbox" class="source-filter" value="RTV Oost" checked> RTV Oost</label>
+                    <label><input type="checkbox" class="source-filter" value="RTV Vechtdal" checked> RTV Vechtdal</label>
+                    <label><input type="checkbox" class="source-filter" value="Vechtdal Centraal" checked> Vechtdal Centraal</label>
+                </div>
+            </div>
+        </div>
+    </div>
 </header>
-
-
-
 <main>
-
-    <div id="news-container">
-
-        Bezig met laden...
-
-    </div>
-
+    <div id="news-container">Bezig met laden...</div>
 </main>
-
-
-
 <footer>
-
-    <button onclick="refreshNews()">
-
-        🔄 Vernieuwen
-
-    </button>
-
+    <button onclick="refreshNews()">🔄 Vernieuwen</button>
 </footer>
-
-
-
-      <script src="script.js"></script>
-
-
+<script src="script.js"></script>
+<script src="push.js"></script>
 </body>
-
 </html>
