@@ -334,16 +334,22 @@ function urlBase64ToUint8Array(base64String) {
 async function subscribePush() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) { alert('Push wordt niet ondersteund in deze browser'); return; }
     if (!VAPID_PUBLIC_KEY) { await getVapidKey(); }
-    if (!VAPID_PUBLIC_KEY) { alert('VAPID key nog niet beschikbaar'); return; }
+    if (!VAPID_PUBLIC_KEY) { alert('VAPID key nog niet beschikbaar - check '+PUSH_WORKER_URL+'/vapidPublicKey'); return; }
     try {
-        const reg = await navigator.serviceWorker.register('./service-worker.js', {scope: './'});
+        // FIX: zorg dat er een actieve SW is
+        let reg = await navigator.serviceWorker.getRegistration();
+        if(!reg){
+            reg = await navigator.serviceWorker.register('./service-worker.js', {scope: './'});
+        }
+        await navigator.serviceWorker.ready;
+
         if (Notification.permission === 'denied') {
-            alert('Meldingen zijn geblokkeerd.\n\nIn Edge/Chrome: klik op het slotje in de adresbalk > Meldingen > Toestaan.');
+            alert('Meldingen zijn geblokkeerd.\nIn Edge/Chrome: slotje in adresbalk > Meldingen > Toestaan.');
             return;
         }
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') { 
-            alert('Geen toestemming voor notificaties ('+permission+'). In Edge: slotje > Meldingen > Toestaan');
+            alert('Geen toestemming ('+permission+')');
             return; 
         }
         const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
@@ -352,12 +358,13 @@ async function subscribePush() {
         await fetch(PUSH_WORKER_URL + '/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         localStorage.setItem('ommen_push_subscribed','1');
         updatePushButton();
-        alert('Push aan! Meldingen van de app "Ommen Nieuws" geactiveerd');
+        alert('Push aan! 🔔 Je krijgt nu meldingen ook als site dicht is.');
     } catch(e){
         console.error(e);
-        alert('Push mislukt: ' + e.message);
+        alert('Push mislukt: ' + e.message + '\n\nTip: doe even Ctrl+Shift+R en probeer opnieuw. Check ook of service-worker.js bereikbaar is.');
     }
 }
+
 
 async function unsubscribePush() {
     const reg = await navigator.serviceWorker.getRegistration();
