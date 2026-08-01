@@ -1,6 +1,6 @@
 // push.js - GEISOLEERDE push logica, raakt script.js NIET aan
 // Plaats dit als apart bestand naast script.js en laad het in index.html na script.js: <script src="./push.js"></script>
-const PUSH_WORKER_URL = 'https://ommen-push.leeuw008.workers.dev';
+   const PUSH_WORKER_URL = 'https://ommen-push-v2.leeuw008.workers.dev';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
