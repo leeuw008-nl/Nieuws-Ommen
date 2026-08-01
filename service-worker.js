@@ -1,9 +1,15 @@
-const CACHE_NAME = 'ommen-nieuws-v7';
-const CORE = ['./', './index.html', './style.css'];
+const CACHE_NAME = 'ommen-nieuws-v8';
+const CORE = ['./index.html', './style.css'];
 
 self.addEventListener('install', event => {
   self.skipWaiting();
-  event.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(CORE)));
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.addAll(CORE).catch(err => {
+        console.log('Cache addAll failed, continue anyway', err);
+      });
+    })
+  );
 });
 
 self.addEventListener('activate', event => {
@@ -12,42 +18,29 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Network-first voor script.js zodat updates direct komen, cache-first voor rest
 self.addEventListener('fetch', event => {
   const url = event.request.url;
+  // Nooit script.js cachen agressief
   if (url.includes('script.js')) {
-    event.respondWith(fetch(event.request, {cache:'no-store'}).then(r => { const clone=r.clone(); caches.open(CACHE_NAME).then(c=>c.put(event.request, clone)); return r; }).catch(()=>caches.match(event.request)));
+    event.respondWith(fetch(event.request, {cache:'no-store'}).catch(()=>caches.match(event.request)));
     return;
   }
-  event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request).then(r => { const clone=r.clone(); caches.open(CACHE_NAME).then(c=>c.put(event.request, clone)); return r; })));
+  event.respondWith(
+    caches.match(event.request).then(cached => cached || fetch(event.request).catch(()=>caches.match('./index.html')))
+  );
 });
 
 self.addEventListener('push', event => {
   let data = { title: "Nieuw Ommen nieuws!", body: "Er is een nieuw artikel", url: "https://leeuw008-nl.github.io/Nieuws-Ommen/" };
-  try {
-    if (event.data) {
-      const json = event.data.json();
-      data = { ...data, ...json };
-    }
-  } catch (e) {}
-  const options = {
-    body: data.body,
-    data: { url: data.url },
-    vibrate: [200, 100, 200],
-    tag: 'ommen-nieuws',
-  };
-  event.waitUntil(self.registration.showNotification(data.title, options));
+  try { if (event.data) { const json = event.data.json(); data = { ...data, ...json }; } } catch(e){}
+  event.waitUntil(self.registration.showNotification(data.title, { body: data.body, data: { url: data.url }, vibrate:[200,100,200], tag:'ommen-nieuws' }));
 });
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const url = event.notification.data?.url || "https://leeuw008-nl.github.io/Nieuws-Ommen/";
-  event.waitUntil(
-    clients.matchAll({ type: 'window' }).then(clientsList => {
-      for (const client of clientsList) {
-        if (client.url.includes('Nieuws-Ommen') && 'focus' in client) return client.focus();
-      }
-      return clients.openWindow(url);
-    })
-  );
+  event.waitUntil(clients.matchAll({type:'window'}).then(list => {
+    for(const c of list){ if(c.url.includes('Nieuws-Ommen') && 'focus' in c) return c.focus(); }
+    return clients.openWindow(url);
+  }));
 });
