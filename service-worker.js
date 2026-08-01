@@ -1,31 +1,25 @@
-const CACHE_NAME = 'ommen-nieuws-v6-fix-cache-issue';
-const urlsToCache = ['./', './index.html'];
+const CACHE_NAME = 'ommen-nieuws-v7';
+const CORE = ['./', './index.html', './style.css'];
 
 self.addEventListener('install', event => {
   self.skipWaiting();
-  event.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(CORE)));
 });
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => self.clients.claim())
+    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))).then(() => self.clients.claim())
   );
 });
 
-// FIX: nooit script.js, index.html cachen - altijd netwerk
+// Network-first voor script.js zodat updates direct komen, cache-first voor rest
 self.addEventListener('fetch', event => {
   const url = event.request.url;
-  if (url.includes('script.js') || url.includes('index.html')) {
-    event.respondWith(
-      fetch(event.request, { cache: 'no-store' }).catch(() => caches.match(event.request))
-    );
+  if (url.includes('script.js')) {
+    event.respondWith(fetch(event.request, {cache:'no-store'}).then(r => { const clone=r.clone(); caches.open(CACHE_NAME).then(c=>c.put(event.request, clone)); return r; }).catch(()=>caches.match(event.request)));
     return;
   }
-  event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
-  );
+  event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request).then(r => { const clone=r.clone(); caches.open(CACHE_NAME).then(c=>c.put(event.request, clone)); return r; })));
 });
 
 self.addEventListener('push', event => {
@@ -40,20 +34,20 @@ self.addEventListener('push', event => {
     body: data.body,
     data: { url: data.url },
     vibrate: [200, 100, 200],
-    tag: 'ommen-nieuws'
+    tag: 'ommen-nieuws',
   };
   event.waitUntil(self.registration.showNotification(data.title, options));
 });
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const url = event.notification.data && event.notification.data.url ? event.notification.data.url : "https://leeuw008-nl.github.io/Nieuws-Ommen/";
+  const url = event.notification.data?.url || "https://leeuw008-nl.github.io/Nieuws-Ommen/";
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then(windowClients => {
-      for (let client of windowClients) {
+    clients.matchAll({ type: 'window' }).then(clientsList => {
+      for (const client of clientsList) {
         if (client.url.includes('Nieuws-Ommen') && 'focus' in client) return client.focus();
       }
-      if (clients.openWindow) return clients.openWindow(url);
+      return clients.openWindow(url);
     })
   );
 });
