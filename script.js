@@ -15,11 +15,10 @@ const MAX_DESC = 380;
 
 // --- PUSH CONFIG - DEFINITIEF VOOR OMMEN ---
 const PUSH_WORKER_URL = 'https://ommen-push.leeuw008.workers.dev';
-let VAPID_PUBLIC_KEY = null; // wordt automatisch opgehaald
+let VAPID_PUBLIC_KEY = null;
 
 async function getVapidKey(){
   if(VAPID_PUBLIC_KEY) return VAPID_PUBLIC_KEY;
-  // 1. Probeer nieuwe plain-text endpoint (v4)
   try{
     const r = await fetch(`${PUSH_WORKER_URL}/vapidPublicKey`);
     if(r.ok){
@@ -27,15 +26,11 @@ async function getVapidKey(){
       if(txt && txt.startsWith('B')){ VAPID_PUBLIC_KEY = txt; return txt; }
     }
   }catch(e){}
-  // 2. Fallback oude JSON endpoint /vapid
   try{
     const r = await fetch(`${PUSH_WORKER_URL}/vapid`);
     const j = await r.json();
     if(j.publicKey){ VAPID_PUBLIC_KEY = j.publicKey; return j.publicKey; }
-    if(j.key){ VAPID_PUBLIC_KEY = j.key; return j.key; }
-  }catch(e){ 
-    console.error('VAPID ophalen mislukt', e); 
-  }
+  }catch(e){ console.error('VAPID ophalen mislukt', e); }
   return null; 
 }
 
@@ -155,7 +150,7 @@ async function fetchRSS(url) {
             const timestamp = Date.parse(date);
             const rawDesc = item.querySelector("description, content\\:encoded, summary, content")?.textContent || "";
             const isOudOmmen = url.includes("oudommen");
-            return { title: item.querySelector("title")?.textContent?.trim() || "Geen titel", description: isOudOmmen ? cleanHTMLOriginal(rawDesc) : cleanHTML(rawDesc, MAX_DESC), link: link.trim(), timestamp: isNaN(timestamp) ? 0 : timestamp };
+            return { title: item.querySelector("title")?.textContent?.trim() || "Geen titel", description: isOudOmmen ? cleanHTMLOriginal(rawDesc) : cleanHTML(rawDesc, MAX_DESC), link: link.trim(), timestamp: isNaN(timestamp) ? 0 : timestamp, displayDate: date };
         });
     } catch(error) { console.error("RSS ophalen mislukt:", url, error); return []; }
 }
@@ -175,7 +170,7 @@ async function fetchGemeenteNieuws() {
         }
         const artikelen = await Promise.all(links.slice(0,10).map(async artikel => {
             const gegevens = await fetchGemeenteGegevens(artikel.link);
-            return { title: artikel.title, link: artikel.link, description: gegevens.tekst, pubDate: gegevens.datum, timestamp: gegevens.datum ? Date.parse(gegevens.datum) : Date.now() };
+            return { title: artikel.title, link: artikel.link, description: gegevens.tekst, pubDate: gegevens.datum, timestamp: gegevens.datum ? Date.parse(gegevens.datum) : Date.now(), displayDate: gegevens.datum };
         }));
         return artikelen;
     } catch(error) { console.error("Fout gemeente Ommen:", error); return []; }
@@ -196,12 +191,14 @@ async function fetchGemeenteGegevens(url) {
         return { datum, tekst };
     } catch(error) { return { datum: "", tekst: "" }; }
 }
+
+// --- RTV VECHTDAL FIX GEEN 00:00 ---
 async function fetchRTVVechtdalNieuws() {
     const url = "https://rtvvechtdal.nl/";
     try {
         const res = await fetch(PROXY + encodeURIComponent(url));
         const text = await res.text();
-        const html = new DOMParser().parseFromString(text, "text/html");
+        const html = new DOMParser().parseFromString(text,"text/html");
         const links = [];
         html.querySelectorAll("a").forEach(a => { try { const href = new URL(a.getAttribute("href"), "https://rtvvechtdal.nl").href; const title = a.textContent.trim(); if (href.includes("type=detail") && title.length > 10 && !links.some(l => l.link === href)) links.push({ title, link: href }); } catch {} });
         const artikelen = await Promise.all(links.slice(0,10).map(async artikel => {
@@ -209,17 +206,46 @@ async function fetchRTVVechtdalNieuws() {
                 const res2 = await fetch(PROXY + encodeURIComponent(artikel.link));
                 const text2 = await res2.text();
                 const doc = new DOMParser().parseFromString(text2,"text/html");
+                
+                // FIX: lees expliciet <time> tag - bevat vaak alleen datum zonder tijd
+                let datumStr = "";
+                let hasTime = false;
+                const timeEl = doc.querySelector("time");
+                if(timeEl){
+                  datumStr = timeEl.textContent.trim(); // bv "31 juli 2026"
+                  hasTime = /[0-9]{1,2}:[0-9]{2}/.test(datumStr) || timeEl.getAttribute("datetime")?.includes("T");
+                } else {
+                  // fallback oude regex
+                  const m = text2.match(/(\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4})/i);
+                  if(m) datumStr = m[0];
+                }
+
                 let bodyText = doc.body.innerText.replace(/\s+/g," ").trim();
+                // verwijder datum uit begin van body om dubbel te voorkomen
+                if(datumStr) bodyText = bodyText.replace(datumStr, "").trim();
                 bodyText = bodyText.replace(/^.*?(\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4})/i, "");
                 bodyText = bodyText.replace(/Home Vechtdal TV.*?Stichting RTV Vechtdal/i, "").trim();
-                const match = text2.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i);
-                const datum = match ? match[0] : "";
-                return { title: artikel.title, link: artikel.link, description: cleanTextWithEllipsis(bodyText, MAX_DESC), timestamp: datum ? Date.parse(datum) : Date.now() };
+
+                let ts = Date.now();
+                if(datumStr){
+                  const parsed = Date.parse(datumStr);
+                  if(!isNaN(parsed)) ts = parsed;
+                }
+
+                return { 
+                  title: artikel.title, 
+                  link: artikel.link, 
+                  description: cleanTextWithEllipsis(bodyText, MAX_DESC), 
+                  timestamp: ts,
+                  displayDate: datumStr, // originele datum string
+                  hasTime: hasTime // false = alleen datum, geen 00:00 tonen
+                };
             } catch { return null; }
         }));
         return artikelen.filter(Boolean);
     } catch(error) { console.error("RTV:", error); return []; }
 }
+
 async function fetchVechtdalCentraalNieuws() {
     try {
         const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://www.vechtdalcentraal.nl/feed/')}`;
@@ -230,7 +256,7 @@ async function fetchVechtdalCentraalNieuws() {
         return data.items.slice(0,10).map(item => {
             let desc = cleanHTML(item.description, MAX_DESC);
             if(!desc.includes("[...]")) { desc = desc.replace(/<\/p>$/i, " [...]</p>"); if(!desc.includes("[...]")) desc = desc.trim() + " [...]"; }
-            return { title: item.title.replace(/&#8217;/g,"'").replace(/&amp;/g,"&"), link: item.link, description: desc, timestamp: Date.parse(item.pubDate) || Date.now() };
+            return { title: item.title.replace(/&#8217;/g,"'").replace(/&amp;/g,"&"), link: item.link, description: desc, timestamp: Date.parse(item.pubDate) || Date.now(), displayDate: item.pubDate };
         });
     } catch(error) { console.error("Vechtdal Centraal fout:", error); return []; }
 }
@@ -258,7 +284,7 @@ async function fetchOostArtikel(url) {
         if (!datum) { const match = doc.body.innerText.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i); if (match) datum = match[0]; }
         const contentEl = doc.querySelector("article, .article__content");
         const description = contentEl ? cleanHTML(contentEl.innerHTML, MAX_DESC) : cleanTextWithEllipsis(doc.querySelector('meta[name="description"]')?.content || "", MAX_DESC);
-        return { title, link: url, description, timestamp: datum ? Date.parse(datum) : Date.now(), source: "RTV Oost" };
+        return { title, link: url, description, timestamp: datum ? Date.parse(datum) : Date.now(), displayDate: datum, source: "RTV Oost" };
     } catch(e) { return null; }
 }
 
@@ -266,7 +292,7 @@ function isOmmenNieuws(article) { const text = (article.title + " " + (article.d
 function addArticles(artikelen, bron) { artikelen.forEach(article => { allArticles.push({ ...article, source: bron }); }); }
 function finalizeArticles() { const seen = new Set(); allArticles = allArticles.filter(article => { if (seen.has(article.link)) return false; seen.add(article.link); return true; }); allArticles.sort((a,b) => b.timestamp - a.timestamp); }
 
-// --- PUSH LOGICA - FIX VAPID ophalen ---
+// --- PUSH LOGICA FIX ---
 function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -275,57 +301,41 @@ function urlBase64ToUint8Array(base64String) {
     for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
     return outputArray;
 }
-
 function arrayBufferToBase64Url(buffer){
   const bytes = new Uint8Array(buffer);
   let binary = ''; for(let b of bytes) binary += String.fromCharCode(b);
   return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
-
 async function subscribePush() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) { alert('Push wordt niet ondersteund'); return; }
     try{
       const key = await getVapidKey();
-      if(!key){ alert('VAPID key nog niet beschikbaar - worker geeft geen key terug. Check /vapidPublicKey'); return; }
+      if(!key){ alert('VAPID key nog niet beschikbaar - check /vapidPublicKey'); return; }
       const reg = await navigator.serviceWorker.ready;
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') { alert('Geen toestemming voor notificaties'); return; }
       const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) });
-      // bronnen uit localStorage of alles
       let sources = [];
       try{ const s = JSON.parse(localStorage.getItem('selectedSources')||'[]'); if(Array.isArray(s)&&s.length) sources=s; }catch{}
-      const payload = {
-        endpoint: sub.endpoint,
-        keys: {
-          p256dh: arrayBufferToBase64Url(sub.getKey('p256dh')),
-          auth: arrayBufferToBase64Url(sub.getKey('auth'))
-        },
-        sources: sources
-      };
+      const payload = { endpoint: sub.endpoint, keys: { p256dh: arrayBufferToBase64Url(sub.getKey('p256dh')), auth: arrayBufferToBase64Url(sub.getKey('auth')) }, sources: sources };
       await fetch(PUSH_WORKER_URL + '/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       localStorage.setItem('ommen_push_subscribed','1');
       updatePushButton();
       alert('🔔 Push aan! Je krijgt nu melding ook als site dicht is.');
-    }catch(e){
-      console.error(e);
-      alert('Push fout: '+e.message);
-    }
+    }catch(e){ console.error(e); alert('Push fout: '+e.message); }
 }
-
 async function unsubscribePush() {
     const reg = await navigator.serviceWorker.getRegistration();
     if(reg) { const sub = await reg.pushManager.getSubscription(); if(sub) { await fetch(PUSH_WORKER_URL + '/unsubscribe', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ endpoint: sub.endpoint }) }); await sub.unsubscribe(); } }
     localStorage.removeItem('ommen_push_subscribed');
     updatePushButton();
 }
-
 function updatePushButton() {
     const btn = document.getElementById('push-toggle');
     if(!btn) return;
     if(localStorage.getItem('ommen_push_subscribed')==='1') { btn.textContent='🔔 Push aan (klik om uit te zetten)'; btn.style.background='#d4edda'; }
     else { btn.textContent='🔔 Push aanzetten (ook als site dicht is)'; btn.style.background='#ffcc00'; }
 }
-
 function ensureBanner() {
     if(document.getElementById('new-articles-banner')) return;
     const style = document.createElement('style');
@@ -340,7 +350,6 @@ function ensureBanner() {
     document.getElementById('banner-reload').onclick=()=>{banner.style.display='none'; refreshNews();};
     document.getElementById('banner-close').onclick=()=>banner.style.display='none';
 }
-
 function getSeenLinks(){ try{ return new Set(JSON.parse(localStorage.getItem(LS_SEEN_KEY)||"[]")); }catch{ return new Set(); } }
 function saveSeenLinks(links){ localStorage.setItem(LS_SEEN_KEY, JSON.stringify([...links].slice(0,200))); }
 function checkForNewArticles(currentArticles){
@@ -355,7 +364,6 @@ function checkForNewArticles(currentArticles){
         saveSeenLinks(new Set([...seen, ...newOnes.map(a=>a.link)]));
     }
 }
-
 async function loadNews(isBackground=false) {
     const container = document.getElementById("news-container");
     if(!isBackground) container.innerHTML = "<p>Nieuws laden...</p>";
@@ -369,11 +377,28 @@ async function loadNews(isBackground=false) {
     else { searchNews(); setTimeout(()=>checkForNewArticles(allArticles),800); }
 }
 
+// FIX RENDER: geen 00:00 meer bij RTV Vechtdal
+function formatDate(article){
+  // als hasTime false en displayDate alleen datum, toon alleen datum
+  if(article.displayDate && article.hasTime === false){
+    return article.displayDate; // bv "31 juli 2026"
+  }
+  if(article.timestamp){
+    const d = new Date(article.timestamp);
+    // check of tijd 00:00 is en bron is RTV Vechtdal -> toon alleen datum
+    if(article.source === "RTV Vechtdal" && d.getHours()===0 && d.getMinutes()===0 && article.hasTime === false){
+      return d.toLocaleString('nl-NL', { day:'2-digit', month:'2-digit', year:'numeric' });
+    }
+    return d.toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+  return article.displayDate || "";
+}
+
 function renderArticles(articles) {
     const container = document.getElementById("news-container");
     let html = `<p><strong>${articles.length} artikelen gevonden</strong></p>`;
     if (articles.length === 0) html += "<p>Geen artikelen gevonden.</p>";
-    else html += articles.map(article => `<div class="article"><h2><a href="${article.link}" target="_blank" rel="noopener">${article.title}</a></h2><small>${article.source} — ${article.timestamp ? new Date(article.timestamp).toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ""}</small><div class="article-content">${article.description}</div></div>`).join("");
+    else html += articles.map(article => `<div class="article"><h2><a href="${article.link}" target="_blank" rel="noopener">${article.title}</a></h2><small>${article.source} — ${formatDate(article)}</small><div class="article-content">${article.description}</div></div>`).join("");
     container.innerHTML = html;
 }
 function searchNews() {
