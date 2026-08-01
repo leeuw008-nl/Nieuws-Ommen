@@ -1,72 +1,35 @@
-// service-worker.js - voor Ommen Nieuws (GitHub Pages submap) - FIXED 31-07-2026
-self.addEventListener('install', function(event) {
-    self.skipWaiting();
-    console.log('Ommen SW install #2367');
-});
+self.addEventListener('install', e => self.skipWaiting());
+self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 
-self.addEventListener('activate', function(event) {
-    event.waitUntil(clients.claim());
-    console.log('Ommen SW activate');
-});
-
-self.addEventListener('push', function(event) {
-    console.log('Push ontvangen!', event);
-    let data = { title: 'Nieuw Ommen nieuws!', body: 'Er is een nieuw artikel op Ommen Nieuws', url: './' };
-    try { 
-        if(event.data){
-            const text = event.data.text();
-            console.log('Push data:', text);
-            if(text && text.startsWith('{')){
-                const parsed = JSON.parse(text);
-                data = {...data, ...parsed};
-            } else if(text) {
-                data.body = text;
-            }
-        } 
-    } catch(e){
-        console.log('Push parse fail, defaults', e);
+self.addEventListener('push', event => {
+  console.log('PUSH ONTVANGEN', event);
+  let data = { title: 'Test Ommen Nieuws ✅', body: 'Testmelding (fallback)', url: 'https://leeuw008-nl.github.io/Nieuws-Ommen/' };
+  try {
+    if (event.data) {
+      const txt = event.data.text();
+      console.log('Push data text:', txt);
+      data = JSON.parse(txt);
     }
-    
-    const options = {
-        body: data.body,
-        icon: './icon-192x192.png',
-        badge: './icon-192x192.png',
-        data: { url: data.url || './' },
-        vibrate: [100, 50, 100],
-        tag: 'ommen-nieuws',
-        renotify: true
-    };
-    
-    event.waitUntil(
-        self.registration.showNotification(data.title, options).catch(err => {
-            console.error('showNotification met icon failed:', err);
-            // Fallback zonder icon
-            return self.registration.showNotification(data.title, {
-                body: data.body,
-                data: { url: data.url || './' },
-                tag: 'ommen-nieuws',
-                vibrate: [100, 50, 100]
-            });
-        })
-    );
+  } catch (err) {
+    console.log('Push parse error, gebruik fallback', err);
+  }
+  
+  const options = {
+    body: data.body || 'Nieuw nieuws in Ommen',
+    icon: 'https://leeuw008-nl.github.io/Nieuws-Ommen/icon-192x192.png',
+    badge: 'https://leeuw008-nl.github.io/Nieuws-Ommen/icon-192x192.png',
+    data: { url: data.url || '/' },
+    vibrate: [200,100,200]
+  };
+  
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Ommen Nieuws', options)
+  );
 });
 
-self.addEventListener('notificationclick', function(event) {
-    event.notification.close();
-    let urlToOpen = event.notification.data?.url || './';
-    if(urlToOpen === '/') urlToOpen = './';
-    const fullUrl = new URL(urlToOpen, self.registration.scope).href;
-    
-    event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-            for (let client of windowClients) {
-                if (client.url.includes('Nieuws-Ommen') && 'focus' in client) {
-                    return client.focus();
-                }
-            }
-            if (clients.openWindow) {
-                return clients.openWindow(fullUrl);
-            }
-        })
-    );
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(
+    clients.openWindow(event.notification.data.url)
+  );
 });
