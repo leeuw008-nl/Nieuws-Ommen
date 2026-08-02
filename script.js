@@ -520,3 +520,44 @@ function injectPushButton(){
 window.addEventListener("DOMContentLoaded", function() {
     setupSearch(); setupSources(); ensureBanner(); injectPushButton(); loadNews(false);
 });
+
+// ===============================
+// FIX STAP 2 - PLAK DIT HELEMAAL ONDERAAN JE BESTAANDE JS BESTAND (na window.addEventListener("DOMContentLoaded"...))
+// ===============================
+
+// 1) Functie die kijkt of je via notificatie komt (?open=...)
+function handlePushDeepLink(){
+  try{
+    const params = new URLSearchParams(window.location.search);
+    const openUrl = params.get('open');
+    if(!openUrl) return;
+    console.log('Push deep-link gevonden:', openUrl);
+    // wacht tot artikelen geladen zijn
+    let tries = 0;
+    const tryScroll = () => {
+      tries++;
+      // allArticles is global in jouw code
+      const articles = (typeof allArticles !== 'undefined') ? allArticles : [];
+      if(articles.length===0 && tries<20){ setTimeout(tryScroll, 500); return; }
+      const targetLink = decodeURIComponent(openUrl);
+      // zoek artikel div
+      const articleDivs = document.querySelectorAll('.article');
+      for(const div of articleDivs){
+        const a = div.querySelector('h2 a');
+        if(a && (a.href===targetLink || a.href===openUrl || targetLink.includes(a.href) || a.href.includes(targetLink))){
+          div.scrollIntoView({behavior:'smooth', block:'center'});
+          div.style.outline='4px solid #0a7a3d';
+          div.style.outlineOffset='4px';
+          setTimeout(()=>{ div.style.outline=''; div.style.outlineOffset=''; }, 5000);
+          break;
+        }
+      }
+      // haal ?open uit URL
+      history.replaceState({},'', window.location.pathname);
+    };
+    setTimeout(tryScroll, 1000);
+  }catch(e){ console.error('deep-link error', e); }
+}
+
+// Start de deep-link handler direct
+handlePushDeepLink();
