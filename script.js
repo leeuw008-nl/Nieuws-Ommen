@@ -43,7 +43,8 @@ const feeds = [
     { name: 'Ommen City', url: 'https://ommencity.nl/feed/' },
     { name: 'OudOmmen', url: 'https://weblog.oudommen.nl/feed/' },
     { name: 'De Stentor', url: 'https://www.destentor.nl/ommen/rss.xml' },
-    { name: 'RondOmmen', url: 'https://www.rondommen.nl/feed/' }
+    { name: 'RondOmmen', url: 'https://www.rondommen.nl/feed/' },
+    { name: 'Salland Centraal', url: 'https://www.sallandcentraal.nl/feed/', filterKeywords: ['ommen', 'lemele', 'lemelerveld', 'beerze', 'witharen', 'ommerkanaal'] }
 ];
 
 const ommenKeywords = [
@@ -177,15 +178,38 @@ async function fetchRSS(url) {
         const xml = new DOMParser().parseFromString(text,"text/xml");
         if (xml.querySelector("parsererror")) return [];
         const items = Array.from(xml.getElementsByTagName("item"));
-        return items.slice(0,25).map(item => {
+        
+        // Bepaal of er een keyword filter actief is voor deze feed
+        const feedConfig = feeds.find(f => f.url === url);
+        const keywords = feedConfig?.filterKeywords?.map(k => k.toLowerCase()) || null;
+
+        let mapped = items.slice(0,25).map(item => {
             let link = ""; const linkElement = item.querySelector("link");
             if (linkElement) link = linkElement.getAttribute("href") || linkElement.textContent || "";
             const date = item.querySelector("pubDate")?.textContent?.trim() || item.querySelector("published")?.textContent?.trim() || item.querySelector("updated")?.textContent?.trim() || "";
             const timestamp = Date.parse(date);
             const rawDesc = item.querySelector("description, content\\:encoded, summary, content")?.textContent || "";
             const isOudOmmen = url.includes("oudommen");
-            return { title: item.querySelector("title")?.textContent?.trim() || "Geen titel", description: isOudOmmen ? cleanHTMLOriginal(rawDesc) : cleanHTML(rawDesc, MAX_DESC), link: link.trim(), timestamp: isNaN(timestamp) ? 0 : timestamp };
+            const title = item.querySelector("title")?.textContent?.trim() || "Geen titel";
+            return { 
+                title: title, 
+                description: isOudOmmen ? cleanHTMLOriginal(rawDesc) : cleanHTML(rawDesc, MAX_DESC), 
+                link: link.trim(), 
+                timestamp: isNaN(timestamp) ? 0 : timestamp,
+                _searchText: (title + " " + rawDesc).toLowerCase() // voor filter
+            };
         });
+
+        // Filter toepassen voor Salland Centraal
+        if (keywords) {
+            mapped = mapped.filter(article => {
+                return keywords.some(k => article._searchText.includes(k));
+            });
+        }
+
+        // _searchText weer verwijderen
+        return mapped.map(({_searchText, ...rest}) => rest);
+
     } catch(error) { console.error("RSS ophalen mislukt:", url, error); return []; }
 }
 
