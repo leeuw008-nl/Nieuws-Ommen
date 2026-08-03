@@ -174,51 +174,64 @@ function cleanGemeenteHTML(html, maxLength = 650) {
 
 async function fetchRSS(url) {
     try {
-        let text = "";
-        try {
-            text = await fetchViaProxy(url);
-        } catch(e) {
-            console.warn("Proxy fail voor", url, e.message);
-        }
+        const feedConfig = feeds.find(f => f.url === url);
+        const keywords = feedConfig?.filterKeywords?.map(k => k.toLowerCase()) || null;
 
-        // Fallback voor Salland Centraal via rss2json (zoals Vechtdal Centraal)
-        if ((!text || text.length < 200) && url.includes("sallandcentraal")) {
-            console.log("Fallback naar rss2json voor Salland Centraal");
-            const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
-            const res = await fetch(apiUrl);
-            const data = await res.json();
-            if (data.status === 'ok') {
-                return data.items.slice(0,25).map(item => {
-                    return {
+        let articles = [];
+
+        // Speciale fallback voor Salland Centraal
+        if (url.includes("sallandcentraal")) {
+            try {
+                const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
+                const res = await fetch(apiUrl);
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    articles = data.items.slice(0,25).map(item => ({
                         title: item.title,
                         link: item.link,
                         description: cleanHTML(item.description, MAX_DESC),
-                        timestamp: Date.parse(item.pubDate) || Date.now()
-                    };
-                });
+                        timestamp: Date.parse(item.pubDate) || Date.now(),
+                        _searchText: (item.title + " " + item.description).toLowerCase()
+                    }));
+                }
+            } catch(e) {
+                console.warn("rss2json fallback mislukt", e);
+                articles = [];
             }
-            return [];
+        } else {
+            // Normale feeds via je proxy
+            const text = await fetchViaProxy(url);
+            if (!text) return [];
+            const xml = new DOMParser().parseFromString(text,"text/xml");
+            if (xml.querySelector("parsererror")) return [];
+            const items = Array.from(xml.getElementsByTagName("item"));
+            articles = items.slice(0,25).map(item => {
+                let link = "";
+                const linkElement = item.querySelector("link");
+                if (linkElement) link = linkElement.getAttribute("href") || linkElement.textContent || "";
+                const date = item.querySelector("pubDate")?.textContent?.trim() || "";
+                const timestamp = Date.parse(date);
+                const rawDesc = item.querySelector("description")?.textContent || "";
+                const isOudOmmen = url.includes("oudommen");
+                return {
+                    title: item.querySelector("title")?.textContent?.trim() || "Geen titel",
+                    description: isOudOmmen ? cleanHTMLOriginal(rawDesc) : cleanHTML(rawDesc, MAX_DESC),
+                    link: link.trim(),
+                    timestamp: isNaN(timestamp) ? 0 : timestamp,
+                    _searchText: (item.querySelector("title")?.textContent + " " + rawDesc).toLowerCase()
+                };
+            });
         }
 
-        if (!text) return [];
-        const xml = new DOMParser().parseFromString(text,"text/xml");
-        if (xml.querySelector("parsererror")) return [];
-        const items = Array.from(xml.getElementsByTagName("item"));
-        return items.slice(0,25).map(item => {
-            let link = "";
-            const linkElement = item.querySelector("link");
-            if (linkElement) link = linkElement.getAttribute("href") || linkElement.textContent || "";
-            const date = item.querySelector("pubDate")?.textContent?.trim() || "";
-            const timestamp = Date.parse(date);
-            const rawDesc = item.querySelector("description")?.textContent || "";
-            const isOudOmmen = url.includes("oudommen");
-            return {
-                title: item.querySelector("title")?.textContent?.trim() || "Geen titel",
-                description: isOudOmmen ? cleanHTMLOriginal(rawDesc) : cleanHTML(rawDesc, MAX_DESC),
-                link: link.trim(),
-                timestamp: isNaN(timestamp) ? 0 : timestamp
-            };
-        });
+        // Filter toepassen als er keywords zijn
+        if (keywords && keywords.length > 0) {
+            const before = articles.length;
+            articles = articles.filter(a => keywords.some(k => a._searchText.includes(k)));
+            console.log(`${feedConfig.name}: ${before} -> ${articles.length} na filter [${keywords.join(", ")}]`);
+        }
+
+        return articles.map(({_searchText, ...rest}) => rest);
+
     } catch(error) {
         console.error("RSS ophalen mislukt:", url, error);
         return [];
