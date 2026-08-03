@@ -489,6 +489,19 @@ function loadSelectedSources(){
     try{
         const saved = JSON.parse(localStorage.getItem(LS_SOURCES_KEY)||"null");
         if(!saved || !Array.isArray(saved) || saved.length===0) return;
+        // Als er nieuwe bronnen zijn die nog niet in saved staan, voeg ze toe als checked
+        const allValues = Array.from(document.querySelectorAll(".source-filter")).map(cb=>cb.value);
+        const newOnes = allValues.filter(v => !saved.includes(v));
+        if(newOnes.length > 0){
+            console.log("Nieuwe bronnen gevonden, toevoegen:", newOnes);
+            // vink nieuwe bronnen aan
+            document.querySelectorAll(".source-filter").forEach(cb=>{
+                if(newOnes.includes(cb.value)) cb.checked = true;
+            });
+            // sla meteen op zodat ze volgende keer onthouden worden
+            saveSelectedSources();
+            return;
+        }
         document.querySelectorAll(".source-filter").forEach(cb=>{
             cb.checked = saved.includes(cb.value);
         });
