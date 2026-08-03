@@ -8,17 +8,20 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" href="icon-192x192.png" type="image/png">
     <style>
-    /* INFO-ICOON - kost geen extra ruimte, rechts naast titel */
+        /* INFO-ICOON - kost geen extra ruimte, rechts naast titel */
     header h1{
         display:flex;
         align-items:center;
-        gap:10px;
-        justify-content:space-between;
+        gap:12px;
+        justify-content:center;
+        width:100%;
+        text-align:center;
     }
     .title-left{
-        display:flex;
+        display:inline-flex;
         align-items:center;
-        gap:10px;
+        justify-content:center;
+        gap:0;
     }
     .info-icon-btn{
         width:32px;
@@ -38,17 +41,19 @@
         transition:background .15s;
     }
     .info-icon-btn:hover{background:rgba(255,255,255,0.30)}
-    /* LIGGENDE s - 90 graden gedraaid, zonder haakjes */
+    /* LIGGENDE s - 90 graden gedraaid, zonder haakjes - VERTICAAL GECENTREERD + MINIMALE RUIMTE LINKS EN RECHTS */
     .rotated-s{
-        display:inline-block;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
         transform:rotate(90deg);
         font-weight:900;
         font-size:0.90em;
-        margin:0 -4px 0 -3px;
-        letter-spacing:-1px;
-        position:relative;
-        top:1px;
+        margin:0 -3px;
         line-height:1;
+        vertical-align:middle;
+        position:relative;
+        top:0;
     }
     /* op smal scherm blijft hij netjes rechts */
     @media(max-width:400px){
