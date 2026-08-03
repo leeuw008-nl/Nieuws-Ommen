@@ -38,6 +38,17 @@
         transition:background .15s;
     }
     .info-icon-btn:hover{background:rgba(255,255,255,0.30)}
+    /* LIGGENDE s - 90 graden gedraaid, zonder haakjes */
+    .rotated-s{
+        display:inline-block;
+        transform:rotate(90deg);
+        font-weight:900;
+        font-size:0.90em;
+        margin:0 1px;
+        position:relative;
+        top:1px;
+        line-height:1;
+    }
     /* op smal scherm blijft hij netjes rechts */
     @media(max-width:400px){
         header h1{font-size:1.4em}
@@ -47,7 +58,7 @@
 <body>
 <header>
     <h1>
-        <span class="title-left">📰 Nieuw(s)Ommen </span>
+        <span class="title-left">📰 Nieuw<span class="rotated-s">s</span>Ommen</span>
         <a href="informatie.html" class="info-icon-btn" title="Info over deze app" aria-label="Informatie">i</a>
     </h1>
     <div class="search-row">
