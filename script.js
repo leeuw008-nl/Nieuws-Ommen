@@ -174,43 +174,55 @@ function cleanGemeenteHTML(html, maxLength = 650) {
 
 async function fetchRSS(url) {
     try {
-        const text = await fetchViaProxy(url);   
+        let text = "";
+        try {
+            text = await fetchViaProxy(url);
+        } catch(e) {
+            console.warn("Proxy fail voor", url, e.message);
+        }
+
+        // Fallback voor Salland Centraal via rss2json (zoals Vechtdal Centraal)
+        if ((!text || text.length < 200) && url.includes("sallandcentraal")) {
+            console.log("Fallback naar rss2json voor Salland Centraal");
+            const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
+            const res = await fetch(apiUrl);
+            const data = await res.json();
+            if (data.status === 'ok') {
+                return data.items.slice(0,25).map(item => {
+                    return {
+                        title: item.title,
+                        link: item.link,
+                        description: cleanHTML(item.description, MAX_DESC),
+                        timestamp: Date.parse(item.pubDate) || Date.now()
+                    };
+                });
+            }
+            return [];
+        }
+
+        if (!text) return [];
         const xml = new DOMParser().parseFromString(text,"text/xml");
         if (xml.querySelector("parsererror")) return [];
         const items = Array.from(xml.getElementsByTagName("item"));
-        
-        // Bepaal of er een keyword filter actief is voor deze feed
-        const feedConfig = feeds.find(f => f.url === url);
-        const keywords = feedConfig?.filterKeywords?.map(k => k.toLowerCase()) || null;
-
-        let mapped = items.slice(0,25).map(item => {
-            let link = ""; const linkElement = item.querySelector("link");
+        return items.slice(0,25).map(item => {
+            let link = "";
+            const linkElement = item.querySelector("link");
             if (linkElement) link = linkElement.getAttribute("href") || linkElement.textContent || "";
-            const date = item.querySelector("pubDate")?.textContent?.trim() || item.querySelector("published")?.textContent?.trim() || item.querySelector("updated")?.textContent?.trim() || "";
+            const date = item.querySelector("pubDate")?.textContent?.trim() || "";
             const timestamp = Date.parse(date);
-            const rawDesc = item.querySelector("description, content\\:encoded, summary, content")?.textContent || "";
+            const rawDesc = item.querySelector("description")?.textContent || "";
             const isOudOmmen = url.includes("oudommen");
-            const title = item.querySelector("title")?.textContent?.trim() || "Geen titel";
-            return { 
-                title: title, 
-                description: isOudOmmen ? cleanHTMLOriginal(rawDesc) : cleanHTML(rawDesc, MAX_DESC), 
-                link: link.trim(), 
-                timestamp: isNaN(timestamp) ? 0 : timestamp,
-                _searchText: (title + " " + rawDesc).toLowerCase() // voor filter
+            return {
+                title: item.querySelector("title")?.textContent?.trim() || "Geen titel",
+                description: isOudOmmen ? cleanHTMLOriginal(rawDesc) : cleanHTML(rawDesc, MAX_DESC),
+                link: link.trim(),
+                timestamp: isNaN(timestamp) ? 0 : timestamp
             };
         });
-
-        // Filter toepassen voor Salland Centraal
-        if (keywords) {
-            mapped = mapped.filter(article => {
-                return keywords.some(k => article._searchText.includes(k));
-            });
-        }
-
-        // _searchText weer verwijderen
-        return mapped.map(({_searchText, ...rest}) => rest);
-
-    } catch(error) { console.error("RSS ophalen mislukt:", url, error); return []; }
+    } catch(error) {
+        console.error("RSS ophalen mislukt:", url, error);
+        return [];
+    }
 }
 
 async function fetchGemeenteNieuws() {
