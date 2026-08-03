@@ -506,39 +506,53 @@ function setupSearch() {
 }
 function refreshNews() { loadNews(false); }
 function saveSelectedSources(){
-    const selected = Array.from(document.querySelectorAll(".source-filter:checked")).map(cb=>cb.value);
-    localStorage.setItem(LS_SOURCES_KEY, JSON.stringify(selected));
+    const all = {};
+    document.querySelectorAll(".source-filter").forEach(cb => {
+        all[cb.value] = cb.checked;
+    });
+    localStorage.setItem(LS_SOURCES_KEY, JSON.stringify(all));
     updatePushPreferences();
 }
 
 function loadSelectedSources(){
     try{
         const saved = JSON.parse(localStorage.getItem(LS_SOURCES_KEY)||"null");
-        if(!saved || !Array.isArray(saved) || saved.length===0) return; // niks opgeslagen = laat html checked zoals het is
+        if(!saved || typeof saved !== 'object' || Array.isArray(saved)) {
+            // Oud formaat (array) -> migreren
+            if(Array.isArray(saved) && saved.length > 0){
+                const all = {};
+                document.querySelectorAll(".source-filter").forEach(cb => {
+                    all[cb.value] = saved.includes(cb.value);
+                });
+                localStorage.setItem(LS_SOURCES_KEY, JSON.stringify(all));
+                // pas toe
+                document.querySelectorAll(".source-filter").forEach(cb => {
+                    cb.checked = all[cb.value] ?? true;
+                });
+            }
+            return; // eerste bezoek = laat HTML checked staan
+        }
         
         const checkboxes = document.querySelectorAll(".source-filter");
-        const allValues = Array.from(checkboxes).map(cb=>cb.value);
+        let hasNew = false;
         
-        // 1. Zet alle checkboxes volgens wat opgeslagen is
-        checkboxes.forEach(cb=>{
-            cb.checked = saved.includes(cb.value);
+        checkboxes.forEach(cb => {
+            if (saved.hasOwnProperty(cb.value)) {
+                cb.checked = saved[cb.value];
+            } else {
+                // Echt nieuwe bron (zoals Salland Centraal) -> default aan
+                cb.checked = true;
+                hasNew = true;
+            }
         });
         
-        // 2. Zijn er NIEUWE bronnen bijgekomen die nog niet opgeslagen waren? (zoals Salland Centraal)
-        const newOnes = allValues.filter(v => !saved.includes(v));
-        if(newOnes.length > 0){
-            // Vink die nieuwe ook aan EN sla meteen op
-            newOnes.forEach(name => {
-                const cb = document.querySelector(`.source-filter[value="${name}"]`);
-                if(cb) cb.checked = true;
-            });
-            // Sla de nieuwe complete lijst op
-            saveSelectedSources();
-        }
+        if(hasNew) saveSelectedSources();
+        
     }catch(e){
         console.error("loadSelectedSources fout", e);
     }
 }
+
 function getSelectedSources(){
     return Array.from(document.querySelectorAll(".source-filter:checked")).map(cb=>cb.value);
 }
