@@ -510,27 +510,34 @@ function saveSelectedSources(){
     localStorage.setItem(LS_SOURCES_KEY, JSON.stringify(selected));
     updatePushPreferences();
 }
+
 function loadSelectedSources(){
     try{
         const saved = JSON.parse(localStorage.getItem(LS_SOURCES_KEY)||"null");
-        if(!saved || !Array.isArray(saved) || saved.length===0) return;
-        // Als er nieuwe bronnen zijn die nog niet in saved staan, voeg ze toe als checked
-        const allValues = Array.from(document.querySelectorAll(".source-filter")).map(cb=>cb.value);
-        const newOnes = allValues.filter(v => !saved.includes(v));
-        if(newOnes.length > 0){
-            console.log("Nieuwe bronnen gevonden, toevoegen:", newOnes);
-            // vink nieuwe bronnen aan
-            document.querySelectorAll(".source-filter").forEach(cb=>{
-                if(newOnes.includes(cb.value)) cb.checked = true;
-            });
-            // sla meteen op zodat ze volgende keer onthouden worden
-            saveSelectedSources();
-            return;
-        }
-        document.querySelectorAll(".source-filter").forEach(cb=>{
+        if(!saved || !Array.isArray(saved) || saved.length===0) return; // niks opgeslagen = laat html checked zoals het is
+        
+        const checkboxes = document.querySelectorAll(".source-filter");
+        const allValues = Array.from(checkboxes).map(cb=>cb.value);
+        
+        // 1. Zet alle checkboxes volgens wat opgeslagen is
+        checkboxes.forEach(cb=>{
             cb.checked = saved.includes(cb.value);
         });
-    }catch(e){}
+        
+        // 2. Zijn er NIEUWE bronnen bijgekomen die nog niet opgeslagen waren? (zoals Salland Centraal)
+        const newOnes = allValues.filter(v => !saved.includes(v));
+        if(newOnes.length > 0){
+            // Vink die nieuwe ook aan EN sla meteen op
+            newOnes.forEach(name => {
+                const cb = document.querySelector(`.source-filter[value="${name}"]`);
+                if(cb) cb.checked = true;
+            });
+            // Sla de nieuwe complete lijst op
+            saveSelectedSources();
+        }
+    }catch(e){
+        console.error("loadSelectedSources fout", e);
+    }
 }
 function getSelectedSources(){
     return Array.from(document.querySelectorAll(".source-filter:checked")).map(cb=>cb.value);
