@@ -336,7 +336,7 @@ async function subscribePush() {
         await fetch(PUSH_WORKER_URL + '/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         localStorage.setItem('ommen_push_subscribed','1');
         updatePushButton();
-        alert('Push aan! Meldingen van de app "Ommen Nieuws" geactiveerd');
+        alert('Push aan! Meldingen van de app "Nieuw(s)Ommen" geactiveerd');
     } catch(e){
         console.error(e);
         alert('Push mislukt: ' + e.message);
