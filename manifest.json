@@ -1,6 +1,6 @@
 {
-  "name": "Ommen Nieuws",
-  "short_name": "Ommen Nieuws",
+  "name": "Nieuw(s)Ommen",
+  "short_name": "Nieuw(s)Ommen",
   "start_url": "/Nieuws-Ommen/index.html",
   "display": "standalone",
   "background_color": "#ffffff",
