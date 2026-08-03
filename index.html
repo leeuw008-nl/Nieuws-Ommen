@@ -15,7 +15,6 @@
         gap:12px;
         justify-content:center;
         width:100%;
-        text-align:center;
     }
     .title-left{
         display:inline-flex;
@@ -41,19 +40,17 @@
         transition:background .15s;
     }
     .info-icon-btn:hover{background:rgba(255,255,255,0.30)}
-    /* LIGGENDE s - 90 graden gedraaid, zonder haakjes - VERTICAAL GECENTREERD + MINIMALE RUIMTE LINKS EN RECHTS */
+    /* LIGGENDE s - iets meer ruimte + iets laten zakken */
     .rotated-s{
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
+        display:inline-block;
         transform:rotate(90deg);
         font-weight:900;
-        font-size:0.90em;
-        margin:0 -3px;
+        font-size:0.88em;
+        margin:0 2px;
+        position:relative;
+        top:3px;
         line-height:1;
         vertical-align:middle;
-        position:relative;
-        top:0;
     }
     /* op smal scherm blijft hij netjes rechts */
     @media(max-width:400px){
