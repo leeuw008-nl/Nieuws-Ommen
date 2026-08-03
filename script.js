@@ -44,7 +44,7 @@ const feeds = [
     { name: 'OudOmmen', url: 'https://weblog.oudommen.nl/feed/' },
     { name: 'De Stentor', url: 'https://www.destentor.nl/ommen/rss.xml' },
     { name: 'RondOmmen', url: 'https://www.rondommen.nl/feed/' },
-    { name: 'Salland Centraal', url: 'https://www.sallandcentraal.nl/feed/', filterKeywords: ['ommen', 'lemele', 'lemelerveld', 'beerze', 'witharen', 'ommerkanaal'] }
+    { name: 'Salland Centraal', url: 'https://www.sallandcentraal.nl/feed/' }
 ];
 
 const ommenKeywords = [
