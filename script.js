@@ -42,7 +42,8 @@ function parseDutchDate(str){
 const feeds = [
     { name: 'Ommen City', url: 'https://ommencity.nl/feed/' },
     { name: 'OudOmmen', url: 'https://weblog.oudommen.nl/feed/' },
-    { name: 'De Stentor', url: 'https://www.destentor.nl/ommen/rss.xml' }
+    { name: 'De Stentor', url: 'https://www.destentor.nl/ommen/rss.xml' },
+    { name: 'RondOmmen', url: 'https://www.rondommen.nl/feed/' }
 ];
 
 const ommenKeywords = [
