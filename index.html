@@ -10,110 +10,76 @@
     <style>
     header h1{display:flex;align-items:center;gap:12px;justify-content:center;width:100%;}
     .title-left{display:inline-flex;align-items:center;justify-content:center;gap:0;}
-    .info-icon-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.45);display:inline-flex;align-items:center;justify-content:center;color:#fff;text-decoration:none;font-weight:900;font-size:26px;line-height:1;flex-shrink:0;transition:background .15s;}
-    .info-icon-btn:hover{background:rgba(255,255,255,0.30)}
+    .info-icon-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.45);display:inline-flex;align-items:center;justify-content:center;color:#fff;text-decoration:none;font-weight:900;font-size:26px;line-height:1;flex-shrink:0}
     @media(max-width:400px){header h1{font-size:1.4em}}
 
     /* VASTE BREEDTE - zoekveld en bronselectie exact gelijk */
-    header{padding:0 12px !important;box-sizing:border-box !important;width:100% !important;max-width:100% !important}
+    header{padding:0 12px !important;box-sizing:border-box !important;width:100% !important}
     header h1{margin:0 0 8px 0 !important;width:100% !important;padding:0 !important;box-sizing:border-box !important}
-    .search-row{margin:0 0 8px 0 !important;padding:0 !important;box-sizing:border-box !important;width:100% !important;max-width:100% !important;display:block !important}
-    .search-row input{width:100% !important;max-width:100% !important;box-sizing:border-box !important;padding:10px 12px !important;border-radius:10px !important;border:1px solid rgba(255,255,255,.6) !important;font-size:15px !important;display:block !important;margin:0 !important}
+    .search-row{margin:0 0 8px 0 !important;padding:0 !important;box-sizing:border-box !important;width:100% !important;display:block !important}
+    .search-row input{width:100% !important;box-sizing:border-box !important;padding:10px 12px !important;border-radius:10px !important;border:1px solid rgba(255,255,255,.6) !important;font-size:15px !important;display:block !important;margin:0 !important}
 
     /* COMPACTE HEADER - icoon helemaal links, alles verticaal gecentreerd, lage hoogte */
     .filter-header{
-        margin:0 !important;box-sizing:border-box !important;width:100% !important;max-width:100% !important;
+        margin:0 !important;box-sizing:border-box !important;width:100% !important;
         background:#fff;border:1px solid #e5e7eb;border-radius:12px;
-        padding:5px 8px !important;display:flex;align-items:center;justify-content:space-between;
+        padding:6px 8px !important;display:flex;align-items:center;justify-content:space-between;
         cursor:pointer;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:all .15s;gap:6px;
-        min-height:38px;
+        min-height:36px;
     }
-    .filter-header:active{transform:scale(0.99)}
-    .filter-header.open{border-radius:12px 12px 0 0;border-bottom-color:transparent}
-    .filter-header-left{display:flex;align-items:center;gap:5px;flex:1;min-width:0;text-align:left;justify-content:flex-start;flex-wrap:nowrap;white-space:nowrap;line-height:1}
-    .tool-icon-left{flex-shrink:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px}
-    .filter-header-count{font-weight:600;color:#0b5bd3;font-size:12px;white-space:nowrap;flex-shrink:0;background:#eff6ff;padding:3px 7px;border-radius:999px;border:1px solid #bfdbfe;line-height:1;display:flex;align-items:center}
+    .filter-header.open{border-radius:12px 12px 0 0;border-bottom-color:transparent;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+    .filter-header-left{display:flex;align-items:center;gap:6px;flex-shrink:0}
+    .tool-icon-left{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:13px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;flex-shrink:0}
+    .filter-header-center{flex:1;display:flex;justify-content:center;align-items:center}
+    .filter-header-count{font-weight:600;color:#1d4ed8;font-size:12px;white-space:nowrap;background:#eff6ff;padding:3px 8px;border-radius:999px;border:1px solid #bfdbfe;line-height:1;display:flex;align-items:center}
     .filter-header-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
     .bell-slot{display:flex;align-items:center;justify-content:center;min-width:28px;min-height:28px}
     .bell-slot:empty::after{content:"🔔";opacity:.25;font-size:14px}
     .bell-slot > *{width:28px !important;height:28px !important;min-width:28px !important;min-height:28px !important;display:flex !important;align-items:center !important;justify-content:center !important;background:#fff !important;border:1px solid #e5e7eb !important;border-radius:8px !important;font-size:14px !important;line-height:1 !important;padding:0 !important}
 
     .btn-all-toets{
-        font-size:11px;font-weight:700;color:#0b5bd3;background:#eff6ff;border:1px solid #bfdbfe;
+        font-size:11px;font-weight:700;color:#166534;background:#dcfce7;border:1px solid #86efac;
         padding:4px 10px !important;border-radius:999px;cursor:pointer;white-space:nowrap;
-        margin:0 !important;transition:all .2s;min-width:80px;height:28px;display:inline-flex;align-items:center;justify-content:center;line-height:1;
+        margin:0 !important;transition:all .2s;min-width:78px;height:28px;display:inline-flex;align-items:center;justify-content:center;line-height:1;
     }
     .btn-all-toets.all-on{background:#dcfce7 !important;border-color:#86efac !important;color:#166534 !important}
     .btn-all-toets.all-off{background:#fee2e2 !important;border-color:#fca5a5 !important;color:#991b1b !important}
     .btn-all-toets.some-on{background:#fef9c3 !important;border-color:#fde68a !important;color:#854d0e !important}
-    .filter-header-arrow{font-size:12px;transition:transform .2s;color:#6b7280;flex-shrink:0;width:16px;text-align:center;display:flex;align-items:center;justify-content:center}
+    .filter-header-arrow{font-size:11px;color:#6b7280;flex-shrink:0;width:14px;text-align:center;display:flex;align-items:center;justify-content:center;transition:transform .2s}
     .filter-header.open .filter-header-arrow{transform:rotate(180deg)}
 
     #source-panel{
-        margin:0 0 0 0 !important;width:100% !important;max-width:100% !important;box-sizing:border-box !important;background:#fff;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px;
+        margin:0 !important;width:100% !important;box-sizing:border-box !important;background:#fff;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px;
         overflow:hidden;max-height:0;opacity:0;transition:max-height .35s ease, opacity .25s ease;
-        box-shadow:0 4px 12px rgba(0,0,0,.06);
+        box-shadow:0 8px 16px rgba(0,0,0,.08);
     }
     #source-panel.open{max-height:3000px;opacity:1;}
 
-    /* MOOIE OVERGANG naar artikelen */
-    main{padding:0 12px 0 12px !important;box-sizing:border-box !important;display:block}
-    #news-container{
-        position:relative;
-        margin-top:10px;
-        padding-top:2px;
-    }
-    #news-container::before{
-        content:"";
-        display:block;
-        height:8px;
-        margin:0 0 6px 0;
-        background:linear-gradient(to bottom, rgba(15,23,42,0.06), transparent);
-        border-radius:0 0 8px 8px;
-        opacity:0.6;
-    }
-    /* eerste artikel count header zoals in screenshot */
-    .articles-count-bar{
-        display:flex;align-items:center;gap:8px;
-        font-size:13px;font-weight:700;color:#334155;
-        padding:8px 2px 10px 2px;
-        letter-spacing:-0.1px;
-    }
-    .articles-count-bar::before{
-        content:"";
-        width:3px;height:14px;background:#0b5bd3;border-radius:999px;flex-shrink:0;
-    }
-    /* eerste artikel zelf iets meer afgerond en schaduw voor zachte landing */
-    #news-container > article:first-child,
-    #news-container > div:first-child{
-        border-top-left-radius:14px !important;
-        border-top-right-radius:14px !important;
-        box-shadow:0 1px 8px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04) !important;
-    }
-
-    /* 3 regels links uitgelijnd, zonder Per bron */
-    .panel-hint{
-        background:#f8fafc;border-bottom:1px solid #f1f5f9;
-        padding:6px 10px;font-size:11px;color:#475569;line-height:1.4;
-        text-align:left;
-    }
+    /* beschrijving 3 regels links */
+    .panel-hint{background:#f8fafc;border-bottom:1px solid #f1f5f9;padding:8px 10px;font-size:11px;color:#475569;line-height:1.5;text-align:left}
     .panel-hint div{margin:1px 0}
 
-    /* rijen zonder icoon, namen links */
-    .source-list{display:flex;flex-direction:column}
-    .source-row{
-        display:grid;grid-template-columns:1fr 156px;
-        align-items:center;gap:8px;
-        padding:6px 10px;border-bottom:1px solid #f1f5f9;transition:background .12s;
+    /* MOOIE OVERGANG ZONDER EXTRA RUIMTE */
+    main{padding:0 12px !important;box-sizing:border-box !important;margin:0 !important;width:100% !important}
+    #news-container{margin-top:0 !important;padding-top:0 !important}
+    /* subtiele naad: filter-header krijgt bij dicht iets meer schaduw en main begint direct */
+    .filter-header:not(.open){margin-bottom:8px !important;box-shadow:0 2px 6px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04)}
+    /* artikelen teller direct onder filter, geen witruimte */
+    .articles-count{
+        font-size:14px;font-weight:700;color:#0f172a;padding:4px 2px 8px 2px;margin:0;
+        display:flex;align-items:center;gap:6px;
     }
+    .articles-count::before{content:"";width:3px;height:14px;background:#0b5bd3;border-radius:999px;flex-shrink:0}
+
+    /* bron rijen compact en links */
+    .source-list{display:flex;flex-direction:column}
+    .source-row{display:grid;grid-template-columns:1fr 156px;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #f1f5f9;transition:background .12s}
     .source-row:last-child{border-bottom:0}
     .source-row:hover{background:#f8fafc}
-    .source-row.off{background:#f9fafb}
-    .source-row.off .source-name{color:#9ca3af}
+    .source-row.off{background:#f9fafb;opacity:.6}
     .source-meta{display:flex;flex-direction:column;min-width:0;align-items:flex-start;text-align:left;justify-content:center}
     .source-name{font-weight:700;font-size:13px;line-height:1.1;white-space:normal;word-break:break-word;color:#0f172a;text-align:left;width:100%}
     .source-sub{font-size:10px;color:#64748b;margin-top:1px;text-align:left;width:100%;line-height:1.1}
-
     .toggles{display:grid;grid-template-columns:48px 52px 52px;gap:3px;align-items:start;justify-content:end}
     .toggle-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2px;min-height:32px}
     .mini-switch{position:relative;width:32px;height:20px;background:#e5e7eb;border-radius:999px;cursor:pointer;transition:background .2s;border:0;padding:0;display:inline-flex;flex-shrink:0}
@@ -125,13 +91,9 @@
     .mini-switch.checked.scope-regio{background:#7c3aed}
     .mini-switch.checked.aan{background:#16a34a !important}
     .mini-switch:not(.checked).aan{background:#e5e7eb !important;border:1px solid #d1d5db}
-    .mini-switch:not(.checked).aan .mini-slider{background:#9ca3af}
     .mini-label{font-size:8px;font-weight:800;letter-spacing:.4px;color:#6b7280;text-transform:uppercase;text-align:center;line-height:1}
-    .mini-label.aan-on{color:#16a34a}
-    .mini-label.aan-off{color:#9ca3af}
-
-    .panel-footer{padding:10px 12px;display:flex;justify-content:space-between;align-items:center;background:#fff}
-    .panel-footer button{font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;cursor:pointer}
+    .panel-footer{padding:8px 10px;display:flex;justify-content:space-between;align-items:center;background:#fff}
+    .panel-footer button{font-size:11px;padding:5px 9px;border-radius:7px;border:1px solid #e5e7eb;background:#fff;cursor:pointer}
     .panel-footer button.primary{background:#0f172a;color:#fff;border-color:#0f172a;font-weight:600}
     </style>
 </head>
@@ -145,10 +107,11 @@
         <input type="text" id="search-input" placeholder="Zoek in nieuws...">
     </div>
     <div class="filter-header" id="filter-header">
-        <div class="filter-header-left"><span class="tool-icon-left">🔧</span><span style="white-space:nowrap;font-size:12px">BRONNEN & FILTERS</span> <span class="filter-header-count" id="header-count">(9 • 9 aan)</span></div>
+        <div class="filter-header-left"><span class="tool-icon-left">🔧</span></div>
+        <div class="filter-header-center"><span class="filter-header-count" id="header-count">(9 • 9 aan)</span></div>
         <div class="filter-header-right">
-            <div class="bell-slot" id="bell-slot" title="Notificaties"></div>
-            <button class="btn-all-toets" id="btn-all">Alles aan/uit</button>
+            <div class="bell-slot" id="bell-slot"></div>
+            <button class="btn-all-toets" id="btn-all">Alles aan</button>
             <span class="filter-header-arrow">▼</span>
         </div>
     </div>
@@ -170,10 +133,7 @@
     </div>
 </header>
 <main>
-    <div id="news-container">
-        <div class="articles-count-bar" id="articles-count-bar" style="display:none">Artikelen laden...</div>
-        <div>Bezig met laden...</div>
-    </div>
+    <div id="news-container">Bezig met laden...</div>
 </main>
 <footer>
     <button onclick="refreshNews()">🔄 Vernieuwen</button>
@@ -254,7 +214,7 @@ function render(){
             <input type="checkbox" ${s.aan?'checked':''} data-type="aan" data-id="${b.id}">
             <span class="mini-slider"></span>
           </label>
-          <span class="mini-label ${s.aan?'aan-on':'aan-off'}">${s.aan?'AAN':'UIT'}</span>
+          <span class="mini-label">${s.aan?'AAN':'UIT'}</span>
         </div>
       </div>
     `;
@@ -279,7 +239,6 @@ function updateHeaderCount(){
   const aan = Object.values(state).filter(s=>s.aan).length;
   const countEl = document.getElementById('header-count');
   if(countEl) countEl.textContent = `(${BRONNEN.length} • ${aan} aan)`;
-  // knop kleur rood bij alles uit, groen bij alles aan
   const btn = document.getElementById('btn-all');
   if(btn){
     btn.classList.remove('all-on','all-off','some-on');
@@ -291,29 +250,6 @@ function updateHeaderCount(){
 function openPanel(){ document.getElementById('filter-header').classList.add('open'); document.getElementById('source-panel').classList.add('open'); }
 function closePanel(){ document.getElementById('filter-header').classList.remove('open'); document.getElementById('source-panel').classList.remove('open'); }
 function resetFilters(){ BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); saveState(); render(); if(window.filterNews) filterNews(); }
-
-function updateArticlesCount(){
-  const bar = document.getElementById('articles-count-bar');
-  const container = document.getElementById('news-container');
-  if(!bar || !container) return;
-  // probeer aantal artikelen te tellen uit container
-  const articles = container.querySelectorAll('article, .news-item, [data-article]');
-  const count = articles.length;
-  if(count>0){
-    bar.style.display='flex';
-    bar.textContent = `${count} artikel${count!==1?'en':''} gevonden`;
-    bar.insertAdjacentHTML('afterbegin','');
-    // opnieuw opbouwen met streepje
-    bar.innerHTML = `<span style="width:3px;height:14px;background:#0b5bd3;border-radius:999px;flex-shrink:0;display:inline-block"></span> ${count} artikel${count!==1?'en':''} gevonden`;
-  } else {
-    // als er geen article tags zijn maar wel content geladen, toon generiek
-    const hasContent = container.textContent.trim().length > 50;
-    if(hasContent && !container.textContent.includes('Bezig met laden')){
-      bar.style.display='flex';
-      bar.innerHTML = `<span style="width:3px;height:14px;background:#0b5bd3;border-radius:999px;flex-shrink:0;display:inline-block"></span> Artikelen gevonden`;
-    }
-  }
-}
 
 document.getElementById('filter-header').addEventListener('click', (e)=>{
   if(e.target.id==='btn-all' || e.target.closest('#btn-all') || e.target.closest('.bell-slot')){
@@ -331,65 +267,24 @@ document.getElementById('filter-header').addEventListener('click', (e)=>{
 function moveOldBell(){
   const slot = document.getElementById('bell-slot');
   if(!slot) return;
-  // Zoek alle mogelijke bellen in header, ook die tussen zoekveld en bronselectie
   const header = document.querySelector('header');
-  const searchRow = document.querySelector('.search-row');
-  const filterHeader = document.getElementById('filter-header');
-  const candidates = header.querySelectorAll('button, [id*="push" i], [class*="push" i], [id*="bell" i], [class*="bell" i], [id*="notif" i]');
+  const candidates = header.querySelectorAll('button, [id*="push" i], [class*="push" i], [id*="bell" i], [class*="bell" i]');
   candidates.forEach(el=>{
-    if(el.closest('#bell-slot')) return;
-    if(el.closest('.search-row') && el.tagName!=='INPUT') {
-      // bel die per ongeluk in search-row zit -> naar header
-      if(el.id==='search-input') return;
-    }
-    if(el.closest('#filter-header') && !el.closest('#bell-slot')) {
-      // als bel al in filter-header zit maar niet in slot, verplaats naar slot
-      if(!el.classList.contains('btn-all-toets') && !el.classList.contains('filter-header-arrow') && false){
-        const txt = (el.textContent||'').toLowerCase();
-        if(el!==filterHeader && !el.closest('.filter-header-left')){
-          // verplaats alleen echte bel, niet de hele header
-          if(txt.includes('🔔') || el.innerHTML.includes('🔔') || el.id.toLowerCase().includes('push') || el.className.toLowerCase().includes('push') || el.className.toLowerCase().includes('bell')){
-            slot.appendChild(el);
-          }
-        }
-      }
-      return;
-    }
-    // bel die los tussen search en filter hangt
-    const isBetween = searchRow && filterHeader && header.contains(el) && 
-      (el.compareDocumentPosition(searchRow) & Node.DOCUMENT_POSITION_FOLLOWING) &&
-      (el.compareDocumentPosition(filterHeader) & Node.DOCUMENT_POSITION_PRECEDING);
+    if(el.closest('#bell-slot') || el.id==='btn-all' || el.classList.contains('filter-header-arrow') || el.closest('.filter-header-left')) return;
     const txt = (el.textContent + ' ' + (el.innerHTML||'')).toLowerCase();
-    const isBell = txt.includes('🔔') || el.id.toLowerCase().includes('push') || el.className.toLowerCase().includes('bell') || el.className.toLowerCase().includes('push') || txt.includes('notificatie') || txt.includes('push');
-    if(isBell || isBetween){
-      if(isBell) slot.appendChild(el);
-      else if(el.tagName==='BUTTON' && el.textContent.trim().length<5) slot.appendChild(el);
-    }
-  });
-  // Als er nog een bel direct als child van header tussen search en filter staat
-  Array.from(header.children).forEach(child=>{
-    if(child===searchRow || child===filterHeader || child.querySelector('#search-input') || child.id==='compat-hidden') return;
-    if(child.classList.contains('filter-header') || child.classList.contains('search-row')) return;
-    const txt = child.textContent||'';
-    if(txt.includes('🔔') || child.innerHTML.includes('🔔') || child.id.toLowerCase().includes('bell') || child.id.toLowerCase().includes('push')){
-      slot.appendChild(child);
+    if(txt.includes('🔔') || el.id.toLowerCase().includes('push') || el.className.toLowerCase().includes('bell') || el.className.toLowerCase().includes('push')){
+      slot.appendChild(el);
     }
   });
 }
 
 loadState(); render(); saveState(); closePanel();
-updateArticlesCount();
 moveOldBell();
 setTimeout(moveOldBell, 300);
 setTimeout(moveOldBell, 1000);
 setTimeout(moveOldBell, 2500);
 const obs = new MutationObserver(()=> moveOldBell());
 obs.observe(document.querySelector('header'), {childList:true, subtree:true});
-const newsObs = new MutationObserver(()=> { updateArticlesCount(); });
-const newsCont = document.getElementById('news-container');
-if(newsCont) newsObs.observe(newsCont, {childList:true, subtree:true});
-setTimeout(updateArticlesCount, 800);
-setTimeout(updateArticlesCount, 2000);
 </script>
 <script src="script.js"></script>
 <script src="push.js"></script>
