@@ -20,35 +20,33 @@
     .search-row{margin:0 0 8px 0 !important;padding:0 !important;box-sizing:border-box !important;width:100% !important;max-width:100% !important;display:block !important}
     .search-row input{width:100% !important;max-width:100% !important;box-sizing:border-box !important;padding:10px 12px !important;border-radius:10px !important;border:1px solid rgba(255,255,255,.6) !important;font-size:15px !important;display:block !important;margin:0 !important}
 
-    /* Header bronselectie exact zelfde vaste breedte als zoekveld - FIX */
+    /* COMPACTE HEADER - icoon helemaal links, alles verticaal gecentreerd, lage hoogte */
     .filter-header{
-        margin:0 0 0 0 !important;box-sizing:border-box !important;width:100% !important;max-width:100% !important;
+        margin:0 !important;box-sizing:border-box !important;width:100% !important;max-width:100% !important;
         background:#fff;border:1px solid #e5e7eb;border-radius:12px;
-        padding:10px 12px;display:flex;align-items:center;justify-content:space-between;
-        cursor:pointer;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:all .15s;gap:8px;
+        padding:5px 8px !important;display:flex;align-items:center;justify-content:space-between;
+        cursor:pointer;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:all .15s;gap:6px;
+        min-height:38px;
     }
     .filter-header:active{transform:scale(0.99)}
     .filter-header.open{border-radius:12px 12px 0 0;border-bottom-color:transparent}
-    .filter-header-left{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;flex:1;min-width:0;text-align:left;justify-content:flex-start;flex-wrap:wrap;line-height:1.2}
-    .filter-header-count{font-weight:600;color:#0b5bd3;font-size:12px;white-space:nowrap;flex-shrink:0;background:#eff6ff;padding:2px 6px;border-radius:6px;border:1px solid #bfdbfe;order:1}
-    @media(max-width:400px){
-      .filter-header-left{font-size:12px}
-      .filter-header-count{font-size:11px}
-    }
-    .filter-header-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+    .filter-header-left{display:flex;align-items:center;gap:5px;flex:1;min-width:0;text-align:left;justify-content:flex-start;flex-wrap:nowrap;white-space:nowrap;line-height:1}
+    .tool-icon-left{flex-shrink:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px}
+    .filter-header-count{font-weight:600;color:#0b5bd3;font-size:12px;white-space:nowrap;flex-shrink:0;background:#eff6ff;padding:3px 7px;border-radius:999px;border:1px solid #bfdbfe;line-height:1;display:flex;align-items:center}
+    .filter-header-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
     .bell-slot{display:flex;align-items:center;justify-content:center;min-width:28px;min-height:28px}
-    .bell-slot:empty::after{content:"🔔";opacity:.25;font-size:16px}
-    .bell-slot > *{width:32px !important;height:32px !important;display:flex !important;align-items:center !important;justify-content:center !important;background:#f8fafc !important;border:1px solid #e5e7eb !important;border-radius:8px !important}
+    .bell-slot:empty::after{content:"🔔";opacity:.25;font-size:14px}
+    .bell-slot > *{width:28px !important;height:28px !important;min-width:28px !important;min-height:28px !important;display:flex !important;align-items:center !important;justify-content:center !important;background:#fff !important;border:1px solid #e5e7eb !important;border-radius:8px !important;font-size:14px !important;line-height:1 !important;padding:0 !important}
 
     .btn-all-toets{
-        font-size:11px;font-weight:800;color:#0b5bd3;background:#eff6ff;border:1px solid #bfdbfe;
-        padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;
-        margin-right:14px;transition:all .2s;min-width:90px;text-align:center;
+        font-size:11px;font-weight:700;color:#0b5bd3;background:#eff6ff;border:1px solid #bfdbfe;
+        padding:4px 10px !important;border-radius:999px;cursor:pointer;white-space:nowrap;
+        margin:0 !important;transition:all .2s;min-width:80px;height:28px;display:inline-flex;align-items:center;justify-content:center;line-height:1;
     }
     .btn-all-toets.all-on{background:#dcfce7 !important;border-color:#86efac !important;color:#166534 !important}
     .btn-all-toets.all-off{background:#fee2e2 !important;border-color:#fca5a5 !important;color:#991b1b !important}
     .btn-all-toets.some-on{background:#fef9c3 !important;border-color:#fde68a !important;color:#854d0e !important}
-    .filter-header-arrow{font-size:14px;transition:transform .2s;color:#6b7280;flex-shrink:0}
+    .filter-header-arrow{font-size:12px;transition:transform .2s;color:#6b7280;flex-shrink:0;width:16px;text-align:center;display:flex;align-items:center;justify-content:center}
     .filter-header.open .filter-header-arrow{transform:rotate(180deg)}
 
     #source-panel{
@@ -112,7 +110,7 @@
         <input type="text" id="search-input" placeholder="Zoek in nieuws...">
     </div>
     <div class="filter-header" id="filter-header">
-        <div class="filter-header-left"><span style="white-space:nowrap">BRONNEN & FILTERS</span> <span class="filter-header-count" id="header-count">(9 • 9 aan)</span></div>
+        <div class="filter-header-left"><span class="tool-icon-left">🔧</span><span style="white-space:nowrap;font-size:12px">BRONNEN & FILTERS</span> <span class="filter-header-count" id="header-count">(9 • 9 aan)</span></div>
         <div class="filter-header-right">
             <div class="bell-slot" id="bell-slot" title="Notificaties"></div>
             <button class="btn-all-toets" id="btn-all">Alles aan/uit</button>
