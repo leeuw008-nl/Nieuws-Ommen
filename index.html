@@ -14,30 +14,31 @@
     .info-icon-btn:hover{background:rgba(255,255,255,0.30)}
     @media(max-width:400px){header h1{font-size:1.4em}}
 
-    .search-row{padding:0 12px 8px 12px}
-    .search-row input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.6);font-size:15px}
+    /* Zoekbalk - gelijke ruimte links/rechts */
+    .search-row{padding:0 12px 8px 12px;display:block}
+    .search-row input{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.6);font-size:15px}
 
-    /* FILTER HEADER met bel erin */
+    /* Filter header even breed als zoekbalk (12px links/rechts) */
     .filter-header{
-        margin:4px 12px 0 12px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;
-        padding:10px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;
-        user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:all .15s;gap:8px;
+        margin:8px 12px 0 12px;
+        background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+        padding:10px 12px;display:flex;align-items:center;justify-content:space-between;
+        cursor:pointer;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:all .15s;gap:8px;
     }
     .filter-header:active{transform:scale(0.99)}
     .filter-header.open{border-radius:12px 12px 0 0;border-bottom-color:transparent}
-    .filter-header-left{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;flex:1;text-align:left;justify-content:flex-start}
-    .filter-header-count{font-weight:400;color:#6b7280;font-size:12px}
+    /* icoon smal + geen wrap zodat count op 1 regel blijft */
+    .filter-header-left{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;letter-spacing:.2px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-align:left;justify-content:flex-start}
+    .tool-icon{flex-shrink:0;width:16px;text-align:center;font-size:13px;line-height:1}
+    .filter-header-count{font-weight:400;color:#6b7280;font-size:12px;white-space:nowrap;flex-shrink:0}
     .filter-header-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
-    .bell-slot{display:flex;align-items:center;justify-content:center;min-width:32px;min-height:32px}
-    .bell-slot:empty::after{content:"🔔";opacity:.3;font-size:16px}
-    /* oude bel styling als hij hierheen verplaatst wordt */
-    .bell-slot > *{width:36px !important;height:36px !important;display:flex !important;align-items:center !important;justify-content:center !important;background:#f8fafc !important;border:1px solid #e5e7eb !important;border-radius:8px !important}
+    .bell-slot{display:flex;align-items:center;justify-content:center;min-width:28px;min-height:28px}
+    .bell-slot > *{width:32px !important;height:32px !important;display:flex !important;align-items:center !important;justify-content:center !important;background:#f8fafc !important;border:1px solid #e5e7eb !important;border-radius:8px !important}
 
     .btn-all-toets{
         font-size:11px;font-weight:700;color:#0b5bd3;background:#eff6ff;border:1px solid #bfdbfe;
         padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;
-        margin-right:12px; /* verder weg van pulldown */
-        transition:all .15s;
+        margin-right:16px;transition:all .15s;
     }
     .btn-all-toets:active{transform:scale(.95);background:#dbeafe}
     .filter-header-arrow{font-size:14px;transition:transform .2s;color:#6b7280;flex-shrink:0}
@@ -49,24 +50,28 @@
         box-shadow:0 4px 12px rgba(0,0,0,.06);
     }
     #source-panel.open{max-height:3000px;opacity:1;}
-    .panel-hint{background:#f8fafc;border-bottom:1px solid #f1f5f9;padding:8px 14px;font-size:11px;color:#64748b;line-height:1.4;}
 
-    /* RIJEN - zonder icoon, namen links */
+    /* nieuwe beschrijving 4 regels */
+    .panel-hint{
+        background:#f8fafc;border-bottom:1px solid #f1f5f9;
+        padding:10px 14px;font-size:11.5px;color:#475569;line-height:1.5;
+    }
+    .panel-hint strong{display:block;margin-bottom:4px;color:#0f172a}
+    .panel-hint ul{margin:0;padding-left:16px}
+    .panel-hint li{margin:1px 0}
+
+    /* rijen zonder icoon, namen links */
     .source-list{display:flex;flex-direction:column}
     .source-row{
         display:grid;
         grid-template-columns:1fr 156px;
-        align-items:center;
-        gap:12px;
-        padding:11px 12px;
-        border-bottom:1px solid #f1f5f9;
-        transition:background .12s;
+        align-items:center;gap:12px;
+        padding:11px 12px;border-bottom:1px solid #f1f5f9;transition:background .12s;
     }
     .source-row:last-child{border-bottom:0}
     .source-row:hover{background:#f8fafc}
     .source-row.off{background:#f9fafb}
     .source-row.off .source-name{color:#9ca3af}
-
     .source-meta{display:flex;flex-direction:column;min-width:0;align-items:flex-start;text-align:left;justify-content:center}
     .source-name{font-weight:700;font-size:14px;line-height:1.2;white-space:normal;word-break:break-word;color:#0f172a;text-align:left;width:100%}
     .source-sub{font-size:11px;color:#64748b;margin-top:2px;text-align:left;width:100%}
@@ -97,21 +102,28 @@
 <header>
     <h1>
         <span class="title-left">📰 Nieuw(s)Ommen</span>
-        <a href="informatie.html" class="info-icon-btn" title="Info" aria-label="Informatie">i</a>
+        <a href="informatie.html" class="info-icon-btn" title="Info over deze app" aria-label="Informatie">i</a>
     </h1>
     <div class="search-row">
         <input type="text" id="search-input" placeholder="Zoek in nieuws...">
     </div>
     <div class="filter-header" id="filter-header">
-        <div class="filter-header-left">🔧 BRONNEN & FILTERS <span class="filter-header-count" id="header-count">(9 • 9 aan)</span></div>
+        <div class="filter-header-left"><span class="tool-icon">🔧</span> BRONNEN & FILTERS <span class="filter-header-count" id="header-count">(9 • 9 aan)</span></div>
         <div class="filter-header-right">
-            <div class="bell-slot" id="bell-slot" title="Notificaties"></div>
+            <div class="bell-slot" id="bell-slot"></div>
             <button class="btn-all-toets" id="btn-all">Alles aan/uit</button>
             <span class="filter-header-arrow">▼</span>
         </div>
     </div>
     <div id="source-panel">
-        <div class="panel-hint">Per bron: <b>VANDAAG</b>=alleen vandaag • <b>GEMEENTE</b>=Ommen / <b>REGIO</b>=wijder • <b>AAN</b>=tonen + push. Tik header om te sluiten.</div>
+        <div class="panel-hint">
+            <strong>Per bron:</strong>
+            <ul>
+                <li>VANDAAG/MEER = alleen vandaag of meerdere dagen</li>
+                <li>GEMEENTE/REGIO = alleen gemeente Ommen of ook regio</li>
+                <li>AAN/UIT = aan/uit-schakelen bronnen (tonen + notificaties)</li>
+            </ul>
+        </div>
         <div class="source-list" id="source-list"></div>
         <div class="panel-footer">
             <button onclick="resetFilters()">Reset</button>
@@ -236,7 +248,7 @@ function resetFilters(){ BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,
 
 document.getElementById('filter-header').addEventListener('click', (e)=>{
   if(e.target.id==='btn-all' || e.target.closest('#btn-all') || e.target.closest('.bell-slot')){
-    if(e.target.closest('.bell-slot')) return; // bel zelf afhandelen
+    if(e.target.closest('.bell-slot')) return;
     e.stopPropagation();
     const allOn = Object.values(state).every(s=>s.aan);
     BRONNEN.forEach(b=>state[b.id].aan = !allOn);
@@ -247,13 +259,12 @@ document.getElementById('filter-header').addEventListener('click', (e)=>{
   if(p.classList.contains('open')) closePanel(); else openPanel();
 });
 
-// VERPLAATS OUDE BEL naar bronselectie header (bell-slot)
 function moveOldBell(){
   const slot = document.getElementById('bell-slot');
   if(!slot) return;
-  const candidates = document.querySelectorAll('header [id*="push" i], header [class*="push" i], header [id*="bell" i], header [class*="bell" i], header button[title*="notificatie" i], header button[title*="melding" i], header .bell-btn');
+  const candidates = document.querySelectorAll('header [id*="push" i], header [class*="push" i], header [id*="bell" i], header [class*="bell" i], header button[title*="notificatie" i], header button[title*="melding" i]');
   candidates.forEach(el=>{
-    if(el.closest('#bell-slot')) return;
+    if(el.closest('#bell-slot') || el.closest('.search-row')) return;
     const txt = (el.textContent + ' ' + (el.innerHTML||'')).toLowerCase();
     if(txt.includes('🔔') || el.id.toLowerCase().includes('push') || el.className.toLowerCase().includes('bell') || txt.includes('push')){
       slot.appendChild(el);
