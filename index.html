@@ -14,11 +14,11 @@
     .info-icon-btn:hover{background:rgba(255,255,255,0.30)}
     @media(max-width:400px){header h1{font-size:1.4em}}
 
-    /* Zoekbalk - gelijke ruimte links/rechts */
-    .search-row{padding:0 12px 8px 12px;display:block}
+    /* Zoekbalk - gelijke ruimte links/rechts (12px) */
+    .search-row{padding:0 12px 8px 12px;box-sizing:border-box}
     .search-row input{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.6);font-size:15px}
 
-    /* Filter header even breed als zoekbalk (12px links/rechts) */
+    /* Header bronselectie even breed als zoekbalk */
     .filter-header{
         margin:8px 12px 0 12px;
         background:#fff;border:1px solid #e5e7eb;border-radius:12px;
@@ -27,20 +27,19 @@
     }
     .filter-header:active{transform:scale(0.99)}
     .filter-header.open{border-radius:12px 12px 0 0;border-bottom-color:transparent}
-    /* icoon smal + geen wrap zodat count op 1 regel blijft */
-    .filter-header-left{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;letter-spacing:.2px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-align:left;justify-content:flex-start}
+    .filter-header-left{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-align:left;justify-content:flex-start}
     .tool-icon{flex-shrink:0;width:16px;text-align:center;font-size:13px;line-height:1}
     .filter-header-count{font-weight:400;color:#6b7280;font-size:12px;white-space:nowrap;flex-shrink:0}
     .filter-header-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
     .bell-slot{display:flex;align-items:center;justify-content:center;min-width:28px;min-height:28px}
+    .bell-slot:empty::after{content:"🔔";opacity:.25;font-size:16px}
     .bell-slot > *{width:32px !important;height:32px !important;display:flex !important;align-items:center !important;justify-content:center !important;background:#f8fafc !important;border:1px solid #e5e7eb !important;border-radius:8px !important}
 
     .btn-all-toets{
         font-size:11px;font-weight:700;color:#0b5bd3;background:#eff6ff;border:1px solid #bfdbfe;
         padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;
-        margin-right:16px;transition:all .15s;
+        margin-right:14px;transition:all .15s;
     }
-    .btn-all-toets:active{transform:scale(.95);background:#dbeafe}
     .filter-header-arrow{font-size:14px;transition:transform .2s;color:#6b7280;flex-shrink:0}
     .filter-header.open .filter-header-arrow{transform:rotate(180deg)}
 
@@ -51,20 +50,18 @@
     }
     #source-panel.open{max-height:3000px;opacity:1;}
 
-    /* nieuwe beschrijving 4 regels */
+    /* 3 regels links uitgelijnd, zonder Per bron */
     .panel-hint{
         background:#f8fafc;border-bottom:1px solid #f1f5f9;
-        padding:10px 14px;font-size:11.5px;color:#475569;line-height:1.5;
+        padding:10px 14px;font-size:11.5px;color:#475569;line-height:1.6;
+        text-align:left;
     }
-    .panel-hint strong{display:block;margin-bottom:4px;color:#0f172a}
-    .panel-hint ul{margin:0;padding-left:16px}
-    .panel-hint li{margin:1px 0}
+    .panel-hint div{margin:2px 0}
 
     /* rijen zonder icoon, namen links */
     .source-list{display:flex;flex-direction:column}
     .source-row{
-        display:grid;
-        grid-template-columns:1fr 156px;
+        display:grid;grid-template-columns:1fr 156px;
         align-items:center;gap:12px;
         padding:11px 12px;border-bottom:1px solid #f1f5f9;transition:background .12s;
     }
@@ -89,7 +86,6 @@
     .mini-switch:not(.checked).aan{background:#e5e7eb !important;border:1px solid #d1d5db}
     .mini-switch:not(.checked).aan .mini-slider{background:#9ca3af}
     .mini-label{font-size:8px;font-weight:800;letter-spacing:.4px;color:#6b7280;text-transform:uppercase;text-align:center;line-height:1}
-    .mini-label.active{color:#0f172a}
     .mini-label.aan-on{color:#16a34a}
     .mini-label.aan-off{color:#9ca3af}
 
@@ -102,7 +98,7 @@
 <header>
     <h1>
         <span class="title-left">📰 Nieuw(s)Ommen</span>
-        <a href="informatie.html" class="info-icon-btn" title="Info over deze app" aria-label="Informatie">i</a>
+        <a href="informatie.html" class="info-icon-btn" title="Info" aria-label="Informatie">i</a>
     </h1>
     <div class="search-row">
         <input type="text" id="search-input" placeholder="Zoek in nieuws...">
@@ -110,19 +106,16 @@
     <div class="filter-header" id="filter-header">
         <div class="filter-header-left"><span class="tool-icon">🔧</span> BRONNEN & FILTERS <span class="filter-header-count" id="header-count">(9 • 9 aan)</span></div>
         <div class="filter-header-right">
-            <div class="bell-slot" id="bell-slot"></div>
+            <div class="bell-slot" id="bell-slot" title="Notificaties"></div>
             <button class="btn-all-toets" id="btn-all">Alles aan/uit</button>
             <span class="filter-header-arrow">▼</span>
         </div>
     </div>
     <div id="source-panel">
         <div class="panel-hint">
-            <strong>Per bron:</strong>
-            <ul>
-                <li>VANDAAG/MEER = alleen vandaag of meerdere dagen</li>
-                <li>GEMEENTE/REGIO = alleen gemeente Ommen of ook regio</li>
-                <li>AAN/UIT = aan/uit-schakelen bronnen (tonen + notificaties)</li>
-            </ul>
+            <div>- VANDAAG/MEER = alleen vandaag of meerdere dagen</div>
+            <div>- GEMEENTE/REGIO = alleen gemeente Ommen of ook regio</div>
+            <div>- AAN/UIT = aan/uit-schakelen bronnen (tonen + notificaties)</div>
         </div>
         <div class="source-list" id="source-list"></div>
         <div class="panel-footer">
@@ -203,14 +196,14 @@ function render(){
             <input type="checkbox" ${s.vandaag?'checked':''} data-type="vandaag" data-id="${b.id}">
             <span class="mini-slider"></span>
           </label>
-          <span class="mini-label ${s.vandaag?'active':''}">${s.vandaag?'VANDAAG':'MEER'}</span>
+          <span class="mini-label">${s.vandaag?'VANDAAG':'MEER'}</span>
         </div>
         <div class="toggle-col">
           <label class="mini-switch ${scopeIsGemeente?'checked scope-gemeente':'checked scope-regio'}" style="background:${scopeIsGemeente?'#0b5bd3':'#7c3aed'}">
             <input type="checkbox" ${scopeIsGemeente?'checked':''} data-type="scope" data-id="${b.id}">
             <span class="mini-slider"></span>
           </label>
-          <span class="mini-label active">${scopeIsGemeente?'GEMEENTE':'REGIO'}</span>
+          <span class="mini-label">${scopeIsGemeente?'GEMEENTE':'REGIO'}</span>
         </div>
         <div class="toggle-col">
           <label class="mini-switch aan ${s.aan?'checked':''}">
