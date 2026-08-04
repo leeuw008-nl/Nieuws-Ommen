@@ -56,6 +56,41 @@
     }
     #source-panel.open{max-height:3000px;opacity:1;}
 
+    /* MOOIE OVERGANG naar artikelen */
+    main{padding:0 12px 0 12px !important;box-sizing:border-box !important;display:block}
+    #news-container{
+        position:relative;
+        margin-top:10px;
+        padding-top:2px;
+    }
+    #news-container::before{
+        content:"";
+        display:block;
+        height:8px;
+        margin:0 0 6px 0;
+        background:linear-gradient(to bottom, rgba(15,23,42,0.06), transparent);
+        border-radius:0 0 8px 8px;
+        opacity:0.6;
+    }
+    /* eerste artikel count header zoals in screenshot */
+    .articles-count-bar{
+        display:flex;align-items:center;gap:8px;
+        font-size:13px;font-weight:700;color:#334155;
+        padding:8px 2px 10px 2px;
+        letter-spacing:-0.1px;
+    }
+    .articles-count-bar::before{
+        content:"";
+        width:3px;height:14px;background:#0b5bd3;border-radius:999px;flex-shrink:0;
+    }
+    /* eerste artikel zelf iets meer afgerond en schaduw voor zachte landing */
+    #news-container > article:first-child,
+    #news-container > div:first-child{
+        border-top-left-radius:14px !important;
+        border-top-right-radius:14px !important;
+        box-shadow:0 1px 8px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04) !important;
+    }
+
     /* 3 regels links uitgelijnd, zonder Per bron */
     .panel-hint{
         background:#f8fafc;border-bottom:1px solid #f1f5f9;
@@ -135,7 +170,10 @@
     </div>
 </header>
 <main>
-    <div id="news-container">Bezig met laden...</div>
+    <div id="news-container">
+        <div class="articles-count-bar" id="articles-count-bar" style="display:none">Artikelen laden...</div>
+        <div>Bezig met laden...</div>
+    </div>
 </main>
 <footer>
     <button onclick="refreshNews()">🔄 Vernieuwen</button>
@@ -254,6 +292,29 @@ function openPanel(){ document.getElementById('filter-header').classList.add('op
 function closePanel(){ document.getElementById('filter-header').classList.remove('open'); document.getElementById('source-panel').classList.remove('open'); }
 function resetFilters(){ BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); saveState(); render(); if(window.filterNews) filterNews(); }
 
+function updateArticlesCount(){
+  const bar = document.getElementById('articles-count-bar');
+  const container = document.getElementById('news-container');
+  if(!bar || !container) return;
+  // probeer aantal artikelen te tellen uit container
+  const articles = container.querySelectorAll('article, .news-item, [data-article]');
+  const count = articles.length;
+  if(count>0){
+    bar.style.display='flex';
+    bar.textContent = `${count} artikel${count!==1?'en':''} gevonden`;
+    bar.insertAdjacentHTML('afterbegin','');
+    // opnieuw opbouwen met streepje
+    bar.innerHTML = `<span style="width:3px;height:14px;background:#0b5bd3;border-radius:999px;flex-shrink:0;display:inline-block"></span> ${count} artikel${count!==1?'en':''} gevonden`;
+  } else {
+    // als er geen article tags zijn maar wel content geladen, toon generiek
+    const hasContent = container.textContent.trim().length > 50;
+    if(hasContent && !container.textContent.includes('Bezig met laden')){
+      bar.style.display='flex';
+      bar.innerHTML = `<span style="width:3px;height:14px;background:#0b5bd3;border-radius:999px;flex-shrink:0;display:inline-block"></span> Artikelen gevonden`;
+    }
+  }
+}
+
 document.getElementById('filter-header').addEventListener('click', (e)=>{
   if(e.target.id==='btn-all' || e.target.closest('#btn-all') || e.target.closest('.bell-slot')){
     if(e.target.closest('.bell-slot')) return;
@@ -317,12 +378,18 @@ function moveOldBell(){
 }
 
 loadState(); render(); saveState(); closePanel();
+updateArticlesCount();
 moveOldBell();
 setTimeout(moveOldBell, 300);
 setTimeout(moveOldBell, 1000);
 setTimeout(moveOldBell, 2500);
 const obs = new MutationObserver(()=> moveOldBell());
 obs.observe(document.querySelector('header'), {childList:true, subtree:true});
+const newsObs = new MutationObserver(()=> { updateArticlesCount(); });
+const newsCont = document.getElementById('news-container');
+if(newsCont) newsObs.observe(newsCont, {childList:true, subtree:true});
+setTimeout(updateArticlesCount, 800);
+setTimeout(updateArticlesCount, 2000);
 </script>
 <script src="script.js"></script>
 <script src="push.js"></script>
