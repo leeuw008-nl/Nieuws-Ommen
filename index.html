@@ -45,8 +45,16 @@
     .btn-all-toets.all-on{background:#dcfce7 !important;border-color:#86efac !important;color:#166534 !important}
     .btn-all-toets.all-off{background:#fee2e2 !important;border-color:#fca5a5 !important;color:#991b1b !important}
     .btn-all-toets.some-on{background:#fef9c3 !important;border-color:#fde68a !important;color:#854d0e !important}
-    .filter-header-arrow{font-size:11px;color:#6b7280;flex-shrink:0;width:14px;text-align:center;display:flex;align-items:center;justify-content:center;transition:transform .2s}
-    .filter-header.open .filter-header-arrow{transform:rotate(180deg)}
+    .filter-header-arrow{
+        font-size:14px;color:#0f172a;flex-shrink:0;
+        width:32px;height:28px;
+        background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;
+        text-align:center;display:flex;align-items:center;justify-content:center;
+        transition:all .2s;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.05);
+    }
+    .filter-header-arrow:hover{background:#e2e8f0;border-color:#94a3b8}
+    .filter-header-arrow:active{transform:scale(0.92)}
+    .filter-header.open .filter-header-arrow{transform:rotate(180deg);background:#0f172a;color:#fff;border-color:#0f172a}
 
     #source-panel{
         margin:0 !important;width:100% !important;box-sizing:border-box !important;background:#fff;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px;
