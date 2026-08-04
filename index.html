@@ -14,17 +14,10 @@
     .info-icon-btn:hover{background:rgba(255,255,255,0.30)}
     @media(max-width:400px){header h1{font-size:1.4em}}
 
-    /* ZOEKBALK + BEL naast elkaar */
     .search-row{display:flex;align-items:center;gap:8px;padding:0 12px 8px 12px}
     .search-row input{flex:1;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.6);font-size:15px}
-    .bell-btn{
-        width:42px;height:42px;border-radius:10px;background:#fff;border:1px solid #e5e7eb;
-        display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;
-        flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.08);transition:all .15s;
-    }
-    .bell-btn:active{transform:scale(.95)}
-    .bell-btn.has-permission{background:#fff;color:#0b5bd3}
-    .bell-btn.no-permission{background:#fef2f2;color:#dc2626}
+    /* oude bel uit push.js wordt hierheen verplaatst */
+    .search-row .push-bell-compat{width:42px;height:42px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
 
     /* FILTER HEADER */
     .filter-header{
@@ -51,7 +44,7 @@
     .source-list{display:flex;flex-direction:column}
     .source-row{
         display:grid;
-        grid-template-columns:40px 1fr 156px;
+        grid-template-columns:1fr 156px;
         align-items:center;
         gap:10px;
         padding:12px 12px;
@@ -62,14 +55,13 @@
     .source-row:hover{background:#f8fafc}
     .source-row.off{background:#f9fafb}
     .source-row.off .source-name{color:#9ca3af}
-    .source-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;flex-shrink:0;}
     .source-meta{display:flex;flex-direction:column;min-width:0}
     .source-name{font-weight:700;font-size:14px;line-height:1.2;white-space:normal;word-break:break-word;color:#0f172a}
     .source-sub{font-size:11px;color:#64748b;margin-top:2px}
 
     /* TOGGLES compact */
     .toggles{display:grid;grid-template-columns:48px 52px 52px;gap:4px;align-items:start;justify-content:end}
-    .toggle-col{display:flex;flex-direction:column;align-items:center;gap:3px}
+    .toggle-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;min-height:38px}
     .mini-switch{position:relative;width:32px;height:20px;background:#e5e7eb;border-radius:999px;cursor:pointer;transition:background .2s;border:0;padding:0;display:inline-flex;flex-shrink:0}
     .mini-switch input{display:none}
     .mini-slider{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .2s, background .2s}
@@ -78,6 +70,7 @@
     .mini-switch.checked.scope-gemeente{background:#0b5bd3}
     .mini-switch.checked.scope-regio{background:#7c3aed}
     .mini-switch.checked.aan{background:#16a34a !important;box-shadow:0 0 0 2px #dcfce7}
+    .mini-switch.aan{width:32px;height:20px}
     .mini-switch:not(.checked).aan{background:#e5e7eb !important;border:1px solid #d1d5db}
     .mini-switch:not(.checked).aan .mini-slider{background:#9ca3af}
     .mini-label{font-size:8px;font-weight:800;letter-spacing:.4px;color:#6b7280;text-transform:uppercase;text-align:center;line-height:1}
@@ -85,10 +78,10 @@
     .mini-label.aan-on{color:#16a34a}
     .mini-label.aan-off{color:#9ca3af}
 
-    /* AAN/UIT extra duidelijk */
-    .toggle-col.aan-col{background:#f0fdf4;border-radius:8px;padding:3px 2px 2px 2px;border:1px solid transparent;transition:all .2s}
-    .source-row.off .toggle-col.aan-col{background:#fef2f2;border-color:#fecaca}
-    .source-row:not(.off) .toggle-col.aan-col{background:#f0fdf4;border-color:#bbf7d0}
+    /* AAN/UIT zelfde hoogte als andere */
+    .toggle-col.aan-col{padding:0;border:0;background:transparent}
+    .source-row.off .toggle-col.aan-col{background:transparent;border-color:transparent}
+    .source-row:not(.off) .toggle-col.aan-col{background:transparent;border-color:transparent}
 
     .panel-footer{padding:10px 12px;display:flex;justify-content:space-between;align-items:center;background:#fff}
     .panel-footer button{font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;cursor:pointer}
@@ -103,7 +96,6 @@
     </h1>
     <div class="search-row">
         <input type="text" id="search-input" placeholder="Zoek in nieuws...">
-        <button id="bell-btn" class="bell-btn" title="Push notificaties">🔔</button>
     </div>
     <div class="filter-header" id="filter-header">
         <div class="filter-header-left">🔧 BRONNEN & FILTERS <span class="filter-header-count" id="header-count">(9 • 9 aan)</span></div>
@@ -183,7 +175,6 @@ function render(){
     row.dataset.source=b.id;
     const scopeIsGemeente = s.scope==='gemeente';
     row.innerHTML = `
-      <div class="source-icon" style="background:${b.color}">${b.letter}</div>
       <div class="source-meta">
         <div class="source-name">${b.name}</div>
         <div class="source-sub">${b.sub}</div>
@@ -252,27 +243,37 @@ document.getElementById('filter-header').addEventListener('click', (e)=>{
   const p = document.getElementById('source-panel');
   if(p.classList.contains('open')) closePanel(); else openPanel();
 });
+function openPanel(){ document.getElementById('filter-header').classList.add('open'); document.getElementById('source-panel').classList.add('open'); }
+function closePanel(){ document.getElementById('filter-header').classList.remove('open'); document.getElementById('source-panel').classList.remove('open'); }
 
-// BEL - koppel aan bestaande push.js
-document.getElementById('bell-btn').addEventListener('click', ()=>{
-  // als push.js een functie heeft, roep die aan
-  if(window.togglePushNotifications) { window.togglePushNotifications(); return; }
-  if(window.subscribePush) { window.subscribePush(); return; }
-  // anders simuleer klik op eventuele hidden bell die push.js maakt
-  const existingBell = document.querySelector('[id*="push"], [class*="push-bell"], .bell');
-  if(existingBell && existingBell!==document.getElementById('bell-btn')){ existingBell.click(); }
-  else { alert('Push-meldingen: ga naar instellingen om toe te staan. (push.js wordt geladen)'); }
-});
+// VERPLAATS OUDE BEL (uit push.js) naar rechts van zoekveld
+function moveOldBellToSearchRow(){
+  const searchRow = document.querySelector('.search-row');
+  if(!searchRow) return;
+  // zoek alle mogelijke oude bel elementen die push.js kan hebben gemaakt
+  const candidates = document.querySelectorAll('header .bell-btn, header [id*="push" i], header [class*="push" i], header [id*="bell" i], header [class*="bell" i], header button[title*="notificatie" i], header button[title*="melding" i]');
+  candidates.forEach(el=>{
+    if(el.id==='bell-btn') return; // onze eigen (bestaat niet meer)
+    if(el.closest('.search-row')) return; // al goed
+    // alleen als het echt een bel is (bevat 🔔 of bell tekst of push)
+    const txt = (el.textContent + ' ' + el.innerHTML).toLowerCase();
+    if(txt.includes('🔔') || txt.includes('bell') || txt.includes('push') || el.id.toLowerCase().includes('push') || el.className.toLowerCase().includes('bell')){
+      el.classList.add('push-bell-compat');
+      searchRow.appendChild(el);
+    }
+  });
+  // soms maakt push.js hem pas later aan -> blijf proberen
+}
 
 loadState(); render(); saveState(); closePanel();
-
-// luister naar push.js status om bel kleur te updaten
-setInterval(()=>{
-  const bell = document.getElementById('bell-btn');
-  // probeer te detecteren of push aan staat via localStorage of class
-  const pushOn = localStorage.getItem('push-enabled')==='true' || document.body.classList.contains('push-enabled');
-  if(pushOn){ bell.classList.add('has-permission'); bell.textContent='🔔'; }
-},1000);
+// probeer meteen en nog een paar keer daarna (push.js laadt async)
+moveOldBellToSearchRow();
+setTimeout(moveOldBellToSearchRow, 300);
+setTimeout(moveOldBellToSearchRow, 1000);
+setTimeout(moveOldBellToSearchRow, 2500);
+// blijf observeren
+const obs = new MutationObserver(()=> moveOldBellToSearchRow());
+obs.observe(document.querySelector('header'), {childList:true, subtree:true});
 </script>
 <script src="script.js"></script>
 <script src="push.js"></script>
