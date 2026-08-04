@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nieuw(s)Ommen</title>
+    <title>Nieuw(s)Ommen v99 FIX breedte</title>
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" href="icon-192x192.png" type="image/png">
@@ -13,15 +13,17 @@
     .info-icon-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.45);display:inline-flex;align-items:center;justify-content:center;color:#fff;text-decoration:none;font-weight:900;font-size:26px;line-height:1;flex-shrink:0}
     @media(max-width:400px){header h1{font-size:1.4em}}
 
-    /* VASTE BREEDTE - zoekbalk en bronselectie exact gelijk en gecentreerd */
-    header{padding:0 12px !important;box-sizing:border-box !important;width:100% !important;max-width:640px !important;margin:0 auto !important;display:block !important}
+    /* VASTE BREEDTE - zoekbalk en bronselectie exact gelijk en gecentreerd - v99 */
+    body{margin:0 !important;padding:0 !important}
+    header{padding:0 12px !important;box-sizing:border-box !important;width:100% !important;max-width:640px !important;margin:0 auto !important;display:block !important;float:none !important;left:auto !important;right:auto !important}
+    
     header h1{margin:0 auto 8px auto !important;width:100% !important;max-width:100% !important;padding:0 !important;box-sizing:border-box !important;display:flex !important;justify-content:center !important}
-    .search-row{margin:0 auto 8px auto !important;padding:0 !important;box-sizing:border-box !important;width:100% !important;max-width:100% !important;display:block !important}
+    .search-row{margin:0 auto 8px auto !important;padding:0 !important;box-sizing:border-box !important;width:100% !important;max-width:100% !important;display:block !important;float:none !important}
     .search-row input{width:100% !important;max-width:100% !important;box-sizing:border-box !important;padding:10px 12px !important;border-radius:10px !important;border:1px solid rgba(255,255,255,.6) !important;font-size:15px !important;display:block !important;margin:0 auto !important;text-align:left !important}
 
-    /* COMPACTE HEADER - vaste breedte gelijk aan zoekbalk, gecentreerd */
+    /* COMPACTE HEADER - vaste breedte gelijk aan zoekbalk, gecentreerd - v99 */
     .filter-header{
-        margin:0 auto !important;box-sizing:border-box !important;width:100% !important;max-width:100% !important;
+        margin:0 auto !important;box-sizing:border-box !important;width:100% !important;max-width:100% !important;float:none !important;
         background:#fff;border:1px solid #e5e7eb;border-radius:12px;
         padding:6px 8px !important;display:flex;align-items:center;justify-content:space-between;
         cursor:pointer;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:all .2s;gap:6px;
@@ -177,12 +179,30 @@ let state = {};
 function loadState(){
   try{
     const v2 = localStorage.getItem('nieuwsommen_bronnen_v2');
-    if(v2){ state = JSON.parse(v2); } else {
+    if(v2){
+      state = JSON.parse(v2);
+      // MIGRATIE 7 -> 9 bronnen: als oude keys missen, toevoegen
+      let changed=false;
+      BRONNEN.forEach(b=>{
+        if(!state[b.id]){
+          state[b.id]={aan:true, vandaag:false, scope:'gemeente'};
+          changed=true;
+        }
+      });
+      // verwijder oude keys die niet meer bestaan? behoud maar
+      if(changed || Object.keys(state).length!==BRONNEN.length){
+        saveState();
+      }
+    } else {
       const old = {};
       BRONNEN.forEach(b=> old[b.id] = {aan:true, vandaag:false, scope:'gemeente'});
       state = old; saveState();
     }
-  }catch(e){ BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); }
+  }catch(e){ 
+    const fresh={};
+    BRONNEN.forEach(b=>fresh[b.id]={aan:true,vandaag:false,scope:'gemeente'});
+    state=fresh;
+  }
 }
 function saveState(){
   localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
