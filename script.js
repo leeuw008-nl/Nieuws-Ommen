@@ -176,10 +176,7 @@ async function fetchRSS(url) {
     try {
         const feedConfig = feeds.find(f => f.url === url);
         const keywords = feedConfig?.filterKeywords?.map(k => k.toLowerCase()) || null;
-
         let articles = [];
-
-        // Speciale fallback voor Salland Centraal
         if (url.includes("sallandcentraal")) {
             try {
                 const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
@@ -199,7 +196,6 @@ async function fetchRSS(url) {
                 articles = [];
             }
         } else {
-            // Normale feeds via je proxy
             const text = await fetchViaProxy(url);
             if (!text) return [];
             const xml = new DOMParser().parseFromString(text,"text/xml");
@@ -222,16 +218,12 @@ async function fetchRSS(url) {
                 };
             });
         }
-
-        // Filter toepassen als er keywords zijn
         if (keywords && keywords.length > 0) {
             const before = articles.length;
             articles = articles.filter(a => keywords.some(k => a._searchText.includes(k)));
             console.log(`${feedConfig.name}: ${before} -> ${articles.length} na filter [${keywords.join(", ")}]`);
         }
-
         return articles.map(({_searchText, ...rest}) => rest);
-
     } catch(error) {
         console.error("RSS ophalen mislukt:", url, error);
         return [];
@@ -479,6 +471,8 @@ function renderArticles(articles) {
     }).join("");
     container.innerHTML = html;
 }
+
+// === FIX: VANDAAG/MEER + GEMEENTE/REGIO filter toegevoegd zonder opmaak te veranderen ===
 function searchNews() {
     const searchInput = document.getElementById("search-input");
     const alleenOmmen = document.getElementById("only-ommen");
@@ -488,16 +482,47 @@ function searchNews() {
     if (onlyOmmenChecked) articles = articles.filter(article => isOmmenNieuws(article));
     if (zoekterm !== "") articles = articles.filter(article => { const text = (article.title + " " + (article.description||"")).toLowerCase().replace(/<[^>]*>/g," "); return text.includes(zoekterm); });
     const gekozenBronnen = Array.from(document.querySelectorAll(".source-filter:checked")).map(box => box.value);
-    // FIX: als niks aangevinkt is -> 0 artikelen tonen (was eerder zo)
     if(gekozenBronnen.length===0){
         const container = document.getElementById("news-container");
         if(container) container.innerHTML = "<p><strong>0 artikelen gevonden</strong></p><p>Selecteer minimaal één bron bij 'Bronnen' om artikelen te zien.</p>";
         return;
     }
     articles = articles.filter(article => gekozenBronnen.includes(article.source));
+
+    // NIEUW: VANDAAG/MEER + GEMEENTE/REGIO per bron uit nieuwsommen_bronnen_v2
+    try{
+        const raw = localStorage.getItem('nieuwsommen_bronnen_v2');
+        if(raw){
+            const state = JSON.parse(raw);
+            const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+            const todayEnd = new Date(); todayEnd.setHours(23,59,59,999);
+            articles = articles.filter(article=>{
+                const cfg = state[article.source];
+                if(!cfg) return true;
+                if(cfg.scope==='gemeente'){
+                    if(article.source!=='Gemeente Ommen' && !isOmmenNieuws(article)){
+                        return false;
+                    }
+                }
+                if(cfg.vandaag){
+                    const ts = article.timestamp || 0;
+                    if(!ts) return true;
+                    if(ts < todayStart.getTime() || ts > todayEnd.getTime()){
+                        return false;
+                    }
+                }
+                return true;
+            });
+        }
+    }catch(e){ console.warn('vandaag/gemeente filter fout', e); }
+
     articles.sort((a,b) => b.timestamp - a.timestamp);
     renderArticles(articles);
 }
+window.searchNews = searchNews;
+window.filterNews = searchNews;
+window.applyFilters = searchNews;
+
 function setupSearch() {
     const searchInput = document.getElementById("search-input");
     const switchOmmen = document.getElementById("only-ommen");
@@ -513,46 +538,37 @@ function saveSelectedSources(){
     localStorage.setItem(LS_SOURCES_KEY, JSON.stringify(all));
     updatePushPreferences();
 }
-
 function loadSelectedSources(){
     try{
         const saved = JSON.parse(localStorage.getItem(LS_SOURCES_KEY)||"null");
         if(!saved || typeof saved !== 'object' || Array.isArray(saved)) {
-            // Oud formaat (array) -> migreren
             if(Array.isArray(saved) && saved.length > 0){
                 const all = {};
                 document.querySelectorAll(".source-filter").forEach(cb => {
                     all[cb.value] = saved.includes(cb.value);
                 });
                 localStorage.setItem(LS_SOURCES_KEY, JSON.stringify(all));
-                // pas toe
                 document.querySelectorAll(".source-filter").forEach(cb => {
                     cb.checked = all[cb.value] ?? true;
                 });
             }
-            return; // eerste bezoek = laat HTML checked staan
+            return;
         }
-        
         const checkboxes = document.querySelectorAll(".source-filter");
         let hasNew = false;
-        
         checkboxes.forEach(cb => {
             if (saved.hasOwnProperty(cb.value)) {
                 cb.checked = saved[cb.value];
             } else {
-                // Echt nieuwe bron (zoals Salland Centraal) -> default aan
                 cb.checked = true;
                 hasNew = true;
             }
         });
-        
         if(hasNew) saveSelectedSources();
-        
     }catch(e){
         console.error("loadSelectedSources fout", e);
     }
 }
-
 function getSelectedSources(){
     return Array.from(document.querySelectorAll(".source-filter:checked")).map(cb=>cb.value);
 }
@@ -604,27 +620,17 @@ function injectPushButton(){
 window.addEventListener("DOMContentLoaded", function() {
     setupSearch(); setupSources(); ensureBanner(); injectPushButton(); loadNews(false);
 });
-
-// ===============================
-// FIX STAP 2 - PLAK DIT HELEMAAL ONDERAAN JE BESTAANDE JS BESTAND (na window.addEventListener("DOMContentLoaded"...))
-// ===============================
-
-// 1) Functie die kijkt of je via notificatie komt (?open=...)
 function handlePushDeepLink(){
   try{
     const params = new URLSearchParams(window.location.search);
     const openUrl = params.get('open');
     if(!openUrl) return;
-    console.log('Push deep-link gevonden:', openUrl);
-    // wacht tot artikelen geladen zijn
     let tries = 0;
     const tryScroll = () => {
       tries++;
-      // allArticles is global in jouw code
       const articles = (typeof allArticles !== 'undefined') ? allArticles : [];
       if(articles.length===0 && tries<20){ setTimeout(tryScroll, 500); return; }
       const targetLink = decodeURIComponent(openUrl);
-      // zoek artikel div
       const articleDivs = document.querySelectorAll('.article');
       for(const div of articleDivs){
         const a = div.querySelector('h2 a');
@@ -636,12 +642,9 @@ function handlePushDeepLink(){
           break;
         }
       }
-      // haal ?open uit URL
       history.replaceState({},'', window.location.pathname);
     };
     setTimeout(tryScroll, 1000);
   }catch(e){ console.error('deep-link error', e); }
 }
-
-// Start de deep-link handler direct
 handlePushDeepLink();
