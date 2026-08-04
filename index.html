@@ -8,126 +8,103 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" href="icon-192x192.png" type="image/png">
     <style>
-        /* INFO-ICOON */
-    header h1{
-        display:flex;align-items:center;gap:12px;justify-content:center;width:100%;
-    }
+    header h1{display:flex;align-items:center;gap:12px;justify-content:center;width:100%;}
     .title-left{display:inline-flex;align-items:center;justify-content:center;gap:0;}
-    .info-icon-btn{
-        width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.18);
-        border:1.5px solid rgba(255,255,255,0.45);display:inline-flex;align-items:center;justify-content:center;
-        color:#fff;text-decoration:none;font-weight:900;font-size:26px;line-height:1;flex-shrink:0;transition:background .15s;
-    }
+    .info-icon-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.45);display:inline-flex;align-items:center;justify-content:center;color:#fff;text-decoration:none;font-weight:900;font-size:26px;line-height:1;flex-shrink:0;transition:background .15s;}
     .info-icon-btn:hover{background:rgba(255,255,255,0.30)}
     @media(max-width:400px){header h1{font-size:1.4em}}
 
-    /* NIEUWE FILTER HEADER - pulldown */
+    /* ZOEKBALK + BEL naast elkaar */
+    .search-row{display:flex;align-items:center;gap:8px;padding:0 12px 8px 12px}
+    .search-row input{flex:1;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.6);font-size:15px}
+    .bell-btn{
+        width:42px;height:42px;border-radius:10px;background:#fff;border:1px solid #e5e7eb;
+        display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;
+        flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.08);transition:all .15s;
+    }
+    .bell-btn:active{transform:scale(.95)}
+    .bell-btn.has-permission{background:#fff;color:#0b5bd3}
+    .bell-btn.no-permission{background:#fef2f2;color:#dc2626}
+
+    /* FILTER HEADER */
     .filter-header{
-        margin:12px 12px 0 12px;
-        background:#fff;
-        border:1px solid #e5e7eb;
-        border-radius:12px;
-        padding:12px 14px;
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        cursor:pointer;
-        user-select:none;
-        box-shadow:0 1px 3px rgba(0,0,0,.06);
-        transition:all .15s;
+        margin:4px 12px 0 12px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+        padding:12px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;
+        user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:all .15s;
     }
     .filter-header:active{transform:scale(0.99)}
     .filter-header.open{border-radius:12px 12px 0 0;border-bottom-color:transparent}
-    .filter-header-left{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;letter-spacing:.2px}
+    .filter-header-left{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px}
     .filter-header-count{font-weight:400;color:#6b7280;font-size:12px}
     .filter-header-arrow{font-size:14px;transition:transform .2s;color:#6b7280}
     .filter-header.open .filter-header-arrow{transform:rotate(180deg)}
 
-    /* PANEL - collapsible, relative zodat news eronder blijft */
     #source-panel{
-        margin:0 12px;
-        background:#fff;
-        border:1px solid #e5e7eb;
-        border-top:0;
-        border-radius:0 0 12px 12px;
-        overflow:hidden;
-        max-height:0;
-        opacity:0;
-        transition:max-height .35s ease, opacity .25s ease;
+        margin:0 12px;background:#fff;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px;
+        overflow:hidden;max-height:0;opacity:0;transition:max-height .35s ease, opacity .25s ease;
         box-shadow:0 4px 12px rgba(0,0,0,.06);
     }
-    #source-panel.open{max-height:2000px;opacity:1;}
+    #source-panel.open{max-height:3000px;opacity:1;}
+    .panel-hint{background:#f8fafc;border-bottom:1px solid #f1f5f9;padding:8px 14px;font-size:11px;color:#64748b;line-height:1.4;}
 
-    .panel-hint{
-        background:#f8fafc;
-        border-bottom:1px solid #f1f5f9;
-        padding:8px 14px;
-        font-size:11px;color:#64748b;line-height:1.4;
-    }
-
-    /* SOURCE ROW - icoon blijft op zelfde plek */
+    /* RIJEN - meer ruimte voor volledige naam */
     .source-list{display:flex;flex-direction:column}
     .source-row{
         display:grid;
-        grid-template-columns:40px 1fr 150px;
+        grid-template-columns:40px 1fr 156px;
         align-items:center;
         gap:10px;
-        padding:10px 12px;
+        padding:12px 12px;
         border-bottom:1px solid #f1f5f9;
-        transition:background .12s, opacity .15s;
+        transition:background .12s;
     }
     .source-row:last-child{border-bottom:0}
     .source-row:hover{background:#f8fafc}
-    .source-row.off{opacity:.48}
-    .source-row.off .toggles{pointer-events:none;opacity:.5}
-
-    .source-icon{
-        width:36px;height:36px;border-radius:10px;
-        display:flex;align-items:center;justify-content:center;
-        font-weight:800;font-size:14px;color:#fff;flex-shrink:0;
-    }
+    .source-row.off{background:#f9fafb}
+    .source-row.off .source-name{color:#9ca3af}
+    .source-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;flex-shrink:0;}
     .source-meta{display:flex;flex-direction:column;min-width:0}
-    .source-name{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:visible;text-overflow:clip}
-    .source-sub{font-size:11px;color:#64748b;margin-top:1px}
+    .source-name{font-weight:700;font-size:14px;line-height:1.2;white-space:normal;word-break:break-word;color:#0f172a}
+    .source-sub{font-size:11px;color:#64748b;margin-top:2px}
 
-    /* 3 TOGGLES - vaste breedte, icons blijven stabiel */
-    .toggles{display:grid;grid-template-columns:52px 52px 44px;gap:2px;align-items:start;justify-content:end}
-    .toggle-col{display:flex;flex-direction:column;align-items:center;gap:4px}
-    .mini-switch{position:relative;width:32px;height:20px;background:#e5e7eb;border-radius:999px;cursor:pointer;transition:background .2s;border:0;padding:0;display:inline-flex}
+    /* TOGGLES compact */
+    .toggles{display:grid;grid-template-columns:48px 52px 52px;gap:4px;align-items:start;justify-content:end}
+    .toggle-col{display:flex;flex-direction:column;align-items:center;gap:3px}
+    .mini-switch{position:relative;width:32px;height:20px;background:#e5e7eb;border-radius:999px;cursor:pointer;transition:background .2s;border:0;padding:0;display:inline-flex;flex-shrink:0}
     .mini-switch input{display:none}
-    .mini-slider{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .2s}
+    .mini-slider{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .2s, background .2s}
     .mini-switch input:checked + .mini-slider{transform:translateX(12px)}
-    /* kleuren per type als aan */
-    .mini-switch.vandaag input:checked ~ .mini-slider-bg,
-    .mini-switch.vandaag.checked{background:#0b5bd3}
-    .mini-switch.scope input:checked ~ .mini-slider-bg,
-    .mini-switch.scope.checked{background:#0b5bd3}
-    .mini-switch.scope:not(.checked){background:#7c3aed !important}
-    .mini-switch.aan.checked{background:#16a34a}
-    .mini-switch.checked{background:#0b5bd3}
-    .toggle-col .mini-switch{transition:.2s}
-    .mini-label{font-size:8.5px;white-space:nowrap;font-weight:700;letter-spacing:.4px;color:#6b7280;text-transform:uppercase;text-align:center;line-height:1}
+    .mini-switch.checked.vandaag{background:#0b5bd3}
+    .mini-switch.checked.scope-gemeente{background:#0b5bd3}
+    .mini-switch.checked.scope-regio{background:#7c3aed}
+    .mini-switch.checked.aan{background:#16a34a !important;box-shadow:0 0 0 2px #dcfce7}
+    .mini-switch:not(.checked).aan{background:#e5e7eb !important;border:1px solid #d1d5db}
+    .mini-switch:not(.checked).aan .mini-slider{background:#9ca3af}
+    .mini-label{font-size:8px;font-weight:800;letter-spacing:.4px;color:#6b7280;text-transform:uppercase;text-align:center;line-height:1}
     .mini-label.active{color:#0f172a}
+    .mini-label.aan-on{color:#16a34a}
+    .mini-label.aan-off{color:#9ca3af}
+
+    /* AAN/UIT extra duidelijk */
+    .toggle-col.aan-col{background:#f0fdf4;border-radius:8px;padding:3px 2px 2px 2px;border:1px solid transparent;transition:all .2s}
+    .source-row.off .toggle-col.aan-col{background:#fef2f2;border-color:#fecaca}
+    .source-row:not(.off) .toggle-col.aan-col{background:#f0fdf4;border-color:#bbf7d0}
 
     .panel-footer{padding:10px 12px;display:flex;justify-content:space-between;align-items:center;background:#fff}
     .panel-footer button{font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;cursor:pointer}
     .panel-footer button.primary{background:#0f172a;color:#fff;border-color:#0f172a;font-weight:600}
-
-    /* zoekrij behoud */
-    .search-row{padding:0 12px 8px 12px}
-    #search-input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.6)}
     </style>
 </head>
 <body>
 <header>
     <h1>
         <span class="title-left">📰 Nieuw(s)Ommen</span>
-        <a href="informatie.html" class="info-icon-btn" title="Info over deze app" aria-label="Informatie">i</a>
+        <a href="informatie.html" class="info-icon-btn" title="Info" aria-label="Informatie">i</a>
     </h1>
     <div class="search-row">
         <input type="text" id="search-input" placeholder="Zoek in nieuws...">
+        <button id="bell-btn" class="bell-btn" title="Push notificaties">🔔</button>
     </div>
-    <!-- NIEUWE HEADER - alleen dit zichtbaar -->
     <div class="filter-header" id="filter-header">
         <div class="filter-header-left">🔧 BRONNEN & FILTERS <span class="filter-header-count" id="header-count">(9 • 9 aan)</span></div>
         <div style="display:flex;align-items:center;gap:10px">
@@ -135,16 +112,14 @@
             <span class="filter-header-arrow">▼</span>
         </div>
     </div>
-    <!-- PULLDOWN PANEL - default dicht zodat nieuws zichtbaar is -->
     <div id="source-panel">
-        <div class="panel-hint">Per bron: <b>VANDAAG</b>=alleen vandaag • <b>GEMEENTE</b>=alleen Ommen / <b>REGIO</b>=breder • <b>AAN</b>=tonen + push. Tik op header om te sluiten.</div>
+        <div class="panel-hint">Per bron: <b>VANDAAG</b>=alleen vandaag • <b>GEMEENTE</b>=Ommen / <b>REGIO</b>=wijder • <b>AAN</b>=tonen + push. Groen = actief, grijs = uit. Tik header om te sluiten.</div>
         <div class="source-list" id="source-list"></div>
         <div class="panel-footer">
-            <button onclick="resetFilters()">Reset</button>
+            <button onclick="resetFilters()">Reset naar alles aan</button>
             <button class="primary" onclick="closePanel()">Sluiten ▲</button>
         </div>
     </div>
-    <!-- hidden compat voor bestaande script.js -->
     <div id="compat-hidden" style="display:none">
         <input type="checkbox" id="only-ommen" checked>
         <div id="compat-sources"></div>
@@ -157,50 +132,32 @@
     <button onclick="refreshNews()">🔄 Vernieuwen</button>
 </footer>
 <script>
-// DATA - jouw 9 echte bronnen
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)', color:'#dc2626', letter:'S'},
-  {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officieel', color:'#0b5bd3', letter:'G'},
-  {id:'Ommen City', name:'Ommen City', sub:'lokaal', color:'#0891b2', letter:'O'},
-  {id:'OudOmmen', name:'OudOmmen', sub:'historie', color:'#92400e', letter:'O'},
-  {id:'RondOmmen', name:'RondOmmen', sub:'lokaal', color:'#16a34a', letter:'R'},
-  {id:'RTV Oost', name:'RTV Oost', sub:'Overijssel', color:'#7c3aed', letter:'O'},
-  {id:'RTV Vechtdal', name:'RTV Vechtdal', sub:'Vechtdal', color:'#db2777', letter:'V'},
-  {id:'Salland Centraal', name:'Salland Centraal', sub:'Salland', color:'#ea580c', letter:'S'},
-  {id:'Vechtdal Centraal', name:'Vechtdal Centraal', sub:'112 & dorpsnieuws', color:'#0f172a', letter:'V'},
+  {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten', color:'#0b5bd3', letter:'G'},
+  {id:'Ommen City', name:'Ommen City', sub:'lokaal nieuws Ommen', color:'#0891b2', letter:'OC'},
+  {id:'OudOmmen', name:'OudOmmen', sub:'artikelen over historie', color:'#92400e', letter:'OO'},
+  {id:'RondOmmen', name:'RondOmmen', sub:'lokaal nieuws', color:'#16a34a', letter:'R'},
+  {id:'RTV Oost', name:'RTV Oost', sub:'regionaal Overijssel', color:'#7c3aed', letter:'O'},
+  {id:'RTV Vechtdal', name:'RTV Vechtdal', sub:'lokaal Vechtdal', color:'#db2777', letter:'V'},
+  {id:'Salland Centraal', name:'Salland Centraal', sub:'regionaal Salland', color:'#ea580c', letter:'SC'},
+  {id:'Vechtdal Centraal', name:'Vechtdal Centraal', sub:'112 & dorpsnieuws', color:'#0f172a', letter:'VC'},
 ];
 let state = {};
-
 function loadState(){
   try{
     const v2 = localStorage.getItem('nieuwsommen_bronnen_v2');
-    if(v2){
-      state = JSON.parse(v2);
-    } else {
-      // migratie oude checkboxes
+    if(v2){ state = JSON.parse(v2); } else {
       const old = {};
-      BRONNEN.forEach(b=>{
-        const key = b.id;
-        old[key] = {aan:true, vandaag:false, scope:'gemeente'};
-      });
-      const only = localStorage.getItem('only-ommen');
-      if(only!==null){
-        const isGemeente = only==='true' || document.getElementById('only-ommen')?.checked;
-        BRONNEN.forEach(b=>old[b.id].scope = isGemeente?'gemeente':'regio');
-      }
-      state = old;
-      saveState();
+      BRONNEN.forEach(b=> old[b.id] = {aan:true, vandaag:false, scope:'gemeente'});
+      state = old; saveState();
     }
-  }catch(e){
-    BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,scope:'gemeente'});
-  }
+  }catch(e){ BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); }
 }
 function saveState(){
   localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
-  updateHiddenCompat();
-  updateHeaderCount();
+  updateHiddenCompat(); updateHeaderCount();
 }
-
 function updateHiddenCompat(){
   const cont = document.getElementById('compat-sources');
   cont.innerHTML='';
@@ -210,19 +167,12 @@ function updateHiddenCompat(){
     cb.type='checkbox'; cb.className='source-filter'; cb.value=b.id; cb.checked=s.aan;
     cb.dataset.source=b.id;
     cont.appendChild(cb);
-    cb.addEventListener('change',()=>{}); // script.js luistert hiernaar
-    // trigger change zodat script.js filtert
     cb.dispatchEvent(new Event('change',{bubbles:true}));
   });
-  // global only-ommen: als meer dan helft gemeente, dan checked
   const gemeenteCount = BRONNEN.filter(b=> (state[b.id]?.scope||'gemeente')==='gemeente').length;
   const onlyCb = document.getElementById('only-ommen');
-  if(onlyCb){
-    onlyCb.checked = gemeenteCount >= 5;
-    onlyCb.dispatchEvent(new Event('change',{bubbles:true}));
-  }
+  if(onlyCb){ onlyCb.checked = gemeenteCount >= 5; onlyCb.dispatchEvent(new Event('change',{bubbles:true})); }
 }
-
 function render(){
   const list = document.getElementById('source-list');
   list.innerHTML='';
@@ -231,6 +181,7 @@ function render(){
     const row = document.createElement('div');
     row.className='source-row'+(s.aan?'':' off');
     row.dataset.source=b.id;
+    const scopeIsGemeente = s.scope==='gemeente';
     row.innerHTML = `
       <div class="source-icon" style="background:${b.color}">${b.letter}</div>
       <div class="source-meta">
@@ -246,24 +197,23 @@ function render(){
           <span class="mini-label ${s.vandaag?'active':''}">${s.vandaag?'VANDAAG':'MEER'}</span>
         </div>
         <div class="toggle-col">
-          <label class="mini-switch scope ${s.scope==='gemeente'?'checked':''}" style="background:${s.scope==='gemeente'?'#0b5bd3':'#7c3aed'}">
-            <input type="checkbox" ${s.scope==='gemeente'?'checked':''} data-type="scope" data-id="${b.id}">
+          <label class="mini-switch ${scopeIsGemeente?'checked scope-gemeente':'checked scope-regio'}" style="background:${scopeIsGemeente?'#0b5bd3':'#7c3aed'}">
+            <input type="checkbox" ${scopeIsGemeente?'checked':''} data-type="scope" data-id="${b.id}">
             <span class="mini-slider"></span>
           </label>
-          <span class="mini-label active">${s.scope==='gemeente'?'GEMEENTE':'REGIO'}</span>
+          <span class="mini-label active">${scopeIsGemeente?'GEMEENTE':'REGIO'}</span>
         </div>
-        <div class="toggle-col">
-          <label class="mini-switch aan ${s.aan?'checked':''}" style="background:${s.aan?'#16a34a':'#e5e7eb'}">
+        <div class="toggle-col aan-col">
+          <label class="mini-switch aan ${s.aan?'checked':''}">
             <input type="checkbox" ${s.aan?'checked':''} data-type="aan" data-id="${b.id}">
             <span class="mini-slider"></span>
           </label>
-          <span class="mini-label ${s.aan?'active':''}">${s.aan?'AAN':'UIT'}</span>
+          <span class="mini-label ${s.aan?'aan-on':'aan-off'}">${s.aan?'AAN':'UIT'}</span>
         </div>
       </div>
     `;
     list.appendChild(row);
   });
-  // events
   list.querySelectorAll('input').forEach(inp=>{
     inp.addEventListener('change', (e)=>{
       const id = e.target.dataset.id;
@@ -272,53 +222,57 @@ function render(){
       if(type==='vandaag'){ state[id].vandaag = e.target.checked; }
       if(type==='scope'){ state[id].scope = e.target.checked?'gemeente':'regio'; }
       if(type==='aan'){ state[id].aan = e.target.checked; }
-      saveState();
-      render();
-      // trigger je bestaande filter functie als die bestaat
+      saveState(); render();
       if(window.filterNews) window.filterNews();
       if(window.applyFilters) window.applyFilters();
+      // force refresh news if function exists
+      if(typeof refreshNews==='function' && type==='aan'){
+        // klein delay zodat compat sync klaar is
+        setTimeout(()=>{ try{refreshNews()}catch{} }, 50);
+      }
     });
   });
 }
-
 function updateHeaderCount(){
   const aan = Object.values(state).filter(s=>s.aan).length;
   document.getElementById('header-count').textContent = `(${BRONNEN.length} • ${aan} aan)`;
 }
-
-function togglePanel(){
-  const h = document.getElementById('filter-header');
-  const p = document.getElementById('source-panel');
-  const isOpen = p.classList.contains('open');
-  if(isOpen){ closePanel(); } else { openPanel(); }
-}
-function openPanel(){
-  document.getElementById('filter-header').classList.add('open');
-  document.getElementById('source-panel').classList.add('open');
-}
-function closePanel(){
-  document.getElementById('filter-header').classList.remove('open');
-  document.getElementById('source-panel').classList.remove('open');
-}
-function resetFilters(){
-  BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,scope:'gemeente'});
-  saveState(); render();
-}
+function openPanel(){ document.getElementById('filter-header').classList.add('open'); document.getElementById('source-panel').classList.add('open'); }
+function closePanel(){ document.getElementById('filter-header').classList.remove('open'); document.getElementById('source-panel').classList.remove('open'); }
+function resetFilters(){ BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); saveState(); render(); if(window.filterNews) filterNews(); }
 
 document.getElementById('filter-header').addEventListener('click', (e)=>{
   if(e.target.id==='btn-all' || e.target.closest('#btn-all')){
     e.stopPropagation();
     const allOn = Object.values(state).every(s=>s.aan);
     BRONNEN.forEach(b=>state[b.id].aan = !allOn);
-    saveState(); render();
+    saveState(); render(); if(window.filterNews) filterNews();
     return;
   }
-  togglePanel();
+  const p = document.getElementById('source-panel');
+  if(p.classList.contains('open')) closePanel(); else openPanel();
 });
 
-loadState(); render(); saveState();
-// panel dicht bij start zodat nieuws meteen zichtbaar is
-closePanel();
+// BEL - koppel aan bestaande push.js
+document.getElementById('bell-btn').addEventListener('click', ()=>{
+  // als push.js een functie heeft, roep die aan
+  if(window.togglePushNotifications) { window.togglePushNotifications(); return; }
+  if(window.subscribePush) { window.subscribePush(); return; }
+  // anders simuleer klik op eventuele hidden bell die push.js maakt
+  const existingBell = document.querySelector('[id*="push"], [class*="push-bell"], .bell');
+  if(existingBell && existingBell!==document.getElementById('bell-btn')){ existingBell.click(); }
+  else { alert('Push-meldingen: ga naar instellingen om toe te staan. (push.js wordt geladen)'); }
+});
+
+loadState(); render(); saveState(); closePanel();
+
+// luister naar push.js status om bel kleur te updaten
+setInterval(()=>{
+  const bell = document.getElementById('bell-btn');
+  // probeer te detecteren of push aan staat via localStorage of class
+  const pushOn = localStorage.getItem('push-enabled')==='true' || document.body.classList.contains('push-enabled');
+  if(pushOn){ bell.classList.add('has-permission'); bell.textContent='🔔'; }
+},1000);
 </script>
 <script src="script.js"></script>
 <script src="push.js"></script>
