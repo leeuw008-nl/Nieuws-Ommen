@@ -1,188 +1,141 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ommen Nieuws – Push Test Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Fraunces:opsz,wght@9..144,700&display=swap" rel="stylesheet">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ommen Nieuws – Push Test Dashboard v12 - 9 bronnen</title>
 <style>
-:root{--green:#0a7a3d; --green-dark:#065a2c; --sand:#fdf8ef; --ink:#0f172a; --muted:#64748b; --card:#ffffff; --border:#e2e8f0}
-*{box-sizing:border-box}
-body{margin:0; font-family:'Inter',system-ui,sans-serif; background:var(--sand); color:var(--ink); line-height:1.5}
-header{background:linear-gradient(135deg, #065a2c 0%, #0a7a3d 50%, #14a85a 100%); color:white; padding:28px 16px 22px; position:sticky; top:0; z-index:10}
-.header-inner{max-width:1080px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap}
-h1{font-family:'Fraunces',serif; font-size:30px; margin:0; letter-spacing:-.02em}
-.sub{opacity:.9; font-size:14px; margin-top:4px}
-.badge{background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.3); padding:5px 10px; border-radius:99px; font-size:12px; font-weight:700}
-main{max-width:1080px; margin:0 auto; padding:18px 16px 40px}
-.grid{display:grid; grid-template-columns:1.2fr .8fr; gap:16px}
-@media(max-width:900px){.grid{grid-template-columns:1fr}}
-.card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:0 4px 20px rgba(15,23,42,.05)}
-.card h3{margin:0 0 10px; font-size:16px; letter-spacing:-.01em}
-.muted{color:var(--muted); font-size:13px}
-.row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
-button{appearance:none; border:0; border-radius:10px; padding:10px 14px; font-weight:700; font-size:14px; cursor:pointer; transition:.15s; display:inline-flex; align-items:center; gap:6px}
-.btn-primary{background:var(--green); color:white} .btn-primary:hover{background:var(--green-dark); transform:translateY(-1px)}
-.btn-ghost{background:#f1f5f9; color:#0f172a} .btn-ghost:hover{background:#e2e8f0}
-.btn-outline{background:white; border:1px solid var(--border); color:var(--ink)}
-.chip{padding:8px 12px; border-radius:99px; background:#f1f5f9; border:1px solid var(--border); font-size:13px; font-weight:600; cursor:pointer}
-.chip.active{background:var(--green); color:white; border-color:var(--green)}
-.source-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; margin-top:10px}
-.source-btn{position:relative; text-align:left; padding:12px 12px 12px 14px; border-radius:12px; border:1px solid var(--border); background:white; cursor:pointer; transition:.15s}
-.source-btn:hover{border-color:var(--green); transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,.06)}
-.source-btn b{display:block; font-size:14px}
-.source-btn span{font-size:12px; color:var(--muted)}
-.source-btn .dot{position:absolute; right:10px; top:12px; width:8px; height:8px; background:#22c55e; border-radius:50%}
-input,select,textarea{width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--border); font-size:14px; background:white}
-input:focus,select:focus,textarea:focus{outline:none; border-color:var(--green); box-shadow:0 0 0 3px rgba(10,122,61,.12)}
-pre{background:#0f172a; color:#e2e8f0; padding:12px; border-radius:12px; overflow:auto; font-size:12.5px; line-height:1.45; max-height:300px}
-.phone{width:280px; background:#0f172a; border-radius:28px; padding:10px; margin:0 auto; box-shadow:0 10px 30px rgba(0,0,0,.25)}
-.phone-screen{background:white; border-radius:20px; padding:12px; min-height:160px}
-.notif{background:white; border-radius:12px; border:1px solid #e2e8f0; padding:10px 12px; box-shadow:0 4px 16px rgba(0,0,0,.12); display:flex; gap:10px}
-.notif-icon{width:36px; height:36px; border-radius:8px; background:var(--green); display:grid; place-items:center; color:white; font-weight:800; flex-shrink:0}
-.notif b{font-size:13px; display:block} .notif small{font-size:12px; color:#475569}
-.tag{display:inline-flex; padding:2px 7px; border-radius:99px; background:#dcfce7; color:#166534; font-size:11px; font-weight:700; margin-top:4px}
+*{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;background:#f5f7fb;color:#111}
+.header{background:#0b5bd3;color:#fff;padding:18px 14px;position:sticky;top:0;z-index:10}
+.header h1{margin:0;font-size:20px} .container{max-width:900px;margin:0 auto;padding:14px}
+.card{background:#fff;border-radius:12px;padding:14px;margin:10px 0;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.btn{display:inline-block;padding:10px 14px;border-radius:10px;border:none;font-weight:600;cursor:pointer;text-decoration:none}
+.btn-primary{background:#0b5bd3;color:#fff} .btn-secondary{background:#eef2ff;color:#0b5bd3}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:600px){.grid{grid-template-columns:1fr} .header h1{font-size:18px}}
+input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid #d1d5db;margin:4px 0;font-family:inherit}
+.small{font-size:12px;color:#6b7280} .badge{display:inline-block;padding:2px 8px;border-radius:20px;background:#e0f2fe;font-size:11px;margin:2px}
+pre{white-space:pre-wrap;word-break:break-word;background:#0f172a;color:#e2e8f0;padding:10px;border-radius:8px;max-height:300px;overflow:auto}
+.preview{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px;display:flex;gap:10px;align-items:flex-start}
+.preview-icon{width:40px;height:40px;background:#0b5bd3;color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800}
 </style>
 </head>
 <body>
-<header>
-<div class="header-inner">
-<div><h1>Nieuws Ommen • Push Lab</h1><div class="sub">Test je meldingen op computer & telefoon – zie meteen welke bron je test</div></div>
-<div class="badge">WORKER v7.1 • aes128gcm FIXED • Active</div>
+<div class="header">
+  <h1>📰 Ommen Nieuws – Push Test Dashboard v12</h1>
+  <div class="small" style="color:#c7d2fe">9 bronnen • v12 FIX - RondOmmen + Salland Centraal toegevoegd • https://leeuw008-nl.github.io/Nieuws-Ommen/test.html</div>
 </div>
-</header>
-<main>
-<div class="grid">
-<div>
+<div class="container">
+
 <div class="card">
-<div class="row" style="justify-content:space-between"><h3>📊 Status</h3><div class="row"><button class="btn-ghost" id="btnDebug">Vernieuwen</button><button class="btn-outline" id="btnClear">Wis alles</button></div></div>
-<div class="row" style="margin:8px 0"><div id="totalBadge" class="badge" style="background:#dcfce7; color:#166534; border-color:#bbf7d0">Laden…</div><div id="endpointInfo" class="muted"></div></div>
-<pre id="debugOut">Laden…</pre>
+  <h3>👀 Voorbeeld melding (zo zie je hem)</h3>
+  <div class="preview">
+    <div class="preview-icon" id="prevIcon">O</div>
+    <div>
+      <div style="font-weight:700" id="prevTitle">Test Ommen Nieuws [Bron: Ommen City]</div>
+      <div style="font-size:13px;color:#475569" id="prevBody">Dit is een testmelding • Bron: Ommen City • 20:12</div>
+      <div class="small" id="prevSource">Ommen City</div>
+    </div>
+  </div>
+  <div class="small" style="margin-top:6px">Tip: op telefoon verschijnt dit als systeem-melding, niet in de pagina. Dit is alleen een preview.</div>
 </div>
 
 <div class="card">
-<h3>⚡ Snel testen</h3>
-<p class="muted">Deze 2 sturen naar <b>alle</b> apparaten (computer + telefoon). Bron staat zichtbaar in de melding zelf.</p>
-<div class="row">
-<button class="btn-primary" id="btnTest">🚀 Test ALL</button>
-<button class="btn-ghost" id="btnTestAll">📢 Send ALL</button>
-</div>
+  <h3>✏️ Eigen bericht (met bron-tag) - 9 BRONNEN</h3>
+  <label>Titel</label>
+  <input id="tTitle" value="Test Ommen Nieuws ✅">
+  <label>Bericht</label>
+  <input id="tBody" value="Dit is een testmelding">
+  <label>URL (waarheen bij klik)</label>
+  <input id="tUrl" value="https://leeuw008-nl.github.io/Nieuws-Ommen/">
+  <label>Bron filter - KIES UIT 9 BRONNEN</label>
+  <select id="tSource">
+    <option value="">ALL - iedereen (9 bronnen)</option>
+    <option value="De Stentor">De Stentor (regionaal Ommen)</option>
+    <option value="Gemeente Ommen">Gemeente Ommen (officiële berichten)</option>
+    <option value="Ommen City" selected>Ommen City (lokaal nieuws Ommen)</option>
+    <option value="OudOmmen">OudOmmen (artikelen over historie)</option>
+    <option value="RondOmmen">RondOmmen (lokaal nieuws) - NIEUW</option>
+    <option value="RTV Oost">RTV Oost (regionaal Overijssel)</option>
+    <option value="RTV Vechtdal">RTV Vechtdal (lokaal Vechtdal)</option>
+    <option value="Salland Centraal">Salland Centraal (regionaal Salland) - NIEUW</option>
+    <option value="Vechtdal Centraal">Vechtdal Centraal (112 & dorpsnieuws)</option>
+  </select>
+  <label style="display:flex;align-items:center;gap:6px;margin-top:6px"><input type="checkbox" id="tShowSource" checked style="width:auto"> Toon bron in melding (aanrader voor testen)</label>
+  <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="tStrict" checked style="width:auto"> Strict - alleen sturen naar mensen die deze bron expliciet hebben aangevinkt</label>
+  <div class="grid" style="margin-top:8px">
+    <button class="btn btn-primary" onclick="sendTest()">Verstuur test (9 bronnen)</button>
+    <button class="btn btn-secondary" onclick="sendTest(true)">Verstuur als echte cron (met app-link)</button>
+  </div>
+  <div class="small" style="margin-top:6px">Met Strict aan: iemand die alleen De Stentor heeft aangevinkt krijgt GEEN bericht als je RondOmmen test. Zonder Strict krijgt iedereen met lege filter (alles) het wel. Nu 9 bronnen beschikbaar!</div>
+  <pre id="sendResult">Nog niks verstuurd</pre>
 </div>
 
 <div class="card">
-<h3>🗂️ Per bron testen – bron zichtbaar aan ontvangst-kant</h3>
-<p class="muted">Klik een bron. De melding op je telefoon toont straks: <i>"Titel [Bron: Ommen City]"</i> en <i>"Body • Bron: Ommen City"</i></p>
-<div class="source-grid" id="sourceGrid"></div>
-</div>
-</div>
-
-<div>
-<div class="card">
-<h3>👀 Voorbeeld melding (zo zie je hem)</h3>
-<div class="phone"><div class="phone-screen"><div class="notif"><div class="notif-icon">O</div><div><b id="prevTitle">Test Ommen Nieuws [Bron: Ommen City]</b><small id="prevBody">Dit is een testmelding • Bron: Ommen City • 20:12</small><div><span class="tag" id="prevTag">Ommen City</span></div></div></div><p class="muted" style="margin-top:12px; font-size:12px">Tip: op telefoon verschijnt dit als systeem-melding, niet in de pagina. Dit is alleen een preview.</p></div></div>
+  <h3>📊 Worker Status - 9 bronnen</h3>
+  <div id="status">Laden...</div>
+  <div class="grid" style="margin-top:8px">
+    <button class="btn btn-secondary" onclick="loadDebug()">Vernieuw status</button>
+    <button class="btn btn-secondary" onclick="doCron()">Check nu op nieuwe artikelen (/cron 9 bronnen)</button>
+  </div>
+  <pre id="cronResult"></pre>
 </div>
 
-<div class="card">
-<h3>✏️ Eigen bericht (met bron-tag)</h3>
-<label class="muted">Titel</label><input id="title" value="Nieuw artikel Ommen">
-<label class="muted">Bericht</label><textarea id="body" rows="3">Er is zojuist een nieuw artikel geplaatst</textarea>
-<label class="muted">URL (waarheen bij klik)</label><input id="url" value="https://leeuw008-nl.github.io/Nieuws-Ommen/">
-<label class="muted">Bron filter</label><select id="sourceSel"><option value="">ALL – iedereen</option><option>De Stentor</option><option>Gemeente Ommen</option><option>Ommen City</option><option>OudOmmen</option><option>RTV Oost</option><option>RTV Vechtdal</option><option>Vechtdal Centraal</option></select>
-<div style="margin-top:10px"><label style="display:flex; gap:8px; align-items:center; font-size:13px"><input type="checkbox" id="showSource" checked style="width:auto"> Toon bron in melding (aanrader voor testen)</label></div>
-<button class="btn-primary" id="btnCustom" style="margin-top:12px; width:100%">📤 Verstuur</button>
-<pre id="sendOut" style="margin-top:12px">Nog niks verstuurd</pre>
 </div>
-</div>
-</div>
-</main>
-
 <script>
-const BASE = 'https://ommen-push-v2.leeuw008.workers.dev';
-const sources = [
-  {name:"De Stentor", icon:"📰", color:"#dc2626"},
-  {name:"Gemeente Ommen", icon:"🏛️", color:"#0a7a3d"},
-  {name:"Ommen City", icon:"🏙️", color:"#0b5fff"},
-  {name:"OudOmmen", icon:"🏚️", color:"#854d0e"},
-  {name:"RTV Oost", icon:"📻", color:"#7c3aed"},
-  {name:"RTV Vechtdal", icon:"🎙️", color:"#db2777"},
-  {name:"Vechtdal Centraal", icon:"🌿", color:"#059669"}
-];
-function show(o, el){ el.textContent = typeof o==='string'?o:JSON.stringify(o,null,2); }
-function buildPayload(title, body, url, source, withTag){
-  let t = title, b = body;
-  if(withTag && source){ t = `${title} [Bron: ${source}]`; b = `${body} • Bron: ${source}`; }
-  return {title:t, body:b, url, source};
+const PUSH_WORKER_URL = 'https://ommen-push-v2.leeuw008.workers.dev';
+function updatePreview(){
+  const title=document.getElementById('tTitle').value;
+  const body=document.getElementById('tBody').value;
+  const src=document.getElementById('tSource').value;
+  const show=document.getElementById('tShowSource').checked;
+  const fullTitle = show && src ? `${title} [Bron: ${src}]` : title;
+  const fullBody = show && src ? `${body} • Bron: ${src} • ${new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}` : body;
+  document.getElementById('prevTitle').textContent=fullTitle;
+  document.getElementById('prevBody').textContent=fullBody;
+  document.getElementById('prevSource').textContent=src||'ALL';
+  document.getElementById('prevIcon').textContent=src ? src[0] : 'O';
 }
-async function fetchDebug(){
-  try{ const r=await fetch(BASE+'/debug'); const j=await r.json();
-    show(j, document.getElementById('debugOut'));
-    document.getElementById('totalBadge').textContent = `Totaal geabonneerd: ${j.total} apparaat/apparaten`;
-    document.getElementById('endpointInfo').textContent = j.subs?.length ? `Voorbeeld endpoint: ${j.subs[0].endpoint?.slice(0,40)}...` : '';
-    return j;
-  }catch(e){ show('Fout: '+e.message, document.getElementById('debugOut')); }
-}
-function updatePreview(title, body, source){
-  document.getElementById('prevTitle').textContent = title;
-  document.getElementById('prevBody').textContent = body;
-  document.getElementById('prevTag').textContent = source || 'ALL';
-}
-
-document.getElementById('btnDebug').onclick = fetchDebug;
-document.getElementById('btnClear').onclick = ()=>{ if(confirm('Alle subscriptions wissen?')) window.open(BASE+'/clear-all?confirm=yes','_blank'); };
-
-document.getElementById('btnTest').onclick = async()=>{
-  const p = buildPayload('Test Ommen Nieuws ✅', `Testmelding ${new Date().toLocaleTimeString('nl-NL')} • Bron: ALL`, 'https://leeuw008-nl.github.io/Nieuws-Ommen/', 'ALL', true);
-  updatePreview(p.title, p.body, 'ALL');
-  const u = BASE+`/test?title=${encodeURIComponent(p.title)}&body=${encodeURIComponent(p.body)}&url=${encodeURIComponent(p.url)}`;
-  const r=await fetch(u); const j=await r.json(); show(j, document.getElementById('sendOut'));
-};
-document.getElementById('btnTestAll').onclick = async()=>{
-  const p = buildPayload('Nieuw Ommen nieuws', 'Er is een nieuw artikel • Bron: ALL', 'https://leeuw008-nl.github.io/Nieuws-Ommen/', 'ALL', true);
-  updatePreview(p.title, p.body, 'ALL');
-  const u = BASE+`/send?title=${encodeURIComponent(p.title)}&body=${encodeURIComponent(p.body)}&url=${encodeURIComponent(p.url)}`;
-  const r=await fetch(u); const j=await r.json(); show(j, document.getElementById('sendOut'));
-};
-
-const grid=document.getElementById('sourceGrid');
-sources.forEach(s=>{
-  const d=document.createElement('div'); d.className='source-btn';
-  d.innerHTML = `<div style="font-size:20px">${s.icon}</div><b>${s.name}</b><span>Klik om te testen</span><div class="dot" style="background:${s.color}"></div>`;
-  d.onclick = async()=>{
-    const p = buildPayload(`${s.name} update`, `Nieuw artikel van ${s.name}`, 'https://leeuw008-nl.github.io/Nieuws-Ommen/', s.name, true);
-    updatePreview(p.title, p.body, s.name);
-    const u = BASE+`/send?title=${encodeURIComponent(p.title)}&body=${encodeURIComponent(p.body)}&url=${encodeURIComponent(p.url)}&source=${encodeURIComponent(s.name)}`;
-    const r=await fetch(u); const j=await r.json(); show(j, document.getElementById('sendOut'));
-  };
-  grid.appendChild(d);
+['tTitle','tBody','tSource','tShowSource'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el) el.addEventListener('input', updatePreview);
+  if(el) el.addEventListener('change', updatePreview);
 });
+updatePreview();
 
-document.getElementById('btnCustom').onclick = async()=>{
-  const title=document.getElementById('title').value;
-  const body=document.getElementById('body').value;
-  const url=document.getElementById('url').value;
-  const src=document.getElementById('sourceSel').value;
-  const withTag=document.getElementById('showSource').checked;
-  const p = buildPayload(title, body, url, src, withTag);
-  updatePreview(p.title, p.body, src||'ALL');
-  let u = BASE+`/send?title=${encodeURIComponent(p.title)}&body=${encodeURIComponent(p.body)}&url=${encodeURIComponent(p.url)}`;
-  if(src) u+=`&source=${encodeURIComponent(src)}`;
-  const r=await fetch(u); const j=await r.json(); show(j, document.getElementById('sendOut'));
-};
-
-// live preview binding
-['title','body','sourceSel','showSource'].forEach(id=>{
-  document.getElementById(id).addEventListener('input', ()=>{
-    const t=document.getElementById('title').value;
-    const b=document.getElementById('body').value;
-    const src=document.getElementById('sourceSel').value;
-    const withTag=document.getElementById('showSource').checked;
-    const p=buildPayload(t,b,document.getElementById('url').value,src,withTag);
-    updatePreview(p.title,p.body,src||'ALL');
-  });
-});
-
-fetchDebug();
-updatePreview('Test Ommen Nieuws [Bron: Ommen City]', 'Dit is een testmelding • Bron: Ommen City • 20:12', 'Ommen City');
+async function loadDebug(){
+  try{
+    const r=await fetch(PUSH_WORKER_URL+'/debug',{cache:'no-store'});
+    const j=await r.json();
+    document.getElementById('status').innerHTML=`<b>${j.total} abonnementen</b> - 9 bronnen actief<br>LastSeen: ${(j.lastSeen||[]).map(s=>'<span class=badge>'+s.source+'</span>').join(' ')}<br><details><summary>Details JSON</summary><pre>${JSON.stringify(j,null,2)}</pre></details>`;
+  }catch(e){ document.getElementById('status').textContent='Fout: '+e.message; }
+}
+async function sendTest(isCronStyle){
+  const title=encodeURIComponent(document.getElementById('tTitle').value);
+  const body=encodeURIComponent(document.getElementById('tBody').value);
+  const urlEnc=encodeURIComponent(document.getElementById('tUrl').value);
+  const src=document.getElementById('tSource').value;
+  const strict=document.getElementById('tStrict').checked?1:0;
+  let endpoint=isCronStyle?'/send':'/test';
+  let q=PUSH_WORKER_URL+endpoint+'?title='+title+'&body='+body+'&url='+urlEnc;
+  if(src) q+='&source='+encodeURIComponent(src);
+  q+='&strict='+strict;
+  document.getElementById('sendResult').textContent='Versturen naar '+ (src||'ALL (9 bronnen)') +'...';
+  try{
+    const res=await fetch(q);
+    const txt=await res.text();
+    document.getElementById('sendResult').textContent=txt;
+  }catch(e){ document.getElementById('sendResult').textContent='Fout: '+e.message; }
+}
+async function doCron(){
+  document.getElementById('cronResult').textContent='Cron draait voor 9 bronnen...';
+  try{
+    const r=await fetch(PUSH_WORKER_URL+'/cron',{cache:'no-store'});
+    const t=await r.text();
+    document.getElementById('cronResult').textContent=t;
+  }catch(e){ document.getElementById('cronResult').textContent='Fout: '+e.message; }
+}
+loadDebug();
 </script>
 </body>
 </html>
