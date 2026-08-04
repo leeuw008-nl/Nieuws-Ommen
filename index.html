@@ -14,15 +14,15 @@
     .info-icon-btn:hover{background:rgba(255,255,255,0.30)}
     @media(max-width:400px){header h1{font-size:1.4em}}
 
-    /* VASTE BREEDTE: zoekveld en bronselectie exact gelijk */
-    header{padding:0 12px;box-sizing:border-box}
-    header h1{margin:0 -12px 8px -12px;width:calc(100% + 24px);padding:0 12px;box-sizing:border-box}
-    .search-row{margin:0 0 8px 0;padding:0;box-sizing:border-box;width:100%}
-    .search-row input{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.6);font-size:15px;display:block}
+    /* VASTE BREEDTE - zoekveld en bronselectie exact gelijk */
+    header{padding:0 12px !important;box-sizing:border-box !important;width:100% !important;max-width:100% !important}
+    header h1{margin:0 0 8px 0 !important;width:100% !important;padding:0 !important;box-sizing:border-box !important}
+    .search-row{margin:0 0 8px 0 !important;padding:0 !important;box-sizing:border-box !important;width:100% !important;max-width:100% !important;display:block !important}
+    .search-row input{width:100% !important;max-width:100% !important;box-sizing:border-box !important;padding:10px 12px !important;border-radius:10px !important;border:1px solid rgba(255,255,255,.6) !important;font-size:15px !important;display:block !important;margin:0 !important}
 
-    /* Header bronselectie exact zelfde vaste breedte als zoekveld */
+    /* Header bronselectie exact zelfde vaste breedte als zoekveld - FIX */
     .filter-header{
-        margin:0 0 0 0;box-sizing:border-box;width:100%;
+        margin:0 0 0 0 !important;box-sizing:border-box !important;width:100% !important;max-width:100% !important;
         background:#fff;border:1px solid #e5e7eb;border-radius:12px;
         padding:10px 12px;display:flex;align-items:center;justify-content:space-between;
         cursor:pointer;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:all .15s;gap:8px;
@@ -30,8 +30,7 @@
     .filter-header:active{transform:scale(0.99)}
     .filter-header.open{border-radius:12px 12px 0 0;border-bottom-color:transparent}
     .filter-header-left{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;flex:1;min-width:0;text-align:left;justify-content:flex-start;flex-wrap:wrap;line-height:1.2}
-    .tool-icon{flex-shrink:0;width:16px;text-align:center;font-size:13px;line-height:1}
-    .filter-header-count{font-weight:600;color:#0b5bd3;font-size:12px;white-space:nowrap;flex-shrink:0;background:#eff6ff;padding:2px 6px;border-radius:6px;border:1px solid #bfdbfe}
+    .filter-header-count{font-weight:600;color:#0b5bd3;font-size:12px;white-space:nowrap;flex-shrink:0;background:#eff6ff;padding:2px 6px;border-radius:6px;border:1px solid #bfdbfe;order:1}
     @media(max-width:400px){
       .filter-header-left{font-size:12px}
       .filter-header-count{font-size:11px}
@@ -53,7 +52,7 @@
     .filter-header.open .filter-header-arrow{transform:rotate(180deg)}
 
     #source-panel{
-        margin:0 0 0 0;width:100%;box-sizing:border-box;background:#fff;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px;
+        margin:0 0 0 0 !important;width:100% !important;max-width:100% !important;box-sizing:border-box !important;background:#fff;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px;
         overflow:hidden;max-height:0;opacity:0;transition:max-height .35s ease, opacity .25s ease;
         box-shadow:0 4px 12px rgba(0,0,0,.06);
     }
@@ -113,7 +112,7 @@
         <input type="text" id="search-input" placeholder="Zoek in nieuws...">
     </div>
     <div class="filter-header" id="filter-header">
-        <div class="filter-header-left"><span class="tool-icon">🔧</span> BRONNEN & FILTERS <span class="filter-header-count" id="header-count">(9 • 9 aan)</span></div>
+        <div class="filter-header-left"><span style="white-space:nowrap">BRONNEN & FILTERS</span> <span class="filter-header-count" id="header-count">(9 • 9 aan)</span></div>
         <div class="filter-header-right">
             <div class="bell-slot" id="bell-slot" title="Notificaties"></div>
             <button class="btn-all-toets" id="btn-all">Alles aan/uit</button>
@@ -286,7 +285,7 @@ function moveOldBell(){
     }
     if(el.closest('#filter-header') && !el.closest('#bell-slot')) {
       // als bel al in filter-header zit maar niet in slot, verplaats naar slot
-      if(!el.classList.contains('btn-all-toets') && !el.classList.contains('filter-header-arrow') && !el.classList.contains('tool-icon')){
+      if(!el.classList.contains('btn-all-toets') && !el.classList.contains('filter-header-arrow') && false){
         const txt = (el.textContent||'').toLowerCase();
         if(el!==filterHeader && !el.closest('.filter-header-left')){
           // verplaats alleen echte bel, niet de hele header
