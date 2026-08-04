@@ -14,13 +14,13 @@
     .info-icon-btn:hover{background:rgba(255,255,255,0.30)}
     @media(max-width:400px){header h1{font-size:1.4em}}
 
-    /* Zoekbalk - gelijke ruimte links/rechts (12px) */
-    .search-row{padding:0 12px 8px 12px;box-sizing:border-box}
-    .search-row input{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.6);font-size:15px}
+    /* Zoekbalk en bronselectie exact zelfde vaste breedte - 12px links/rechts */
+    .search-row{margin:0 12px 8px 12px;padding:0;box-sizing:border-box;width:calc(100% - 24px)}
+    .search-row input{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.6);font-size:15px;display:block}
 
-    /* Header bronselectie even breed als zoekbalk */
+    /* Header bronselectie even breed als zoekbalk - zelfde 12px marges */
     .filter-header{
-        margin:8px 12px 0 12px;
+        margin:0 12px 0 12px;box-sizing:border-box;width:calc(100% - 24px);
         background:#fff;border:1px solid #e5e7eb;border-radius:12px;
         padding:10px 12px;display:flex;align-items:center;justify-content:space-between;
         cursor:pointer;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:all .15s;gap:8px;
@@ -36,15 +36,18 @@
     .bell-slot > *{width:32px !important;height:32px !important;display:flex !important;align-items:center !important;justify-content:center !important;background:#f8fafc !important;border:1px solid #e5e7eb !important;border-radius:8px !important}
 
     .btn-all-toets{
-        font-size:11px;font-weight:700;color:#0b5bd3;background:#eff6ff;border:1px solid #bfdbfe;
+        font-size:11px;font-weight:800;color:#0b5bd3;background:#eff6ff;border:1px solid #bfdbfe;
         padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;
-        margin-right:14px;transition:all .15s;
+        margin-right:14px;transition:all .2s;min-width:90px;text-align:center;
     }
+    .btn-all-toets.all-on{background:#dcfce7 !important;border-color:#86efac !important;color:#166534 !important}
+    .btn-all-toets.all-off{background:#fee2e2 !important;border-color:#fca5a5 !important;color:#991b1b !important}
+    .btn-all-toets.some-on{background:#fef9c3 !important;border-color:#fde68a !important;color:#854d0e !important}
     .filter-header-arrow{font-size:14px;transition:transform .2s;color:#6b7280;flex-shrink:0}
     .filter-header.open .filter-header-arrow{transform:rotate(180deg)}
 
     #source-panel{
-        margin:0 12px;background:#fff;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px;
+        margin:0 12px;width:calc(100% - 24px);box-sizing:border-box;background:#fff;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px;
         overflow:hidden;max-height:0;opacity:0;transition:max-height .35s ease, opacity .25s ease;
         box-shadow:0 4px 12px rgba(0,0,0,.06);
     }
@@ -233,7 +236,16 @@ function render(){
 }
 function updateHeaderCount(){
   const aan = Object.values(state).filter(s=>s.aan).length;
-  document.getElementById('header-count').textContent = `(${BRONNEN.length} • ${aan} aan)`;
+  const countEl = document.getElementById('header-count');
+  if(countEl) countEl.textContent = `(${BRONNEN.length} • ${aan} aan)`;
+  // knop kleur rood bij alles uit, groen bij alles aan
+  const btn = document.getElementById('btn-all');
+  if(btn){
+    btn.classList.remove('all-on','all-off','some-on');
+    if(aan===BRONNEN.length){ btn.classList.add('all-on'); btn.textContent='Alles aan'; }
+    else if(aan===0){ btn.classList.add('all-off'); btn.textContent='Alles uit'; }
+    else { btn.classList.add('some-on'); btn.textContent='Alles aan/uit'; }
+  }
 }
 function openPanel(){ document.getElementById('filter-header').classList.add('open'); document.getElementById('source-panel').classList.add('open'); }
 function closePanel(){ document.getElementById('filter-header').classList.remove('open'); document.getElementById('source-panel').classList.remove('open'); }
@@ -255,12 +267,48 @@ document.getElementById('filter-header').addEventListener('click', (e)=>{
 function moveOldBell(){
   const slot = document.getElementById('bell-slot');
   if(!slot) return;
-  const candidates = document.querySelectorAll('header [id*="push" i], header [class*="push" i], header [id*="bell" i], header [class*="bell" i], header button[title*="notificatie" i], header button[title*="melding" i]');
+  // Zoek alle mogelijke bellen in header, ook die tussen zoekveld en bronselectie
+  const header = document.querySelector('header');
+  const searchRow = document.querySelector('.search-row');
+  const filterHeader = document.getElementById('filter-header');
+  const candidates = header.querySelectorAll('button, [id*="push" i], [class*="push" i], [id*="bell" i], [class*="bell" i], [id*="notif" i]');
   candidates.forEach(el=>{
-    if(el.closest('#bell-slot') || el.closest('.search-row')) return;
+    if(el.closest('#bell-slot')) return;
+    if(el.closest('.search-row') && el.tagName!=='INPUT') {
+      // bel die per ongeluk in search-row zit -> naar header
+      if(el.id==='search-input') return;
+    }
+    if(el.closest('#filter-header') && !el.closest('#bell-slot')) {
+      // als bel al in filter-header zit maar niet in slot, verplaats naar slot
+      if(!el.classList.contains('btn-all-toets') && !el.classList.contains('filter-header-arrow') && !el.classList.contains('tool-icon')){
+        const txt = (el.textContent||'').toLowerCase();
+        if(el!==filterHeader && !el.closest('.filter-header-left')){
+          // verplaats alleen echte bel, niet de hele header
+          if(txt.includes('🔔') || el.innerHTML.includes('🔔') || el.id.toLowerCase().includes('push') || el.className.toLowerCase().includes('push') || el.className.toLowerCase().includes('bell')){
+            slot.appendChild(el);
+          }
+        }
+      }
+      return;
+    }
+    // bel die los tussen search en filter hangt
+    const isBetween = searchRow && filterHeader && header.contains(el) && 
+      (el.compareDocumentPosition(searchRow) & Node.DOCUMENT_POSITION_FOLLOWING) &&
+      (el.compareDocumentPosition(filterHeader) & Node.DOCUMENT_POSITION_PRECEDING);
     const txt = (el.textContent + ' ' + (el.innerHTML||'')).toLowerCase();
-    if(txt.includes('🔔') || el.id.toLowerCase().includes('push') || el.className.toLowerCase().includes('bell') || txt.includes('push')){
-      slot.appendChild(el);
+    const isBell = txt.includes('🔔') || el.id.toLowerCase().includes('push') || el.className.toLowerCase().includes('bell') || el.className.toLowerCase().includes('push') || txt.includes('notificatie') || txt.includes('push');
+    if(isBell || isBetween){
+      if(isBell) slot.appendChild(el);
+      else if(el.tagName==='BUTTON' && el.textContent.trim().length<5) slot.appendChild(el);
+    }
+  });
+  // Als er nog een bel direct als child van header tussen search en filter staat
+  Array.from(header.children).forEach(child=>{
+    if(child===searchRow || child===filterHeader || child.querySelector('#search-input') || child.id==='compat-hidden') return;
+    if(child.classList.contains('filter-header') || child.classList.contains('search-row')) return;
+    const txt = child.textContent||'';
+    if(txt.includes('🔔') || child.innerHTML.includes('🔔') || child.id.toLowerCase().includes('bell') || child.id.toLowerCase().includes('push')){
+      slot.appendChild(child);
     }
   });
 }
