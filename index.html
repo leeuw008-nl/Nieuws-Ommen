@@ -14,22 +14,33 @@
     .info-icon-btn:hover{background:rgba(255,255,255,0.30)}
     @media(max-width:400px){header h1{font-size:1.4em}}
 
-    .search-row{display:flex;align-items:center;gap:8px;padding:0 12px 8px 12px}
-    .search-row input{flex:1;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.6);font-size:15px}
-    /* oude bel uit push.js wordt hierheen verplaatst */
-    .search-row .push-bell-compat{width:42px;height:42px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+    .search-row{padding:0 12px 8px 12px}
+    .search-row input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.6);font-size:15px}
 
-    /* FILTER HEADER */
+    /* FILTER HEADER met bel erin */
     .filter-header{
         margin:4px 12px 0 12px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;
-        padding:12px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;
-        user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:all .15s;
+        padding:10px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;
+        user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:all .15s;gap:8px;
     }
     .filter-header:active{transform:scale(0.99)}
     .filter-header.open{border-radius:12px 12px 0 0;border-bottom-color:transparent}
-    .filter-header-left{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px}
+    .filter-header-left{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;flex:1;text-align:left;justify-content:flex-start}
     .filter-header-count{font-weight:400;color:#6b7280;font-size:12px}
-    .filter-header-arrow{font-size:14px;transition:transform .2s;color:#6b7280}
+    .filter-header-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+    .bell-slot{display:flex;align-items:center;justify-content:center;min-width:32px;min-height:32px}
+    .bell-slot:empty::after{content:"🔔";opacity:.3;font-size:16px}
+    /* oude bel styling als hij hierheen verplaatst wordt */
+    .bell-slot > *{width:36px !important;height:36px !important;display:flex !important;align-items:center !important;justify-content:center !important;background:#f8fafc !important;border:1px solid #e5e7eb !important;border-radius:8px !important}
+
+    .btn-all-toets{
+        font-size:11px;font-weight:700;color:#0b5bd3;background:#eff6ff;border:1px solid #bfdbfe;
+        padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;
+        margin-right:12px; /* verder weg van pulldown */
+        transition:all .15s;
+    }
+    .btn-all-toets:active{transform:scale(.95);background:#dbeafe}
+    .filter-header-arrow{font-size:14px;transition:transform .2s;color:#6b7280;flex-shrink:0}
     .filter-header.open .filter-header-arrow{transform:rotate(180deg)}
 
     #source-panel{
@@ -40,14 +51,14 @@
     #source-panel.open{max-height:3000px;opacity:1;}
     .panel-hint{background:#f8fafc;border-bottom:1px solid #f1f5f9;padding:8px 14px;font-size:11px;color:#64748b;line-height:1.4;}
 
-    /* RIJEN - meer ruimte voor volledige naam */
+    /* RIJEN - zonder icoon, namen links */
     .source-list{display:flex;flex-direction:column}
     .source-row{
         display:grid;
         grid-template-columns:1fr 156px;
         align-items:center;
-        gap:10px;
-        padding:12px 12px;
+        gap:12px;
+        padding:11px 12px;
         border-bottom:1px solid #f1f5f9;
         transition:background .12s;
     }
@@ -55,33 +66,27 @@
     .source-row:hover{background:#f8fafc}
     .source-row.off{background:#f9fafb}
     .source-row.off .source-name{color:#9ca3af}
-    .source-meta{display:flex;flex-direction:column;min-width:0}
-    .source-name{font-weight:700;font-size:14px;line-height:1.2;white-space:normal;word-break:break-word;color:#0f172a}
-    .source-sub{font-size:11px;color:#64748b;margin-top:2px}
 
-    /* TOGGLES compact */
+    .source-meta{display:flex;flex-direction:column;min-width:0;align-items:flex-start;text-align:left;justify-content:center}
+    .source-name{font-weight:700;font-size:14px;line-height:1.2;white-space:normal;word-break:break-word;color:#0f172a;text-align:left;width:100%}
+    .source-sub{font-size:11px;color:#64748b;margin-top:2px;text-align:left;width:100%}
+
     .toggles{display:grid;grid-template-columns:48px 52px 52px;gap:4px;align-items:start;justify-content:end}
     .toggle-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;min-height:38px}
     .mini-switch{position:relative;width:32px;height:20px;background:#e5e7eb;border-radius:999px;cursor:pointer;transition:background .2s;border:0;padding:0;display:inline-flex;flex-shrink:0}
     .mini-switch input{display:none}
-    .mini-slider{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .2s, background .2s}
+    .mini-slider{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .2s}
     .mini-switch input:checked + .mini-slider{transform:translateX(12px)}
     .mini-switch.checked.vandaag{background:#0b5bd3}
     .mini-switch.checked.scope-gemeente{background:#0b5bd3}
     .mini-switch.checked.scope-regio{background:#7c3aed}
-    .mini-switch.checked.aan{background:#16a34a !important;box-shadow:0 0 0 2px #dcfce7}
-    .mini-switch.aan{width:32px;height:20px}
+    .mini-switch.checked.aan{background:#16a34a !important}
     .mini-switch:not(.checked).aan{background:#e5e7eb !important;border:1px solid #d1d5db}
     .mini-switch:not(.checked).aan .mini-slider{background:#9ca3af}
     .mini-label{font-size:8px;font-weight:800;letter-spacing:.4px;color:#6b7280;text-transform:uppercase;text-align:center;line-height:1}
     .mini-label.active{color:#0f172a}
     .mini-label.aan-on{color:#16a34a}
     .mini-label.aan-off{color:#9ca3af}
-
-    /* AAN/UIT zelfde hoogte als andere */
-    .toggle-col.aan-col{padding:0;border:0;background:transparent}
-    .source-row.off .toggle-col.aan-col{background:transparent;border-color:transparent}
-    .source-row:not(.off) .toggle-col.aan-col{background:transparent;border-color:transparent}
 
     .panel-footer{padding:10px 12px;display:flex;justify-content:space-between;align-items:center;background:#fff}
     .panel-footer button{font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;cursor:pointer}
@@ -99,16 +104,17 @@
     </div>
     <div class="filter-header" id="filter-header">
         <div class="filter-header-left">🔧 BRONNEN & FILTERS <span class="filter-header-count" id="header-count">(9 • 9 aan)</span></div>
-        <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:11px;color:#0b5bd3;font-weight:600" id="btn-all">Alles aan/uit</span>
+        <div class="filter-header-right">
+            <div class="bell-slot" id="bell-slot" title="Notificaties"></div>
+            <button class="btn-all-toets" id="btn-all">Alles aan/uit</button>
             <span class="filter-header-arrow">▼</span>
         </div>
     </div>
     <div id="source-panel">
-        <div class="panel-hint">Per bron: <b>VANDAAG</b>=alleen vandaag • <b>GEMEENTE</b>=Ommen / <b>REGIO</b>=wijder • <b>AAN</b>=tonen + push. Groen = actief, grijs = uit. Tik header om te sluiten.</div>
+        <div class="panel-hint">Per bron: <b>VANDAAG</b>=alleen vandaag • <b>GEMEENTE</b>=Ommen / <b>REGIO</b>=wijder • <b>AAN</b>=tonen + push. Tik header om te sluiten.</div>
         <div class="source-list" id="source-list"></div>
         <div class="panel-footer">
-            <button onclick="resetFilters()">Reset naar alles aan</button>
+            <button onclick="resetFilters()">Reset</button>
             <button class="primary" onclick="closePanel()">Sluiten ▲</button>
         </div>
     </div>
@@ -125,15 +131,15 @@
 </footer>
 <script>
 const BRONNEN = [
-  {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)', color:'#dc2626', letter:'S'},
-  {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten', color:'#0b5bd3', letter:'G'},
-  {id:'Ommen City', name:'Ommen City', sub:'lokaal nieuws Ommen', color:'#0891b2', letter:'OC'},
-  {id:'OudOmmen', name:'OudOmmen', sub:'artikelen over historie', color:'#92400e', letter:'OO'},
-  {id:'RondOmmen', name:'RondOmmen', sub:'lokaal nieuws', color:'#16a34a', letter:'R'},
-  {id:'RTV Oost', name:'RTV Oost', sub:'regionaal Overijssel', color:'#7c3aed', letter:'O'},
-  {id:'RTV Vechtdal', name:'RTV Vechtdal', sub:'lokaal Vechtdal', color:'#db2777', letter:'V'},
-  {id:'Salland Centraal', name:'Salland Centraal', sub:'regionaal Salland', color:'#ea580c', letter:'SC'},
-  {id:'Vechtdal Centraal', name:'Vechtdal Centraal', sub:'112 & dorpsnieuws', color:'#0f172a', letter:'VC'},
+  {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
+  {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
+  {id:'Ommen City', name:'Ommen City', sub:'lokaal nieuws Ommen'},
+  {id:'OudOmmen', name:'OudOmmen', sub:'artikelen over historie'},
+  {id:'RondOmmen', name:'RondOmmen', sub:'lokaal nieuws'},
+  {id:'RTV Oost', name:'RTV Oost', sub:'regionaal Overijssel'},
+  {id:'RTV Vechtdal', name:'RTV Vechtdal', sub:'lokaal Vechtdal'},
+  {id:'Salland Centraal', name:'Salland Centraal', sub:'regionaal Salland'},
+  {id:'Vechtdal Centraal', name:'Vechtdal Centraal', sub:'112 & dorpsnieuws'},
 ];
 let state = {};
 function loadState(){
@@ -194,7 +200,7 @@ function render(){
           </label>
           <span class="mini-label active">${scopeIsGemeente?'GEMEENTE':'REGIO'}</span>
         </div>
-        <div class="toggle-col aan-col">
+        <div class="toggle-col">
           <label class="mini-switch aan ${s.aan?'checked':''}">
             <input type="checkbox" ${s.aan?'checked':''} data-type="aan" data-id="${b.id}">
             <span class="mini-slider"></span>
@@ -216,11 +222,7 @@ function render(){
       saveState(); render();
       if(window.filterNews) window.filterNews();
       if(window.applyFilters) window.applyFilters();
-      // force refresh news if function exists
-      if(typeof refreshNews==='function' && type==='aan'){
-        // klein delay zodat compat sync klaar is
-        setTimeout(()=>{ try{refreshNews()}catch{} }, 50);
-      }
+      if(typeof refreshNews==='function' && type==='aan'){ setTimeout(()=>{ try{refreshNews()}catch{} }, 50); }
     });
   });
 }
@@ -233,7 +235,8 @@ function closePanel(){ document.getElementById('filter-header').classList.remove
 function resetFilters(){ BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); saveState(); render(); if(window.filterNews) filterNews(); }
 
 document.getElementById('filter-header').addEventListener('click', (e)=>{
-  if(e.target.id==='btn-all' || e.target.closest('#btn-all')){
+  if(e.target.id==='btn-all' || e.target.closest('#btn-all') || e.target.closest('.bell-slot')){
+    if(e.target.closest('.bell-slot')) return; // bel zelf afhandelen
     e.stopPropagation();
     const allOn = Object.values(state).every(s=>s.aan);
     BRONNEN.forEach(b=>state[b.id].aan = !allOn);
@@ -243,36 +246,27 @@ document.getElementById('filter-header').addEventListener('click', (e)=>{
   const p = document.getElementById('source-panel');
   if(p.classList.contains('open')) closePanel(); else openPanel();
 });
-function openPanel(){ document.getElementById('filter-header').classList.add('open'); document.getElementById('source-panel').classList.add('open'); }
-function closePanel(){ document.getElementById('filter-header').classList.remove('open'); document.getElementById('source-panel').classList.remove('open'); }
 
-// VERPLAATS OUDE BEL (uit push.js) naar rechts van zoekveld
-function moveOldBellToSearchRow(){
-  const searchRow = document.querySelector('.search-row');
-  if(!searchRow) return;
-  // zoek alle mogelijke oude bel elementen die push.js kan hebben gemaakt
-  const candidates = document.querySelectorAll('header .bell-btn, header [id*="push" i], header [class*="push" i], header [id*="bell" i], header [class*="bell" i], header button[title*="notificatie" i], header button[title*="melding" i]');
+// VERPLAATS OUDE BEL naar bronselectie header (bell-slot)
+function moveOldBell(){
+  const slot = document.getElementById('bell-slot');
+  if(!slot) return;
+  const candidates = document.querySelectorAll('header [id*="push" i], header [class*="push" i], header [id*="bell" i], header [class*="bell" i], header button[title*="notificatie" i], header button[title*="melding" i], header .bell-btn');
   candidates.forEach(el=>{
-    if(el.id==='bell-btn') return; // onze eigen (bestaat niet meer)
-    if(el.closest('.search-row')) return; // al goed
-    // alleen als het echt een bel is (bevat 🔔 of bell tekst of push)
-    const txt = (el.textContent + ' ' + el.innerHTML).toLowerCase();
-    if(txt.includes('🔔') || txt.includes('bell') || txt.includes('push') || el.id.toLowerCase().includes('push') || el.className.toLowerCase().includes('bell')){
-      el.classList.add('push-bell-compat');
-      searchRow.appendChild(el);
+    if(el.closest('#bell-slot')) return;
+    const txt = (el.textContent + ' ' + (el.innerHTML||'')).toLowerCase();
+    if(txt.includes('🔔') || el.id.toLowerCase().includes('push') || el.className.toLowerCase().includes('bell') || txt.includes('push')){
+      slot.appendChild(el);
     }
   });
-  // soms maakt push.js hem pas later aan -> blijf proberen
 }
 
 loadState(); render(); saveState(); closePanel();
-// probeer meteen en nog een paar keer daarna (push.js laadt async)
-moveOldBellToSearchRow();
-setTimeout(moveOldBellToSearchRow, 300);
-setTimeout(moveOldBellToSearchRow, 1000);
-setTimeout(moveOldBellToSearchRow, 2500);
-// blijf observeren
-const obs = new MutationObserver(()=> moveOldBellToSearchRow());
+moveOldBell();
+setTimeout(moveOldBell, 300);
+setTimeout(moveOldBell, 1000);
+setTimeout(moveOldBell, 2500);
+const obs = new MutationObserver(()=> moveOldBell());
 obs.observe(document.querySelector('header'), {childList:true, subtree:true});
 </script>
 <script src="script.js"></script>
