@@ -13,15 +13,15 @@
     .info-icon-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.45);display:inline-flex;align-items:center;justify-content:center;color:#fff;text-decoration:none;font-weight:900;font-size:26px;line-height:1;flex-shrink:0}
     @media(max-width:400px){header h1{font-size:1.4em}}
 
-    /* VASTE BREEDTE */
-    header{padding:0 12px !important;box-sizing:border-box !important;width:100% !important}
-    header h1{margin:0 0 8px 0 !important;width:100% !important;padding:0 !important;box-sizing:border-box !important}
-    .search-row{margin:0 0 8px 0 !important;padding:0 !important;box-sizing:border-box !important;width:100% !important;display:block !important}
-    .search-row input{width:100% !important;box-sizing:border-box !important;padding:10px 12px !important;border-radius:10px !important;border:1px solid rgba(255,255,255,.6) !important;font-size:15px !important;display:block !important;margin:0 !important}
+    /* VASTE BREEDTE - zoekbalk en bronselectie exact gelijk en gecentreerd */
+    header{padding:0 12px !important;box-sizing:border-box !important;width:100% !important;max-width:640px !important;margin:0 auto !important;display:block !important}
+    header h1{margin:0 auto 8px auto !important;width:100% !important;max-width:100% !important;padding:0 !important;box-sizing:border-box !important;display:flex !important;justify-content:center !important}
+    .search-row{margin:0 auto 8px auto !important;padding:0 !important;box-sizing:border-box !important;width:100% !important;max-width:100% !important;display:block !important}
+    .search-row input{width:100% !important;max-width:100% !important;box-sizing:border-box !important;padding:10px 12px !important;border-radius:10px !important;border:1px solid rgba(255,255,255,.6) !important;font-size:15px !important;display:block !important;margin:0 auto !important;text-align:left !important}
 
-    /* COMPACTE HEADER - icoon helemaal links, verticaal uitgelijnd, lage hoogte */
+    /* COMPACTE HEADER - vaste breedte gelijk aan zoekbalk, gecentreerd */
     .filter-header{
-        margin:0 !important;box-sizing:border-box !important;width:100% !important;
+        margin:0 auto !important;box-sizing:border-box !important;width:100% !important;max-width:100% !important;
         background:#fff;border:1px solid #e5e7eb;border-radius:12px;
         padding:6px 8px !important;display:flex;align-items:center;justify-content:space-between;
         cursor:pointer;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:all .2s;gap:6px;
@@ -57,7 +57,7 @@
     .filter-header.open .filter-header-arrow{transform:rotate(180deg);background:#0f172a;color:#fff;border-color:#0f172a}
 
     #source-panel{
-        margin:0 !important;width:100% !important;box-sizing:border-box !important;background:#fff;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px;
+        margin:0 auto !important;width:100% !important;max-width:100% !important;box-sizing:border-box !important;background:#fff;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px;
         overflow:hidden;max-height:0;opacity:0;transition:max-height .35s ease, opacity .25s ease, box-shadow .25s ease, transform .25s ease;
         box-shadow:0 4px 12px rgba(0,0,0,.06);
         transform:translateY(-2px);
@@ -73,7 +73,7 @@
     .panel-hint div{margin:1px 0}
 
     /* MOOIE OVERGANG - zowel dicht als uitgeklapt zonder extra ruimte */
-    main{padding:0 12px !important;box-sizing:border-box !important;margin:0 !important;width:100% !important;position:relative}
+    main{padding:0 12px !important;box-sizing:border-box !important;margin:0 auto !important;width:100% !important;max-width:640px !important;position:relative}
     #news-container{margin-top:0 !important;padding-top:0 !important;position:relative}
     /* wanneer dicht: kleine schaduw + 8px ruimte, vloeiende naad */
     .filter-header:not(.open){margin-bottom:8px !important;box-shadow:0 2px 6px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04)}
