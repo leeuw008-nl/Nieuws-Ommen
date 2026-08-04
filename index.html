@@ -69,7 +69,7 @@
     .source-list{display:flex;flex-direction:column}
     .source-row{
         display:grid;
-        grid-template-columns:40px 1fr 210px;
+        grid-template-columns:40px 1fr 150px;
         align-items:center;
         gap:10px;
         padding:10px 12px;
@@ -87,16 +87,16 @@
         font-weight:800;font-size:14px;color:#fff;flex-shrink:0;
     }
     .source-meta{display:flex;flex-direction:column;min-width:0}
-    .source-name{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .source-name{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:visible;text-overflow:clip}
     .source-sub{font-size:11px;color:#64748b;margin-top:1px}
 
     /* 3 TOGGLES - vaste breedte, icons blijven stabiel */
-    .toggles{display:grid;grid-template-columns:70px 70px 60px;gap:6px;align-items:start}
+    .toggles{display:grid;grid-template-columns:52px 52px 44px;gap:2px;align-items:start;justify-content:end}
     .toggle-col{display:flex;flex-direction:column;align-items:center;gap:4px}
-    .mini-switch{position:relative;width:36px;height:22px;background:#e5e7eb;border-radius:999px;cursor:pointer;transition:background .2s;border:0;padding:0;display:inline-flex}
+    .mini-switch{position:relative;width:32px;height:20px;background:#e5e7eb;border-radius:999px;cursor:pointer;transition:background .2s;border:0;padding:0;display:inline-flex}
     .mini-switch input{display:none}
-    .mini-slider{position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .2s}
-    .mini-switch input:checked + .mini-slider{transform:translateX(14px)}
+    .mini-slider{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .2s}
+    .mini-switch input:checked + .mini-slider{transform:translateX(12px)}
     /* kleuren per type als aan */
     .mini-switch.vandaag input:checked ~ .mini-slider-bg,
     .mini-switch.vandaag.checked{background:#0b5bd3}
@@ -106,7 +106,7 @@
     .mini-switch.aan.checked{background:#16a34a}
     .mini-switch.checked{background:#0b5bd3}
     .toggle-col .mini-switch{transition:.2s}
-    .mini-label{font-size:9.5px;font-weight:700;letter-spacing:.4px;color:#6b7280;text-transform:uppercase;text-align:center;line-height:1}
+    .mini-label{font-size:8.5px;white-space:nowrap;font-weight:700;letter-spacing:.4px;color:#6b7280;text-transform:uppercase;text-align:center;line-height:1}
     .mini-label.active{color:#0f172a}
 
     .panel-footer{padding:10px 12px;display:flex;justify-content:space-between;align-items:center;background:#fff}
