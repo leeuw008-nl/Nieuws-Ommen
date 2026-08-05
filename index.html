@@ -39,6 +39,7 @@
     .bell-slot{display:flex !important;align-items:center !important;justify-content:center !important;min-width:42px !important;min-height:28px !important;width:42px !important}
     .bell-slot:empty::after{content:"🔔";opacity:.25;font-size:18px}
     .bell-slot > *{width:42px !important;height:28px !important;min-width:42px !important;min-height:28px !important;display:flex !important;align-items:center !important;justify-content:center !important;background:#fff;border:1px solid #e5e7eb !important;border-radius:8px !important;font-size:20px !important;line-height:1 !important;padding:0 4px !important} #bell-slot button, #bell-slot [id*="push"], #bell-slot [class*="push"], #bell-slot [id*="bell"], #bell-slot [class*="bell"]{width:42px !important;min-width:42px !important;font-size:20px !important}
+    .bell-slot > *.enabled, .bell-slot > *.active, #bell-slot button.enabled, #bell-slot button.active, #bell-slot button[aria-pressed="true"]{background:#e8ffea !important;background-color:#e8ffea !important;border:1px solid #a7f3d0 !important;border-color:#a7f3d0 !important;color:#065f46 !important;opacity:1 !important}
     .btn-all-toets{
         font-size:11px;font-weight:700;background:#e8ffea;border:1px solid #a7f3d0;color:#065f46;
         padding:4px 10px !important;border-radius:999px;cursor:pointer;white-space:nowrap;
