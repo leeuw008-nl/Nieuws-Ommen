@@ -1,6 +1,13 @@
-// push.js - GEISOLEERDE push logica - v12 - 9 BRONNEN - GEEN opmaak wijziging
+// push.js - GEISOLEERDE push logica - v13 - 9 BRONNEN - BEL LICHTGROEN BIJ AAN
 const PUSH_WORKER_URL = 'https://ommen-push-v2.leeuw008.workers.dev';
 const ALLE_BRONNEN = ["De Stentor","Gemeente Ommen","Ommen City","OudOmmen","RondOmmen","RTV Oost","RTV Vechtdal","Salland Centraal","Vechtdal Centraal"];
+
+// KLEUREN - lichter groen gelijk aan Alles aan knop
+const LIGHT_GREEN_BG = '#d6ffdf';
+const LIGHT_GREEN_BORDER = '#86efac';
+const LIGHT_GREEN_TEXT = '#065f46';
+const WHITE_BG = '#ffffff';
+const DEFAULT_BORDER = '#e5e7eb';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -20,14 +27,42 @@ async function getVapidPublicKey() {
 async function updatePushBell() {
   const target = document.getElementById('bell-slot')?.querySelector('button') || document.getElementById('push-bell') || document.getElementById('push-toggle');
   if(!target) return;
-  if(!('Notification' in window) || !('serviceWorker' in navigator)){ target.textContent='🔕'; return; }
-  if(Notification.permission==='denied'){ target.textContent='🔕'; target.title='Meldingen geblokkeerd'; return; }
+  if(!('Notification' in window) || !('serviceWorker' in navigator)){ 
+    target.textContent='🔕'; 
+    target.style.setProperty('background', WHITE_BG, 'important');
+    target.style.setProperty('background-color', WHITE_BG, 'important');
+    return; 
+  }
+  if(Notification.permission==='denied'){ 
+    target.textContent='🔕'; 
+    target.title='Meldingen geblokkeerd'; 
+    target.style.setProperty('background', WHITE_BG, 'important');
+    target.style.setProperty('background-color', WHITE_BG, 'important');
+    target.style.setProperty('border-color', DEFAULT_BORDER, 'important');
+    return; 
+  }
   try{
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
     target.textContent = sub ? '🔔' : '🔕';
     target.style.opacity = sub ? '1' : '0.6';
     target.title = sub ? `Meldingen aan (${ALLE_BRONNEN.length} bronnen)` : 'Meldingen uit';
+    // *** NIEUW: achtergrondkleur lichter groen bij aan, wit bij uit ***
+    if(sub){
+      target.style.setProperty('background', LIGHT_GREEN_BG, 'important');
+      target.style.setProperty('background-color', LIGHT_GREEN_BG, 'important');
+      target.style.setProperty('border-color', LIGHT_GREEN_BORDER, 'important');
+      target.style.setProperty('color', LIGHT_GREEN_TEXT, 'important');
+      target.classList.add('enabled','active');
+      target.setAttribute('aria-pressed','true');
+    } else {
+      target.style.setProperty('background', WHITE_BG, 'important');
+      target.style.setProperty('background-color', WHITE_BG, 'important');
+      target.style.setProperty('border-color', DEFAULT_BORDER, 'important');
+      target.style.removeProperty('color');
+      target.classList.remove('enabled','active');
+      target.setAttribute('aria-pressed','false');
+    }
   }catch{}
 }
 function getSelectedSources(){
@@ -41,7 +76,6 @@ function getSelectedSources(){
   try{
     const s = JSON.parse(localStorage.getItem('ommen_selected_sources')||'[]');
     if(Array.isArray(s) && s.length>0){
-      // als oude lijst 7 bevat, upgrade naar 9 als alles aan was
       if(s.length===7 && !s.includes('RondOmmen')){
         return [...ALLE_BRONNEN];
       }
