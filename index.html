@@ -110,8 +110,9 @@
     .toggle-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2px;min-height:32px}
     .mini-switch{position:relative;width:32px;height:20px;background:#e5e7eb;border-radius:999px;cursor:pointer;transition:background .2s;border:0;padding:0;display:inline-flex;flex-shrink:0}
     .mini-switch input{display:none}
-    .mini-slider{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .2s}
-    .mini-switch input:checked + .mini-slider{transform:translateX(12px)}
+    /* OMGEDRAAID: VANDAAG / GEMEENTE / AAN = LINKS */
+    .mini-slider{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .2s;transform:translateX(12px)}
+    .mini-switch input:checked + .mini-slider{transform:translateX(0px)}
     .mini-switch.checked.vandaag{background:#0b5bd3}
     .mini-switch.checked.scope-gemeente{background:#0b5bd3}
     .mini-switch.checked.scope-regio{background:#7c3aed}
