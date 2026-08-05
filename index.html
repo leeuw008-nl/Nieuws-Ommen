@@ -36,9 +36,9 @@
     .filter-header-center{flex:1;display:flex;justify-content:center;align-items:center}
     .filter-header-count{font-weight:600;color:#1d4ed8;font-size:11px;white-space:nowrap;background:#eff6ff;padding:4px 10px;border-radius:999px;border:1px solid #bfdbfe;line-height:1;height:28px;min-height:28px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center}
     .filter-header-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
-    .bell-slot{display:flex;align-items:center;justify-content:center;min-width:28px;min-height:28px}
-    .bell-slot:empty::after{content:"🔔";opacity:.25;font-size:14px}
-    .bell-slot > *{width:28px !important;height:28px !important;min-width:28px !important;min-height:28px !important;display:flex !important;align-items:center !important;justify-content:center !important;background:#fff !important;border:1px solid #e5e7eb !important;border-radius:8px !important;font-size:14px !important;line-height:1 !important;padding:0 !important}
+    .bell-slot{display:flex !important;align-items:center !important;justify-content:center !important;min-width:42px !important;min-height:28px !important;width:42px !important}
+    .bell-slot:empty::after{content:"🔔";opacity:.25;font-size:18px}
+    .bell-slot > *{width:42px !important;height:28px !important;min-width:42px !important;min-height:28px !important;display:flex !important;align-items:center !important;justify-content:center !important;background:#fff !important;border:1px solid #e5e7eb !important;border-radius:8px !important;font-size:20px !important;line-height:1 !important;padding:0 4px !important} #bell-slot button, #bell-slot [id*="push"], #bell-slot [class*="push"], #bell-slot [id*="bell"], #bell-slot [class*="bell"]{width:42px !important;min-width:42px !important;font-size:20px !important}
     .btn-all-toets{
         font-size:11px;font-weight:700;background:#dcfce7;border:1px solid #86efac;color:#166534;
         padding:4px 10px !important;border-radius:999px;cursor:pointer;white-space:nowrap;
@@ -122,6 +122,10 @@
     .panel-footer{padding:8px 10px;display:flex;justify-content:space-between;align-items:center;background:#fff;border-top:2px solid #0b5bd3}
     .panel-footer button{font-size:11px;padding:5px 9px;border-radius:7px;border:1px solid #e5e7eb;background:#fff;cursor:pointer}
     .panel-footer button.primary{background:#0f172a;color:#fff;border-color:#0f172a;font-weight:600}
+    /* FORCE BREDERE BEL - overschrijft push.js inline styles */
+    #bell-slot{width:42px !important;min-width:42px !important}
+    #bell-slot *{width:42px !important;min-width:42px !important;font-size:20px !important}
+    #bell-slot button{padding:0 6px !important}
     </style>
 </head>
 <body>
@@ -134,7 +138,7 @@
         <input type="text" id="search-input" placeholder="Zoek in nieuws...">
     </div>
     <div class="filter-header" id="filter-header">
-        <div class="filter-header-center"><span class="filter-header-count" id="header-count">(9 v/d 9 bronnen ingeschakeld)</span></div>
+        <div class="filter-header-center"><span class="filter-header-count" id="header-count">9 v/d 9 bronnen ingeschakeld</span></div>
         <div class="filter-header-right">
             <div class="bell-slot" id="bell-slot"></div>
             <button class="btn-all-toets" id="btn-all">Alles aan</button>
@@ -283,7 +287,7 @@ function render(){
 function updateHeaderCount(){
   const aan = Object.values(state).filter(s=>s.aan).length;
   const countEl = document.getElementById('header-count');
-  if(countEl) countEl.textContent = `(${aan} v/d ${BRONNEN.length} bronnen ingeschakeld)`;
+  if(countEl) countEl.textContent = `${aan} v/d ${BRONNEN.length} bronnen ingeschakeld`;
   const btn = document.getElementById('btn-all');
   if(btn){
     btn.classList.remove('all-on','all-off','some-on');
