@@ -284,7 +284,7 @@ function render(){
 function updateHeaderCount(){
   const aan = Object.values(state).filter(s=>s.aan).length;
   const countEl = document.getElementById('header-count');
-  if(countEl) countEl.textContent = `(${BRONNEN.length} • ${aan} aan)`;
+  if(countEl) countEl.textContent = `(${aan} v/d ${BRONNEN.length} bronnen ingeschakeld)`;
   const btn = document.getElementById('btn-all');
   if(btn){
     btn.classList.remove('all-on','all-off','some-on');
