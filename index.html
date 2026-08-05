@@ -38,13 +38,13 @@
     .filter-header-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
     .bell-slot{display:flex !important;align-items:center !important;justify-content:center !important;min-width:42px !important;min-height:28px !important;width:42px !important}
     .bell-slot:empty::after{content:"🔔";opacity:.25;font-size:18px}
-    .bell-slot > *{width:42px !important;height:28px !important;min-width:42px !important;min-height:28px !important;display:flex !important;align-items:center !important;justify-content:center !important;background:#fff !important;border:1px solid #e5e7eb !important;border-radius:8px !important;font-size:20px !important;line-height:1 !important;padding:0 4px !important} #bell-slot button, #bell-slot [id*="push"], #bell-slot [class*="push"], #bell-slot [id*="bell"], #bell-slot [class*="bell"]{width:42px !important;min-width:42px !important;font-size:20px !important}
+    .bell-slot > *{width:42px !important;height:28px !important;min-width:42px !important;min-height:28px !important;display:flex !important;align-items:center !important;justify-content:center !important;background:#fff;border:1px solid #e5e7eb !important;border-radius:8px !important;font-size:20px !important;line-height:1 !important;padding:0 4px !important} #bell-slot button, #bell-slot [id*="push"], #bell-slot [class*="push"], #bell-slot [id*="bell"], #bell-slot [class*="bell"]{width:42px !important;min-width:42px !important;font-size:20px !important}
     .btn-all-toets{
-        font-size:11px;font-weight:700;background:#dcfce7;border:1px solid #86efac;color:#166534;
+        font-size:11px;font-weight:700;background:#e8ffea;border:1px solid #a7f3d0;color:#065f46;
         padding:4px 10px !important;border-radius:999px;cursor:pointer;white-space:nowrap;
         margin:0 !important;min-width:78px;height:28px;display:inline-flex;align-items:center;justify-content:center;line-height:1;transition:all .2s;
     }
-    .btn-all-toets.all-on{background:#dcfce7 !important;border-color:#86efac !important;color:#166534 !important}
+    .btn-all-toets.all-on{background:#e8ffea !important;border-color:#a7f3d0 !important;color:#065f46 !important}
     .btn-all-toets.all-off{background:#fee2e2 !important;border-color:#fca5a5 !important;color:#991b1b !important}
     .btn-all-toets.some-on{background:#fef9c3 !important;border-color:#fde68a !important;color:#854d0e !important}
     .filter-header-arrow{
@@ -127,6 +127,14 @@
     #bell-slot *{width:42px !important;min-width:42px !important;font-size:20px !important}
     #bell-slot button{padding:0 6px !important}
     </style>
+
+<style id="definitief-lichter-groen">
+/* DEFINITIEF: Alleen Alles aan lichter groen, Alles uit blijft rood, Alles aan/uit blijft geel */
+#btn-all.btn-all-toets.all-on{background:#e8ffea !important;background-color:#e8ffea !important;border-color:#a7f3d0 !important;color:#065f46 !important}
+/* Bel aan = zelfde lichtgroen - wordt ook via push.js gezet */
+#bell-slot button.enabled, #bell-slot button.active, #bell-slot button[aria-pressed="true"]{background:#e8ffea !important;background-color:#e8ffea !important;border-color:#a7f3d0 !important;color:#065f46 !important}
+</style>
+
 </head>
 <body>
 <header>
