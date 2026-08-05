@@ -34,7 +34,7 @@
     .filter-header-left{display:flex;align-items:center;flex-shrink:0}
     .tool-icon-left{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;flex-shrink:0}
     .filter-header-center{flex:1;display:flex;justify-content:center;align-items:center}
-    .filter-header-count{font-weight:600;color:#1d4ed8;font-size:12px;white-space:nowrap;background:#eff6ff;padding:3px 8px;border-radius:999px;border:1px solid #bfdbfe;line-height:1}
+    .filter-header-count{font-weight:600;color:#1d4ed8;font-size:11px;white-space:nowrap;background:#eff6ff;padding:4px 10px;border-radius:999px;border:1px solid #bfdbfe;line-height:1;height:28px;min-height:28px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center}
     .filter-header-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
     .bell-slot{display:flex;align-items:center;justify-content:center;min-width:28px;min-height:28px}
     .bell-slot:empty::after{content:"🔔";opacity:.25;font-size:14px}
@@ -134,8 +134,7 @@
         <input type="text" id="search-input" placeholder="Zoek in nieuws...">
     </div>
     <div class="filter-header" id="filter-header">
-        <div class="filter-header-left"><span class="tool-icon-left">🔧</span></div>
-        <div class="filter-header-center"><span class="filter-header-count" id="header-count">(9 • 9 aan)</span></div>
+        <div class="filter-header-center"><span class="filter-header-count" id="header-count">(9 v/d 9 bronnen ingeschakeld)</span></div>
         <div class="filter-header-right">
             <div class="bell-slot" id="bell-slot"></div>
             <button class="btn-all-toets" id="btn-all">Alles aan</button>
