@@ -128,11 +128,34 @@
     #bell-slot button{padding:0 6px !important}
     </style>
 
-<style id="definitief-lichter-groen">
-/* DEFINITIEF: Alleen Alles aan lichter groen, Alles uit blijft rood, Alles aan/uit blijft geel */
-#btn-all.btn-all-toets.all-on{background:#e8ffea !important;background-color:#e8ffea !important;border-color:#a7f3d0 !important;color:#065f46 !important}
-/* Bel aan = zelfde lichtgroen - wordt ook via push.js gezet */
-#bell-slot button.enabled, #bell-slot button.active, #bell-slot button[aria-pressed="true"]{background:#e8ffea !important;background-color:#e8ffea !important;border-color:#a7f3d0 !important;color:#065f46 !important}
+<style id="definitief-lichter-groen-v2">
+/* DEFINITIEF v2: Alles aan + Bel AAN 100% identiek qua achtergrond + rand + tekstkleur */
+#btn-all.btn-all-toets.all-on{
+  background:#e8ffea !important;
+  background-color:#e8ffea !important;
+  border:1px solid #a7f3d0 !important;
+  border-color:#a7f3d0 !important;
+  color:#065f46 !important;
+}
+/* Bel AAN exact zelfde rand en achtergrond */
+#bell-slot button.enabled, 
+#bell-slot button.active, 
+#bell-slot button[aria-pressed="true"],
+#bell-slot > *.enabled,
+#bell-slot > *.active {
+  background:#e8ffea !important;
+  background-color:#e8ffea !important;
+  border:1px solid #a7f3d0 !important;
+  border-color:#a7f3d0 !important;
+  color:#065f46 !important;
+  box-shadow:none !important;
+}
+/* Bel UIT = wit met grijze rand */
+#bell-slot button:not(.enabled):not(.active):not([aria-pressed="true"]){
+  background:#fff !important;
+  background-color:#fff !important;
+  border:1px solid #e5e7eb !important;
+}
 </style>
 
 </head>
