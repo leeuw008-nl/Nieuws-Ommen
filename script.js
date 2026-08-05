@@ -412,30 +412,108 @@ function updatePushButton() {
 function ensureBanner() {
     if(document.getElementById('new-articles-banner')) return;
     const style = document.createElement('style');
-    style.textContent = `#new-articles-banner{position:sticky;top:0;z-index:999;background:#ffcc00;color:#000;padding:10px 14px;border-radius:6px;margin:10px 0;display:none;align-items:center;justify-content:space-between;gap:10px;font-weight:600}
-        #new-articles-banner button{border:none;padding:6px 12px;border-radius:4px;cursor:pointer}`;
+    style.textContent = `#new-articles-banner{position:sticky;top:0;z-index:999;background:#ffcc00;color:#000;padding:10px 14px;border-radius:6px;margin:10px 0;display:none;align-items:center;justify-content:space-between;gap:10px;font-weight:600;cursor:pointer}
+        #new-articles-banner button{border:none;padding:6px 12px;border-radius:4px;cursor:pointer}
+        #new-articles-banner:hover{background:#ffdb4d}`;
     document.head.appendChild(style);
     const banner = document.createElement('div');
     banner.id='new-articles-banner';
-    banner.innerHTML=`<span id="new-articles-text"></span><span><button id="banner-reload">Vernieuwen</button><button id="banner-close" style="background:transparent">✕</button></span>`;
+    banner.innerHTML=`<span id="new-articles-text" style="flex:1"></span><span><button id="banner-view">Bekijken</button><button id="banner-close" style="background:transparent">✕</button></span>`;
     const container = document.getElementById('news-container');
     if(container?.parentNode) container.parentNode.insertBefore(banner, container);
-    document.getElementById('banner-reload').onclick=()=>{banner.style.display='none'; refreshNews();};
-    document.getElementById('banner-close').onclick=()=>banner.style.display='none';
+    // Klik op banner of Bekijken -> scroll naar eerste nieuwe artikel, niet meteen refreshen
+    const handleView = ()=>{
+        const firstNew = document.querySelector('.article.is-new');
+        if(firstNew){
+            firstNew.scrollIntoView({behavior:'smooth', block:'center'});
+            firstNew.style.outline='4px solid #0a7a3d';
+            firstNew.style.outlineOffset='4px';
+            setTimeout(()=>{ firstNew.style.outline=''; }, 4000);
+        } else {
+            refreshNews();
+        }
+        // markeer als gezien na bekijken
+        const seen = getSeenLinks();
+        const currentNew = window._lastNewLinks || [];
+        currentNew.forEach(l=>seen.add(l));
+        saveSeenLinks(seen);
+        banner.style.display='none';
+    };
+    banner.querySelector('#new-articles-text').onclick = handleView;
+    document.getElementById('banner-view').onclick=(e)=>{ e.stopPropagation(); handleView(); };
+    document.getElementById('banner-close').onclick=(e)=>{ e.stopPropagation(); 
+        const seen = getSeenLinks();
+        const currentNew = window._lastNewLinks || [];
+        currentNew.forEach(l=>seen.add(l));
+        saveSeenLinks(seen);
+        banner.style.display='none'; 
+    };
+    banner.onclick = handleView;
 }
 
 function getSeenLinks(){ try{ return new Set(JSON.parse(localStorage.getItem(LS_SEEN_KEY)||"[]")); }catch{ return new Set(); } }
-function saveSeenLinks(links){ localStorage.setItem(LS_SEEN_KEY, JSON.stringify([...links].slice(0,200))); }
+function saveSeenLinks(links){ localStorage.setItem(LS_SEEN_KEY, JSON.stringify([...links].slice(0,300))); }
+
+// Filter voor banner: respecteer bron-selectie + vandaag/gemeente
+function getFilteredForBanner(articles){
+    let filtered=[...articles];
+    try{
+        const gekozen = Array.from(document.querySelectorAll(".source-filter:checked")).map(b=>b.value);
+        if(gekozen.length>0){
+            filtered = filtered.filter(a=>gekozen.includes(a.source));
+        }
+        const raw = localStorage.getItem('nieuwsommen_bronnen_v2');
+        if(raw){
+            const state=JSON.parse(raw);
+            const todayStart=new Date(); todayStart.setHours(0,0,0,0);
+            const todayEnd=new Date(); todayEnd.setHours(23,59,59,999);
+            filtered = filtered.filter(a=>{
+                const cfg=state[a.source];
+                if(!cfg) return true;
+                if(cfg.scope==='gemeente'){
+                    if(a.source!=='Gemeente Ommen' && !isOmmenNieuws(a)) return false;
+                }
+                if(cfg.vandaag){
+                    const ts=a.timestamp||0;
+                    if(!ts) return true;
+                    if(ts < todayStart.getTime() || ts > todayEnd.getTime()) return false;
+                }
+                return true;
+            });
+        }
+    }catch(e){}
+    return filtered;
+}
+
 function checkForNewArticles(currentArticles){
     const seen = getSeenLinks();
-    if(seen.size===0){ saveSeenLinks(new Set(currentArticles.map(a=>a.link))); return; }
-    const newOnes = currentArticles.filter(a=>!seen.has(a.link));
+    // filter eerst op basis van selectie
+    const filtered = getFilteredForBanner(currentArticles);
+    if(seen.size===0){ 
+        // eerste keer: markeer alles als gezien, geen banner
+        saveSeenLinks(new Set(filtered.map(a=>a.link))); 
+        return; 
+    }
+    const newOnes = filtered.filter(a=>!seen.has(a.link));
     if(newOnes.length>0){
         ensureBanner();
         const banner = document.getElementById('new-articles-banner');
         const txt = document.getElementById('new-articles-text');
-        if(banner&&txt){ txt.textContent=`🔔 ${newOnes.length} nieuw artikel${newOnes.length>1?'en':''}: ${newOnes[0].title}`; banner.style.display='flex'; }
-        saveSeenLinks(new Set([...seen, ...newOnes.map(a=>a.link)]));
+        window._lastNewLinks = newOnes.map(a=>a.link);
+        if(banner&&txt){ 
+            txt.textContent=`🔔 ${newOnes.length} nieuw artikel${newOnes.length>1?'en':''} (op basis van je bron-selectie): ${newOnes[0].title}`; 
+            banner.style.display='flex'; 
+        }
+        // markeer artikelen als is-new voor scroll
+        setTimeout(()=>{
+            document.querySelectorAll('.article').forEach(div=>{
+                const a=div.querySelector('h2 a');
+                if(a && newOnes.some(n=>n.link===a.href)){
+                    div.classList.add('is-new');
+                }
+            });
+        },500);
+        // NIET meteen opslaan als gezien - pas bij klik op banner of sluiten
     }
 }
 
