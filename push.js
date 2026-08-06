@@ -1,11 +1,9 @@
-// push.js - v16 - GEISOLEERDE push logica - 9 BRONNEN - BEL IDENTIEKE RAND ALS ALLES AAN - LEESBAAR
+// push.js - FINAL - Bel ingeschakeld: rand A7F3D0, achtergrond E8FFEA = zelfde als Alles aan
 const PUSH_WORKER_URL = 'https://ommen-push-v2.leeuw008.workers.dev';
 const ALLE_BRONNEN = ["De Stentor","Gemeente Ommen","Ommen City","OudOmmen","RondOmmen","RTV Oost","RTV Vechtdal","Salland Centraal","Vechtdal Centraal"];
-
-// Kleuren - identiek aan Alles aan knop
-const LIGHT_GREEN_BG = '#e8ffea';
-const LIGHT_GREEN_BORDER = '#a7f3d0';
-const LIGHT_GREEN_TEXT = '#065f46';
+const BELL_BG_NEW = '#E8FFEA';
+const BELL_BORDER_NEW = '#A7F3D0';
+const BELL_TEXT = '#065f46';
 const WHITE_BG = '#ffffff';
 const DEFAULT_BORDER = '#e5e7eb';
 
@@ -22,7 +20,7 @@ async function getVapidPublicKey() {
     const r = await fetch(`${PUSH_WORKER_URL}/vapidPublicKey`, {cache:'no-store'});
     if(!r.ok) throw new Error('no key');
     return (await r.text()).trim();
-  } catch(e){ console.error(e); return null; }
+  } catch(e){ return null; }
 }
 async function updatePushBell() {
   const target = document.getElementById('bell-slot')?.querySelector('button') || document.getElementById('push-bell') || document.getElementById('push-toggle');
@@ -40,7 +38,6 @@ async function updatePushBell() {
     target.style.setProperty('background', WHITE_BG, 'important');
     target.style.setProperty('background-color', WHITE_BG, 'important');
     target.style.setProperty('border', `1px solid ${DEFAULT_BORDER}`, 'important');
-    target.style.setProperty('border-color', DEFAULT_BORDER, 'important');
     return;
   }
   try{
@@ -48,23 +45,18 @@ async function updatePushBell() {
     const sub = await reg.pushManager.getSubscription();
     target.textContent = sub ? '🔔' : '🔕';
     target.style.opacity = sub ? '1' : '0.6';
-    target.title = sub ? `Meldingen aan (${ALLE_BRONNEN.length} bronnen)` : 'Meldingen uit';
     if(sub){
-      // BEL AAN = identiek aan Alles aan: lichtgroen #e8ffea + groene rand #a7f3d0
-      target.style.setProperty('background', LIGHT_GREEN_BG, 'important');
-      target.style.setProperty('background-color', LIGHT_GREEN_BG, 'important');
-      target.style.setProperty('border', `1px solid ${LIGHT_GREEN_BORDER}`, 'important');
-      target.style.setProperty('border-color', LIGHT_GREEN_BORDER, 'important');
-      target.style.setProperty('color', LIGHT_GREEN_TEXT, 'important');
+      target.style.setProperty('background', BELL_BG_NEW, 'important');
+      target.style.setProperty('background-color', BELL_BG_NEW, 'important');
+      target.style.setProperty('border', `1px solid ${BELL_BORDER_NEW}`, 'important');
+      target.style.setProperty('border-color', BELL_BORDER_NEW, 'important');
+      target.style.setProperty('color', BELL_TEXT, 'important');
       target.classList.add('enabled','active');
       target.setAttribute('aria-pressed','true');
     } else {
-      // BEL UIT = wit + grijze rand
       target.style.setProperty('background', WHITE_BG, 'important');
       target.style.setProperty('background-color', WHITE_BG, 'important');
       target.style.setProperty('border', `1px solid ${DEFAULT_BORDER}`, 'important');
-      target.style.setProperty('border-color', DEFAULT_BORDER, 'important');
-      target.style.removeProperty('color');
       target.classList.remove('enabled','active');
       target.setAttribute('aria-pressed','false');
     }
@@ -80,12 +72,7 @@ function getSelectedSources(){
   }catch{}
   try{
     const s = JSON.parse(localStorage.getItem('ommen_selected_sources')||'[]');
-    if(Array.isArray(s) && s.length>0){
-      if(s.length===7 && !s.includes('RondOmmen')){
-        return [...ALLE_BRONNEN];
-      }
-      return s;
-    }
+    if(Array.isArray(s) && s.length>0) return s;
   }catch{}
   return [...ALLE_BRONNEN];
 }
@@ -99,8 +86,7 @@ async function togglePushIsolated(){
       await fetch(`${PUSH_WORKER_URL}/unsubscribe`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({endpoint:sub.endpoint})});
       await sub.unsubscribe();
       localStorage.removeItem('ommen_push_subscribed');
-      alert('Meldingen uitgezet');
-      updatePushBell(); return;
+      alert('Meldingen uitgezet'); updatePushBell(); return;
     }
     const perm = await Notification.requestPermission();
     if(perm!=='granted'){ alert('Toestemming geweigerd'); return; }
@@ -108,48 +94,18 @@ async function togglePushIsolated(){
     let sources = getSelectedSources();
     await fetch(`${PUSH_WORKER_URL}/subscribe`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({endpoint:sub.endpoint, keys:{p256dh:btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''), auth:btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}, sources})});
     localStorage.setItem('ommen_push_subscribed','1');
-    localStorage.setItem('ommen_selected_sources', JSON.stringify(sources));
-    alert(`Meldingen aangezet! 🔔 (${sources.length} bronnen)`);
-    updatePushBell();
-  }catch(e){ console.error(e); alert('Fout: '+e.message); }
-}
-function syncPushSources(){
-  try{
-    const sources = getSelectedSources();
-    localStorage.setItem('ommen_selected_sources', JSON.stringify(sources));
-    navigator.serviceWorker.ready.then(async reg=>{
-      const sub = await reg.pushManager.getSubscription();
-      if(!sub) return;
-      fetch(`${PUSH_WORKER_URL}/subscribe`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({endpoint:sub.endpoint, keys:{p256dh:btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''), auth:btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}, sources})}).catch(()=>{});
-    }).catch(()=>{});
-  }catch{}
+    alert(`Meldingen aangezet! 🔔`); updatePushBell();
+  }catch(e){ alert('Fout: '+e.message); }
 }
 window.addEventListener('load', ()=>{
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.ready.then(()=>updatePushBell()).catch(()=>{});
-  }
-  const bell = document.getElementById('push-bell') || document.getElementById('push-toggle');
-  if(bell) bell.addEventListener('click', togglePushIsolated);
+  if('serviceWorker' in navigator) navigator.serviceWorker.ready.then(()=>updatePushBell()).catch(()=>{});
   const slot = document.getElementById('bell-slot');
   if(slot){
     const obs = new MutationObserver(()=>{
       const btn = slot.querySelector('button');
-      if(btn && !btn._pushBound){
-        btn._pushBound = true;
-        btn.addEventListener('click', (e)=>{ e.stopPropagation(); togglePushIsolated(); });
-        updatePushBell();
-      }
+      if(btn && !btn._pushBound){ btn._pushBound=true; btn.addEventListener('click', e=>{e.stopPropagation(); togglePushIsolated();}); updatePushBell(); }
     });
     obs.observe(slot, {childList:true});
-    setTimeout(()=>{
-      const btn = slot.querySelector('button');
-      if(btn && !btn._pushBound){
-        btn._pushBound = true;
-        btn.addEventListener('click', (e)=>{ e.stopPropagation(); togglePushIsolated(); });
-      }
-    }, 500);
   }
 });
 window.togglePush = togglePushIsolated;
-window.syncPushSources = syncPushSources;
-window.ALLE_BRONNEN = ALLE_BRONNEN;
