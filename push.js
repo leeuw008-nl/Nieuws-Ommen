@@ -1,11 +1,11 @@
-// push.js - FINAL - Bel ingeschakeld: rand A7F3D0, achtergrond E8FFEA = zelfde als Alles aan
+// push.js FINAL DEFINITIEF 06-08-2026 - Bel AAN: rand A7F3D0, achtergrond E8FFEA = identiek aan Alles aan
 const PUSH_WORKER_URL = 'https://ommen-push-v2.leeuw008.workers.dev';
 const ALLE_BRONNEN = ["De Stentor","Gemeente Ommen","Ommen City","OudOmmen","RondOmmen","RTV Oost","RTV Vechtdal","Salland Centraal","Vechtdal Centraal"];
-const BELL_BG_NEW = '#E8FFEA';
-const BELL_BORDER_NEW = '#A7F3D0';
+const BELL_BG = '#E8FFEA';
+const BELL_BORDER = '#A7F3D0';
 const BELL_TEXT = '#065f46';
 const WHITE_BG = '#ffffff';
-const DEFAULT_BORDER = '#e5e7eb';
+const GRAY_BORDER = '#e5e7eb';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -23,40 +23,38 @@ async function getVapidPublicKey() {
   } catch(e){ return null; }
 }
 async function updatePushBell() {
-  const target = document.getElementById('bell-slot')?.querySelector('button') || document.getElementById('push-bell') || document.getElementById('push-toggle');
+  const target = document.getElementById('bell-slot')?.querySelector('button');
   if(!target) return;
   if(!('Notification' in window) || !('serviceWorker' in navigator)){
     target.textContent='🔕';
     target.style.setProperty('background', WHITE_BG, 'important');
-    target.style.setProperty('background-color', WHITE_BG, 'important');
-    target.style.setProperty('border', `1px solid ${DEFAULT_BORDER}`, 'important');
+    target.style.setProperty('border', `1px solid ${GRAY_BORDER}`, 'important');
     return;
   }
   if(Notification.permission==='denied'){
     target.textContent='🔕';
-    target.title='Meldingen geblokkeerd';
     target.style.setProperty('background', WHITE_BG, 'important');
-    target.style.setProperty('background-color', WHITE_BG, 'important');
-    target.style.setProperty('border', `1px solid ${DEFAULT_BORDER}`, 'important');
+    target.style.setProperty('border', `1px solid ${GRAY_BORDER}`, 'important');
     return;
   }
   try{
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
-    target.textContent = sub ? '🔔' : '🔕';
-    target.style.opacity = sub ? '1' : '0.6';
-    if(sub){
-      target.style.setProperty('background', BELL_BG_NEW, 'important');
-      target.style.setProperty('background-color', BELL_BG_NEW, 'important');
-      target.style.setProperty('border', `1px solid ${BELL_BORDER_NEW}`, 'important');
-      target.style.setProperty('border-color', BELL_BORDER_NEW, 'important');
+    const isOn = !!sub;
+    target.textContent = isOn ? '🔔' : '🔕';
+    target.style.opacity = isOn ? '1' : '0.6';
+    if(isOn){
+      target.style.setProperty('background', BELL_BG, 'important');
+      target.style.setProperty('background-color', BELL_BG, 'important');
+      target.style.setProperty('border', `1px solid ${BELL_BORDER}`, 'important');
+      target.style.setProperty('border-color', BELL_BORDER, 'important');
       target.style.setProperty('color', BELL_TEXT, 'important');
       target.classList.add('enabled','active');
       target.setAttribute('aria-pressed','true');
     } else {
       target.style.setProperty('background', WHITE_BG, 'important');
       target.style.setProperty('background-color', WHITE_BG, 'important');
-      target.style.setProperty('border', `1px solid ${DEFAULT_BORDER}`, 'important');
+      target.style.setProperty('border', `1px solid ${GRAY_BORDER}`, 'important');
       target.classList.remove('enabled','active');
       target.setAttribute('aria-pressed','false');
     }
@@ -94,7 +92,7 @@ async function togglePushIsolated(){
     let sources = getSelectedSources();
     await fetch(`${PUSH_WORKER_URL}/subscribe`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({endpoint:sub.endpoint, keys:{p256dh:btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''), auth:btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}, sources})});
     localStorage.setItem('ommen_push_subscribed','1');
-    alert(`Meldingen aangezet! 🔔`); updatePushBell();
+    alert('Meldingen aangezet!'); updatePushBell();
   }catch(e){ alert('Fout: '+e.message); }
 }
 window.addEventListener('load', ()=>{
