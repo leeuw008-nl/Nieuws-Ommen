@@ -179,7 +179,6 @@ function loadState(){
     const v2 = localStorage.getItem('nieuwsommen_bronnen_v2');
     if(v2){
       state = JSON.parse(v2);
-      // MIGRATIE: Salland Centraal -> verwijderen, Natuurlijk Ommen -> toevoegen
       let changed=false;
       if(state['Salland Centraal']){
         delete state['Salland Centraal'];
@@ -187,17 +186,25 @@ function loadState(){
       }
       BRONNEN.forEach(b=>{
         if(!state[b.id]){
-          state[b.id]={aan:true, vandaag:false, scope:'gemeente'};
+          state[b.id]={aan:false, vandaag:false, scope:'gemeente'};
+          changed=true;
+        }
+      });
+      // verwijder bronnen die niet meer in BRONNEN zitten
+      Object.keys(state).forEach(k=>{
+        if(!BRONNEN.some(b=>b.id===k)){
+          delete state[k];
           changed=true;
         }
       });
       if(changed){
-        saveState();
+        localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
       }
     } else {
       const old = {};
       BRONNEN.forEach(b=> old[b.id] = {aan:true, vandaag:false, scope:'gemeente'});
-      state = old; saveState();
+      state = old; 
+      localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
     }
   }catch(e){ 
     const fresh={};
@@ -207,22 +214,27 @@ function loadState(){
 }
 function saveState(){
   localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
-  updateHiddenCompat(); updateHeaderCount();
+  // sync oude key voor script.js compat
+  const legacy = {};
+  BRONNEN.forEach(b=>{ legacy[b.id] = !!state[b.id]?.aan; });
+  localStorage.setItem('ommen_selected_sources', JSON.stringify(legacy));
+  updateHiddenCompat(); 
+  updateHeaderCount();
 }
 function updateHiddenCompat(){
   const cont = document.getElementById('compat-sources');
+  if(!cont) return;
   cont.innerHTML='';
   BRONNEN.forEach(b=>{
     const s = state[b.id] || {aan:true,vandaag:false,scope:'gemeente'};
     let cb = document.createElement('input');
-    cb.type='checkbox'; cb.className='source-filter'; cb.value=b.id; cb.checked=s.aan;
+    cb.type='checkbox'; cb.className='source-filter'; cb.value=b.id; cb.checked=!!s.aan;
     cb.dataset.source=b.id;
     cont.appendChild(cb);
-    cb.dispatchEvent(new Event('change',{bubbles:true}));
   });
   const gemeenteCount = BRONNEN.filter(b=> (state[b.id]?.scope||'gemeente')==='gemeente').length;
   const onlyCb = document.getElementById('only-ommen');
-  if(onlyCb){ onlyCb.checked = gemeenteCount >= 5; onlyCb.dispatchEvent(new Event('change',{bubbles:true})); }
+  if(onlyCb){ onlyCb.checked = gemeenteCount >= 5; }
 }
 function render(){
   const list = document.getElementById('source-list');
