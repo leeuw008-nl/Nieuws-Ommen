@@ -1,25 +1,47 @@
 const PROXIES = [
   'https://ommen-push.leeuw008.workers.dev/proxy?url=',
-  'https://corsproxy.io/?',
-  'https://api.allorigins.win/raw?url=',
-  'https://api.codetabs.com/v1/proxy?quest='
+  'https://corsproxy.io/?'
 ];
 const PROXY = PROXIES[0];
+const FETCH_TIMEOUT = 4500;
+const CACHE_KEY = 'ommen_cache_v107';
+const CACHE_TTL = 10 * 60 * 1000;
+
+async function fetchWithTimeout(url){
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), FETCH_TIMEOUT);
+  try{
+    const res = await fetch(url, {signal: ctrl.signal});
+    clearTimeout(t);
+    return res;
+  }catch(e){ clearTimeout(t); throw e; }
+}
 
 async function fetchViaProxy(targetUrl, attempt=0){
-  if(attempt>=PROXIES.length) throw new Error('All proxies failed for '+targetUrl);
+  if(attempt>=PROXIES.length) throw new Error('All proxies failed');
   const proxyUrl = PROXIES[attempt] + encodeURIComponent(targetUrl);
   try{
-    const res = await fetch(proxyUrl);
-    if(res.status===429) throw new Error('429');
+    const res = await fetchWithTimeout(proxyUrl);
     if(!res.ok) throw new Error('Proxy '+res.status);
     const text = await res.text();
-    if(!text || text.length<100) throw new Error('Empty');
+    if(!text || text.length<80) throw new Error('Empty');
     return text;
   }catch(e){
-    await new Promise(r=>setTimeout(r, 300*attempt));
     return fetchViaProxy(targetUrl, attempt+1);
   }
+}
+
+function loadCache(){
+  try{
+    const raw = localStorage.getItem(CACHE_KEY);
+    if(!raw) return null;
+    const obj = JSON.parse(raw);
+    if(Date.now()-obj.ts>CACHE_TTL) return null;
+    return obj.articles;
+  }catch{ return null; }
+}
+function saveCache(articles){
+  try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ts:Date.now(),articles:articles.slice(0,80)})); }catch{}
 }
 
 const NL_MONTHS = {januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
@@ -104,52 +126,21 @@ function cleanHTMLOriginal(html) {
         else if(["P","BR","STRONG","B","EM","I","U","A","UL","OL","LI","H2","H3","H4","BLOCKQUOTE","DIV","SPAN"].includes(node.tagName)) safe += node.outerHTML;
     });
     if(!safe.trim()) safe = doc.body.innerHTML;
-    safe = safe.replace(/\[&hellip;\]/gi,' ').replace(/&hellip;/gi,' ').replace(/…/g,' ').replace(/\s*\[...\]\s*/g,' ').replace(/\s+/g,' ').trim();
-    if(!safe.includes('[...]')){
-        safe = safe + ' [...]';
-    }
-    safe = safe.replace(/(\s*\[...\]\s*){2,}/g,' [...]');
     return stripFooters(safe).trim();
-}
-
-function normalizeEllipsis(html){
-    if(!html) return "";
-    let h = html.trim();
-    h = h.replace(/\[&hellip;\]/gi, ' ');
-    h = h.replace(/\[…\]/g, ' ');
-    h = h.replace(/&hellip;/gi, ' ');
-    h = h.replace(/…/g, ' ');
-    h = h.replace(/\s*\[...\]\s*/g, ' ');
-    h = h.replace(/\s*\.\.\.\s*/g, ' ');
-    return h.replace(/\s+/g,' ').trim();
-}
-function ensureSingleEllipsis(html){
-    let h = normalizeEllipsis(html);
-    if(!h) return " [...]";
-    if(/<\/p>\s*$/i.test(h)) h = h.replace(/<\/p>\s*$/i, ' [...]</p>');
-    else if(/<\/div>\s*$/i.test(h)) h = h.replace(/<\/div>\s*$/i, ' [...]</div>');
-    else if(!h.includes('[...]')) h = h + ' [...]';
-    else if(!h.trim().endsWith('[...]') && !h.trim().endsWith('[...] </p>') && !h.trim().endsWith('[...]</p>')){
-        // zorg dat er maar 1 aan het eind staat
-        if(!h.includes('[...]')) h = h + ' [...]';
-    }
-    h = h.replace(/(\s*\[...\]\s*){2,}/g,' [...]');
-    return h.trim();
 }
 
 function cleanHTML(html, maxLength = MAX_DESC) {
     if(!html) return "";
     html = stripFooters(html);
-    html = normalizeEllipsis(html);
     const textarea = document.createElement("textarea");
     textarea.innerHTML = html;
     let decoded = textarea.value;
-    decoded = stripFooters(normalizeEllipsis(decoded));
+    decoded = stripFooters(decoded);
     const doc = new DOMParser().parseFromString(decoded, "text/html");
     doc.querySelectorAll("script, style, iframe, form, object, embed, link, noscript").forEach(el=>el.remove());
     doc.querySelectorAll("a").forEach(a=>{ a.setAttribute("target","_blank"); a.setAttribute("rel","noopener"); });
     let plainText = doc.body.innerText.replace(/\s+/g," ").trim();
-    plainText = normalizeEllipsis(stripFooters(plainText));
+    plainText = stripFooters(plainText);
     if(plainText.length > maxLength) {
         let currentLen = 0; let result = "";
         for(let child of Array.from(doc.body.childNodes)) {
@@ -167,23 +158,26 @@ function cleanHTML(html, maxLength = MAX_DESC) {
                 break;
             } else { result += child.outerHTML || child.textContent; currentLen += textLen; }
         }
-        return ensureSingleEllipsis(stripFooters(result));
+        result = stripFooters(result).trim();
+        if(result.endsWith("</p>") || result.endsWith("</div>")) result = result.replace(/<\/(p|div)>$/i, " [...]</$1>");
+        if(!result.includes("[...]")) result = result.trim() + " [...]";
+        return result;
     }
     let htmlOut = stripFooters(doc.body.innerHTML).trim();
-    return ensureSingleEllipsis(htmlOut);
+    if(htmlOut && !htmlOut.includes("[...]")) {
+        if(htmlOut.endsWith("</p>")) htmlOut = htmlOut.replace(/<\/p>$/i, " [...]</p>");
+        else htmlOut = htmlOut.trim() + " [...]";
+    }
+    return htmlOut;
 }
 
 function cleanTextWithEllipsis(text, maxLength = MAX_DESC) {
     if(!text) return "";
     text = text.replace(/\s+/g," ").trim();
-    text = stripFooters(normalizeEllipsis(text));
-    if(text.length > maxLength) { 
-        let cut = text.substring(0, maxLength); 
-        let lastSpace = cut.lastIndexOf(" "); 
-        if(lastSpace > 100) cut = cut.substring(0, lastSpace); 
-        return ensureSingleEllipsis(cut.trim());
-    }
-    return ensureSingleEllipsis(text);
+    text = stripFooters(text);
+    if(text.length > maxLength) { let cut = text.substring(0, maxLength); let lastSpace = cut.lastIndexOf(" "); if(lastSpace > 100) cut = cut.substring(0, lastSpace); return cut.trim() + " [...]"; }
+    if(!text.includes("[...]")) return text + " [...]";
+    return text;
 }
 
 function cleanGemeenteHTML(html, maxLength = 650) {
@@ -194,9 +188,12 @@ function cleanGemeenteHTML(html, maxLength = 650) {
     doc.querySelectorAll("a").forEach(a=>{ a.setAttribute("target","_blank"); a.setAttribute("rel","noopener"); });
     let paragraphs = Array.from(doc.querySelectorAll("p")).map(p => p.outerHTML).filter(p => { let txt = p.replace(/<[^>]*>/g,"").trim(); return txt.length > 30 && !txt.includes("verscheen eerst op") && !txt.includes("appeared first on"); });
     if(paragraphs.length === 0) return cleanHTML(html, maxLength);
-    let result = ""; let currentLen = 0;
+    let result = ""; let currentLen = 0; let totalLen = paragraphs.join("").replace(/<[^>]*>/g,"").length;
     for(let p of paragraphs) { let textLen = p.replace(/<[^>]*>/g,"").length; if(currentLen + textLen > maxLength && currentLen > 200) break; result += p; currentLen += textLen; if(currentLen >= maxLength) break; }
-    return ensureSingleEllipsis(stripFooters(result));
+    result = stripFooters(result);
+    if(totalLen > currentLen) { if(result.endsWith("</p>")) result = result.replace(/<\/p>$/i, " [...]</p>"); if(!result.includes("[...]")) result += " [...]"; }
+    else if(!result.includes("[...]")) { result = result.replace(/<\/p>$/i, " [...]</p>"); if(!result.includes("[...]")) result += " [...]"; }
+    return result;
 }
 
 async function fetchRSS(url) {
@@ -271,7 +268,7 @@ async function fetchGemeenteNieuws() {
             const href = link.href;
             if (title && href.includes("/actueel/") && title.length > 10) links.push({ title: title, link: href });
         }
-        const artikelen = await Promise.all(links.slice(0,10).map(async artikel => {
+        const artikelen = await Promise.all(links.slice(0,5).map(async artikel => {
             const gegevens = await fetchGemeenteGegevens(artikel.link);
             return { title: artikel.title, link: artikel.link, description: gegevens.tekst, pubDate: gegevens.datum, timestamp: gegevens.datum ? Date.parse(gegevens.datum) : Date.now() };
         }));
@@ -321,7 +318,7 @@ async function fetchRTVVechtdalNieuws() {
             const html = new DOMParser().parseFromString(text, "text/html");
             const links = [];
             html.querySelectorAll("a").forEach(a => { try { const href = new URL(a.getAttribute("href"), "https://rtvvechtdal.nl").href; const title = a.textContent.trim(); if (href.includes("type=detail") && title.length > 10 && !links.some(l => l.link === href)) links.push({ title, link: href }); } catch {} });
-            const artikelen = await Promise.all(links.slice(0,10).map(async artikel => {
+            const artikelen = await Promise.all(links.slice(0,5).map(async artikel => {
                 try {
                     const text2 = await fetchViaProxy(artikel.link);
                     const doc = new DOMParser().parseFromString(text2,"text/html");
@@ -341,7 +338,7 @@ async function fetchOostNieuws() {
         const doc = new DOMParser().parseFromString(html, "text/html");
         const links = [...doc.querySelectorAll("a")].map(a => a.href).filter(href => href && href.includes("/nieuws/") && /\/nieuws\/\d+\//.test(href)).map(href => href.replace("https://leeuw008-nl.github.io","https://www.oost.nl"));
         const uniek = [...new Set(links)];
-        const artikelen = await Promise.all(uniek.slice(0,10).map(link => fetchOostArtikel(link)));
+        const artikelen = await Promise.all(uniek.slice(0,5).map(link => fetchOostArtikel(link)));
         return artikelen.filter(a=>a!==null);
     } catch(e) { console.error("Oost fout:", e); return []; }
 }
@@ -526,36 +523,42 @@ function checkForNewArticles(currentArticles){
 
 async function loadNews(isBackground=false) {
     const container = document.getElementById("news-container");
-    if(!isBackground) container.innerHTML = "<p>Nieuws laden...</p>";
-    allArticles = [];
-    const results = await Promise.all(feeds.map(async feed => ({ source: feed.name, articles: await fetchRSS(feed.url) })));
-    results.forEach(result => { addArticles(result.articles, result.source); });
-    const [gemeenteArtikelen, rtvArtikelen, oostArtikelen] = await Promise.all([fetchGemeenteNieuws(), fetchRTVVechtdalNieuws(), fetchOostNieuws()]);
-    addArticles(gemeenteArtikelen, "Gemeente Ommen"); 
-    addArticles(rtvArtikelen, "RTV Vechtdal"); 
-    addArticles(oostArtikelen, "RTV Oost");
-    finalizeArticles();
-    if(isBackground) checkForNewArticles(allArticles);
-    else { searchNews(); setTimeout(()=>checkForNewArticles(allArticles),800); }
+    const isFirst = !isBackground && allArticles.length===0;
+    if(isFirst){
+        const cached = loadCache();
+        if(cached && cached.length>0){
+            allArticles = cached;
+            searchNews();
+            container.insertAdjacentHTML('afterbegin', `<div id="cache-notice" style="font-size:11px;color:#64748b;padding:4px 0;">⚡ snelle cache • verversen...</div>`);
+        } else {
+            container.innerHTML = "<p>Nieuws laden... (eerste keer 4-7s)</p>";
+        }
+    } else if(!isBackground){
+        // keep existing view during refresh
+    }
+    try{
+        const feedPromises = feeds.map(async feed => { try{ const arts=await fetchRSS(feed.url); return {source:feed.name,articles:arts}; }catch{ return {source:feed.name,articles:[]}; } });
+        const [feedResults, gemeenteArtikelen, rtvArtikelen, oostArtikelen] = await Promise.all([
+            Promise.all(feedPromises),
+            fetchGemeenteNieuws(),
+            fetchRTVVechtdalNieuws(),
+            fetchOostNieuws()
+        ]);
+        const fresh=[]; 
+        feedResults.forEach(r=>r.articles.forEach(a=>fresh.push({...a,source:r.source})));
+        gemeenteArtikelen.forEach(a=>fresh.push({...a,source:"Gemeente Ommen"}));
+        rtvArtikelen.forEach(a=>fresh.push({...a,source:"RTV Vechtdal"}));
+        oostArtikelen.forEach(a=>fresh.push({...a,source:"RTV Oost"}));
+        if(fresh.length>0){
+            allArticles=fresh; finalizeArticles(); saveCache(allArticles); searchNews();
+            const n=document.getElementById('cache-notice'); if(n) n.remove();
+            if(isBackground) checkForNewArticles(allArticles); else setTimeout(()=>checkForNewArticles(allArticles),800);
+        }
+    }catch(e){ console.error(e); }
 }
 
 function renderArticles(articles) {
     const container = document.getElementById("news-container");
-    // FINAL SAFETY NET
-    articles.forEach(a => {
-        if(a.description){
-            let d = a.description;
-            d = d.replace(/\[&hellip;\]/gi,' ').replace(/&hellip;/gi,' ').replace(/…/g,' ');
-            d = d.replace(/\s*\[...\]\s*/g,' ').replace(/\s*\.\.\.\s*/g,' ');
-            d = d.replace(/\s+/g,' ').trim();
-            if(!d.includes('[...]')){
-                if(/<\/p>\s*$/i.test(d)) d = d.replace(/<\/p>\s*$/i,' [...]</p>');
-                else d = d + ' [...]';
-            }
-            d = d.replace(/(\s*\[...\]\s*){2,}/g,' [...]');
-            a.description = d;
-        }
-    });
     let html = `<p><strong>${articles.length} artikelen gevonden</strong></p>`;
     if (articles.length === 0) html += "<p>Geen artikelen gevonden.</p>";
     else html += articles.map(article => {
@@ -629,16 +632,6 @@ function setupSearch() {
 }
 function refreshNews() { loadNews(false); }
 function saveSelectedSources(){
-    try{
-        const v2raw = localStorage.getItem('nieuwsommen_bronnen_v2');
-        if(v2raw){
-            const v2 = JSON.parse(v2raw);
-            document.querySelectorAll(".source-filter").forEach(cb => {
-                if(v2[cb.value]) v2[cb.value].aan = cb.checked;
-            });
-            localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(v2));
-        }
-    }catch{}
     const all = {};
     document.querySelectorAll(".source-filter").forEach(cb => {
         all[cb.value] = cb.checked;
@@ -648,24 +641,31 @@ function saveSelectedSources(){
 }
 function loadSelectedSources(){
     try{
-        const v2raw = localStorage.getItem('nieuwsommen_bronnen_v2');
-        if(v2raw){
-            const v2 = JSON.parse(v2raw);
-            document.querySelectorAll(".source-filter").forEach(cb => {
-                if(v2[cb.value] && typeof v2[cb.value].aan === 'boolean'){
-                    cb.checked = v2[cb.value].aan;
-                }
-            });
+        const saved = JSON.parse(localStorage.getItem(LS_SOURCES_KEY)||"null");
+        if(!saved || typeof saved !== 'object' || Array.isArray(saved)) {
+            if(Array.isArray(saved) && saved.length > 0){
+                const all = {};
+                document.querySelectorAll(".source-filter").forEach(cb => {
+                    all[cb.value] = saved.includes(cb.value);
+                });
+                localStorage.setItem(LS_SOURCES_KEY, JSON.stringify(all));
+                document.querySelectorAll(".source-filter").forEach(cb => {
+                    cb.checked = all[cb.value] ?? true;
+                });
+            }
             return;
         }
-        const saved = JSON.parse(localStorage.getItem(LS_SOURCES_KEY)||"null");
-        if(!saved || typeof saved !== 'object') return;
-        if(Array.isArray(saved)) return;
-        document.querySelectorAll(".source-filter").forEach(cb => {
+        const checkboxes = document.querySelectorAll(".source-filter");
+        let hasNew = false;
+        checkboxes.forEach(cb => {
             if (saved.hasOwnProperty(cb.value)) {
                 cb.checked = saved[cb.value];
+            } else {
+                cb.checked = true;
+                hasNew = true;
             }
         });
+        if(hasNew) saveSelectedSources();
     }catch(e){
         console.error("loadSelectedSources fout", e);
     }
