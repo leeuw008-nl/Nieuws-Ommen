@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nieuw(s)Ommen v105 FIX dubbele [...]</title>
+    <title>Nieuw(s)Ommen v107 SPEED FIX [...]</title>
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" href="icon-192x192.png" type="image/png">
@@ -165,13 +165,13 @@
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
-  {id:'Natuurlijk Ommen', name:'Natuurlijk Ommen', sub:'evenementen & toerisme'},
   {id:'Ommen City', name:'Ommen City', sub:'lokaal nieuws Ommen'},
   {id:'OudOmmen', name:'OudOmmen', sub:'artikelen over historie'},
   {id:'RondOmmen', name:'RondOmmen', sub:'lokaal nieuws'},
   {id:'RTV Oost', name:'RTV Oost', sub:'regionaal Overijssel'},
   {id:'RTV Vechtdal', name:'RTV Vechtdal', sub:'lokaal Vechtdal - via VechtdalLeeft'},
   {id:'Vechtdal Centraal', name:'Vechtdal Centraal', sub:'112 & dorpsnieuws'},
+  {id:'Natuurlijk Ommen', name:'Natuurlijk Ommen', sub:'evenementen & toerisme'},
 ];
 let state = {};
 function loadState(){
@@ -179,6 +179,7 @@ function loadState(){
     const v2 = localStorage.getItem('nieuwsommen_bronnen_v2');
     if(v2){
       state = JSON.parse(v2);
+      // MIGRATIE: Salland Centraal -> verwijderen, Natuurlijk Ommen -> toevoegen
       let changed=false;
       if(state['Salland Centraal']){
         delete state['Salland Centraal'];
@@ -186,25 +187,17 @@ function loadState(){
       }
       BRONNEN.forEach(b=>{
         if(!state[b.id]){
-          state[b.id]={aan:false, vandaag:false, scope:'gemeente'};
-          changed=true;
-        }
-      });
-      // verwijder bronnen die niet meer in BRONNEN zitten
-      Object.keys(state).forEach(k=>{
-        if(!BRONNEN.some(b=>b.id===k)){
-          delete state[k];
+          state[b.id]={aan:true, vandaag:false, scope:'gemeente'};
           changed=true;
         }
       });
       if(changed){
-        localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
+        saveState();
       }
     } else {
       const old = {};
       BRONNEN.forEach(b=> old[b.id] = {aan:true, vandaag:false, scope:'gemeente'});
-      state = old; 
-      localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
+      state = old; saveState();
     }
   }catch(e){ 
     const fresh={};
@@ -214,27 +207,22 @@ function loadState(){
 }
 function saveState(){
   localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
-  // sync oude key voor script.js compat
-  const legacy = {};
-  BRONNEN.forEach(b=>{ legacy[b.id] = !!state[b.id]?.aan; });
-  localStorage.setItem('ommen_selected_sources', JSON.stringify(legacy));
-  updateHiddenCompat(); 
-  updateHeaderCount();
+  updateHiddenCompat(); updateHeaderCount();
 }
 function updateHiddenCompat(){
   const cont = document.getElementById('compat-sources');
-  if(!cont) return;
   cont.innerHTML='';
   BRONNEN.forEach(b=>{
     const s = state[b.id] || {aan:true,vandaag:false,scope:'gemeente'};
     let cb = document.createElement('input');
-    cb.type='checkbox'; cb.className='source-filter'; cb.value=b.id; cb.checked=!!s.aan;
+    cb.type='checkbox'; cb.className='source-filter'; cb.value=b.id; cb.checked=s.aan;
     cb.dataset.source=b.id;
     cont.appendChild(cb);
+    cb.dispatchEvent(new Event('change',{bubbles:true}));
   });
   const gemeenteCount = BRONNEN.filter(b=> (state[b.id]?.scope||'gemeente')==='gemeente').length;
   const onlyCb = document.getElementById('only-ommen');
-  if(onlyCb){ onlyCb.checked = gemeenteCount >= 5; }
+  if(onlyCb){ onlyCb.checked = gemeenteCount >= 5; onlyCb.dispatchEvent(new Event('change',{bubbles:true})); }
 }
 function render(){
   const list = document.getElementById('source-list');
@@ -350,7 +338,7 @@ setTimeout(moveOldBell, 2500);
 const obs = new MutationObserver(()=> moveOldBell());
 obs.observe(document.querySelector('header'), {childList:true, subtree:true});
 </script>
-<script src="script.js?v=105"></script>
+<script src="script.js?v=107"></script>
 <script src="push.js?v=FINAL-E8FFEA-A7F3D0-6"></script>
 <script src="article-focus.js"></script>
 </body>
