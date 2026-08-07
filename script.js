@@ -107,9 +107,38 @@ function cleanHTMLOriginal(html) {
     return stripFooters(safe).trim();
 }
 
+function normalizeEllipsis(html){
+    if(!html) return "";
+    // verwijder alle bestaande [...] varianten eerst, ook dubbele
+    let h = html.trim();
+    // haal  ...  [...]  [...] [...]  […]  [&hellip;] aan het eind weg
+    h = h.replace(/(\s*\[…\]\s*)+/g, ' ');
+    h = h.replace(/(\s*\[...\]\s*)+$/g, ' ');
+    h = h.replace(/(\s*\[…\]\s*|\s*\[…\]\s*|\s*\[&hellip;\]\s*|\s*…\s*)+$/g, ' ');
+    // verwijder dubbele "[...] [...]"
+    h = h.replace(/(\s*\[...\]\s*){2,}/g, ' [...]');
+    // verwijder "[...]" midden in tekst gevolgd door nog een aan het eind
+    h = h.replace(/\[...\]\s*\[...\]/g, '[...]');
+    return h.trim();
+}
+function ensureSingleEllipsis(html){
+    let h = normalizeEllipsis(html);
+    if(!h.includes('[...]')){
+        if(/<\/p>\s*$/i.test(h)) h = h.replace(/<\/p>\s*$/i, ' [...]</p>');
+        else if(/<\/div>\s*$/i.test(h)) h = h.replace(/<\/div>\s*$/i, ' [...]</div>');
+        else h = h + ' [...]';
+    }
+    // final dedupe
+    h = h.replace(/(\s*\[...\]\s*){2,}/g, ' [...]');
+    h = h.replace(/\[...\]\s*\[...\]/g, '[...]');
+    return h;
+}
+
 function cleanHTML(html, maxLength = MAX_DESC) {
     if(!html) return "";
     html = stripFooters(html);
+    // WordPress excerpts bevatten al "[&hellip;]" of "[...]" - eerst normaliseren
+    html = html.replace(/\[&hellip;\]/g, '').replace(/\[…\]/g, '').replace(/\s*\[...\]\s*/g, ' ');
     const textarea = document.createElement("textarea");
     textarea.innerHTML = html;
     let decoded = textarea.value;
@@ -118,6 +147,7 @@ function cleanHTML(html, maxLength = MAX_DESC) {
     doc.querySelectorAll("script, style, iframe, form, object, embed, link, noscript").forEach(el=>el.remove());
     doc.querySelectorAll("a").forEach(a=>{ a.setAttribute("target","_blank"); a.setAttribute("rel","noopener"); });
     let plainText = doc.body.innerText.replace(/\s+/g," ").trim();
+    plainText = normalizeEllipsis(plainText);
     plainText = stripFooters(plainText);
     if(plainText.length > maxLength) {
         let currentLen = 0; let result = "";
@@ -136,26 +166,26 @@ function cleanHTML(html, maxLength = MAX_DESC) {
                 break;
             } else { result += child.outerHTML || child.textContent; currentLen += textLen; }
         }
-        result = stripFooters(result).trim();
-        if(result.endsWith("</p>") || result.endsWith("</div>")) result = result.replace(/<\/(p|div)>$/i, " [...]</$1>");
-        if(!result.includes("[...]")) result = result.trim() + " [...]";
-        return result;
+        result = stripFooters(normalizeEllipsis(result)).trim();
+        return ensureSingleEllipsis(result);
     }
-    let htmlOut = stripFooters(doc.body.innerHTML).trim();
-    if(htmlOut && !htmlOut.includes("[...]")) {
-        if(htmlOut.endsWith("</p>")) htmlOut = htmlOut.replace(/<\/p>$/i, " [...]</p>");
-        else htmlOut = htmlOut.trim() + " [...]";
-    }
-    return htmlOut;
+    let htmlOut = normalizeEllipsis(stripFooters(doc.body.innerHTML).trim());
+    return ensureSingleEllipsis(htmlOut);
 }
 
 function cleanTextWithEllipsis(text, maxLength = MAX_DESC) {
     if(!text) return "";
     text = text.replace(/\s+/g," ").trim();
     text = stripFooters(text);
-    if(text.length > maxLength) { let cut = text.substring(0, maxLength); let lastSpace = cut.lastIndexOf(" "); if(lastSpace > 100) cut = cut.substring(0, lastSpace); return cut.trim() + " [...]"; }
-    if(!text.includes("[...]")) return text + " [...]";
-    return text;
+    text = text.replace(/\[&hellip;\]/g, '').replace(/\[…\]/g, '').replace(/\[...\]/g, '').trim();
+    text = normalizeEllipsis(text);
+    if(text.length > maxLength) { 
+        let cut = text.substring(0, maxLength); 
+        let lastSpace = cut.lastIndexOf(" "); 
+        if(lastSpace > 100) cut = cut.substring(0, lastSpace); 
+        return ensureSingleEllipsis(cut.trim());
+    }
+    return ensureSingleEllipsis(text);
 }
 
 function cleanGemeenteHTML(html, maxLength = 650) {
@@ -168,10 +198,8 @@ function cleanGemeenteHTML(html, maxLength = 650) {
     if(paragraphs.length === 0) return cleanHTML(html, maxLength);
     let result = ""; let currentLen = 0; let totalLen = paragraphs.join("").replace(/<[^>]*>/g,"").length;
     for(let p of paragraphs) { let textLen = p.replace(/<[^>]*>/g,"").length; if(currentLen + textLen > maxLength && currentLen > 200) break; result += p; currentLen += textLen; if(currentLen >= maxLength) break; }
-    result = stripFooters(result);
-    if(totalLen > currentLen) { if(result.endsWith("</p>")) result = result.replace(/<\/p>$/i, " [...]</p>"); if(!result.includes("[...]")) result += " [...]"; }
-    else if(!result.includes("[...]")) { result = result.replace(/<\/p>$/i, " [...]</p>"); if(!result.includes("[...]")) result += " [...]"; }
-    return result;
+    result = normalizeEllipsis(stripFooters(result));
+    return ensureSingleEllipsis(result);
 }
 
 async function fetchRSS(url) {
