@@ -39,12 +39,14 @@ function parseDutchDate(str){
   return isNaN(ts)?0:ts;
 }
 
+// GEFIXT: Salland Centraal eruit (dubbel met Vechtdal Centraal), NatuurlijkOmmen toegevoegd
 const feeds = [
     { name: 'Ommen City', url: 'https://ommencity.nl/feed/' },
     { name: 'OudOmmen', url: 'https://weblog.oudommen.nl/feed/' },
     { name: 'De Stentor', url: 'https://www.destentor.nl/ommen/rss.xml' },
     { name: 'RondOmmen', url: 'https://www.rondommen.nl/feed/' },
-    { name: 'Salland Centraal', url: 'https://www.sallandcentraal.nl/feed/' }
+    { name: 'Vechtdal Centraal', url: 'https://www.vechtdalcentraal.nl/feed/' },
+    { name: 'Natuurlijk Ommen', url: 'https://www.natuurlijkommen.nl/feed/' }
 ];
 
 const ommenKeywords = [
@@ -177,7 +179,8 @@ async function fetchRSS(url) {
         const feedConfig = feeds.find(f => f.url === url);
         const keywords = feedConfig?.filterKeywords?.map(k => k.toLowerCase()) || null;
         let articles = [];
-        if (url.includes("sallandcentraal")) {
+        // rss2json fallback alleen nog voor lastige feeds
+        if (url.includes("sallandcentraal") || url.includes("vechtdalcentraal")) {
             try {
                 const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
                 const res = await fetch(apiUrl);
@@ -266,60 +269,46 @@ async function fetchGemeenteGegevens(url) {
         return { datum, tekst };
     } catch(error) { return { datum: "", tekst: "" }; }
 }
+
+// GEFIXT: RTV Vechtdal -> VechtdalLeeft via WP JSON (veel sneller + completer)
 async function fetchRTVVechtdalNieuws() {
-    const url = "https://rtvvechtdal.nl/";
+    const apiUrl = "https://www.vechtdalleeft.nl/wp-json/wp/v2/posts?per_page=20&_embed";
     try {
-        const text = await fetchViaProxy(url);
-        const html = new DOMParser().parseFromString(text, "text/html");
-        const links = [];
-        html.querySelectorAll("a").forEach(a => { try { const href = new URL(a.getAttribute("href"), "https://rtvvechtdal.nl").href; const title = a.textContent.trim(); if (href.includes("type=detail") && title.length > 10 && !links.some(l => l.link === href)) links.push({ title, link: href }); } catch {} });
-        const artikelen = await Promise.all(links.slice(0,10).map(async artikel => {
-            try {
-                const text2 = await fetchViaProxy(artikel.link);
-                let bodyText = "";
-                let datumStr = "";
-                try{
-                  const doc = new DOMParser().parseFromString(text2,"text/html");
-                  const timeTag = doc.querySelector('time[itemprop="datePublished"]')?.textContent?.trim();
-                  const publishedTitle = doc.querySelector('span.published')?.getAttribute('title')?.replace('Gepubliceerd:', '').trim();
-                  const metaDate = doc.querySelector('meta[property="article:published_time"]')?.content;
-                  if(timeTag) datumStr = timeTag;
-                  else if(publishedTitle) datumStr = publishedTitle;
-                  else if(metaDate) {
-                    const ts = Date.parse(metaDate);
-                    if(!isNaN(ts)) return { title: artikel.title, link: artikel.link, description: cleanTextWithEllipsis(doc.body.innerText, MAX_DESC), timestamp: ts };
-                  }
-                  bodyText = doc.body.innerText.replace(/\s+/g," ").trim();
-                  bodyText = bodyText.replace(/^.*?(\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4})/i, "");
-                  bodyText = bodyText.replace(/Home Vechtdal TV.*?Stichting RTV Vechtdal/i, "").trim();
-                }catch{}
-                if(!datumStr){
-                  const timeMatch = text2.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}[^\d]*\d{1,2}:\d{2}/i);
-                  const dateMatch = text2.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i);
-                  if(timeMatch) datumStr = timeMatch[0];
-                  else if(dateMatch) datumStr = dateMatch[0];
-                }
-                const ts = datumStr ? parseDutchDate(datumStr) : Date.now();
-                return { title: artikel.title, link: artikel.link, description: cleanTextWithEllipsis(bodyText, MAX_DESC), timestamp: ts || Date.now() };
-            } catch(e){ console.error("RTV detail fout", e); return null; }
-        }));
-        return artikelen.filter(Boolean);
-    } catch(error) { console.error("RTV:", error); return []; }
-}
-async function fetchVechtdalCentraalNieuws() {
-    try {
-        const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://www.vechtdalcentraal.nl/feed/')}`;
-        const response = await fetch(apiUrl);
-        if (!response.ok) throw new Error("Vechtdal Centraal fout");
-        const data = await response.json();
-        if (data.status !== 'ok') throw new Error("rss2json fout");
-        return data.items.slice(0,10).map(item => {
-            let desc = cleanHTML(item.description, MAX_DESC);
-            if(!desc.includes("[...]")) { desc = desc.replace(/<\/p>$/i, " [...]</p>"); if(!desc.includes("[...]")) desc = desc.trim() + " [...]"; }
-            return { title: item.title.replace(/&#8217;/g,"'").replace(/&amp;/g,"&"), link: item.link, description: desc, timestamp: Date.parse(item.pubDate) || Date.now() };
+        const text = await fetchViaProxy(apiUrl);
+        if(!text) throw new Error("leeg");
+        const data = JSON.parse(text);
+        return data.map(item => {
+            // Haal excerpt of content, strip HTML via cleanHTML
+            const rawDesc = item.excerpt?.rendered || item.content?.rendered || "";
+            return {
+                title: (item.title?.rendered || "Geen titel").replace(/<[^>]*>/g,"").trim(),
+                link: item.link,
+                description: cleanHTML(rawDesc, MAX_DESC),
+                timestamp: Date.parse(item.date) || Date.now()
+            };
         });
-    } catch(error) { console.error("Vechtdal Centraal fout:", error); return []; }
+    } catch(error) {
+        console.error("VechtdalLeeft fout, fallback naar rtvvechtdal.nl:", error);
+        // Fallback: oude scraper voor rtvvechtdal.nl als backup
+        try {
+            const url = "https://rtvvechtdal.nl/";
+            const text = await fetchViaProxy(url);
+            const html = new DOMParser().parseFromString(text, "text/html");
+            const links = [];
+            html.querySelectorAll("a").forEach(a => { try { const href = new URL(a.getAttribute("href"), "https://rtvvechtdal.nl").href; const title = a.textContent.trim(); if (href.includes("type=detail") && title.length > 10 && !links.some(l => l.link === href)) links.push({ title, link: href }); } catch {} });
+            const artikelen = await Promise.all(links.slice(0,10).map(async artikel => {
+                try {
+                    const text2 = await fetchViaProxy(artikel.link);
+                    const doc = new DOMParser().parseFromString(text2,"text/html");
+                    const bodyText = doc.body.innerText.replace(/\s+/g," ").trim();
+                    return { title: artikel.title, link: artikel.link, description: cleanTextWithEllipsis(bodyText, MAX_DESC), timestamp: Date.now() };
+                } catch{ return null; }
+            }));
+            return artikelen.filter(Boolean);
+        } catch(e2){ return []; }
+    }
 }
+
 async function fetchOostNieuws() {
     const url = "https://www.oost.nl/nieuws";
     try {
@@ -421,7 +410,6 @@ function ensureBanner() {
     banner.innerHTML=`<span id="new-articles-text" style="flex:1"></span><span><button id="banner-view">Bekijken</button><button id="banner-close" style="background:transparent">✕</button></span>`;
     const container = document.getElementById('news-container');
     if(container?.parentNode) container.parentNode.insertBefore(banner, container);
-    // Klik op banner of Bekijken -> scroll naar eerste nieuwe artikel, niet meteen refreshen
     const handleView = ()=>{
         const firstNew = document.querySelector('.article.is-new');
         if(firstNew){
@@ -432,7 +420,6 @@ function ensureBanner() {
         } else {
             refreshNews();
         }
-        // markeer als gezien na bekijken
         const seen = getSeenLinks();
         const currentNew = window._lastNewLinks || [];
         currentNew.forEach(l=>seen.add(l));
@@ -454,7 +441,6 @@ function ensureBanner() {
 function getSeenLinks(){ try{ return new Set(JSON.parse(localStorage.getItem(LS_SEEN_KEY)||"[]")); }catch{ return new Set(); } }
 function saveSeenLinks(links){ localStorage.setItem(LS_SEEN_KEY, JSON.stringify([...links].slice(0,300))); }
 
-// Filter voor banner: respecteer bron-selectie + vandaag/gemeente
 function getFilteredForBanner(articles){
     let filtered=[...articles];
     try{
@@ -487,10 +473,8 @@ function getFilteredForBanner(articles){
 
 function checkForNewArticles(currentArticles){
     const seen = getSeenLinks();
-    // filter eerst op basis van selectie
     const filtered = getFilteredForBanner(currentArticles);
     if(seen.size===0){ 
-        // eerste keer: markeer alles als gezien, geen banner
         saveSeenLinks(new Set(filtered.map(a=>a.link))); 
         return; 
     }
@@ -504,7 +488,6 @@ function checkForNewArticles(currentArticles){
             txt.textContent=`🔔 ${newOnes.length} nieuw artikel${newOnes.length>1?'en':''} (op basis van je bron-selectie): ${newOnes[0].title}`; 
             banner.style.display='flex'; 
         }
-        // markeer artikelen als is-new voor scroll
         setTimeout(()=>{
             document.querySelectorAll('.article').forEach(div=>{
                 const a=div.querySelector('h2 a');
@@ -513,7 +496,6 @@ function checkForNewArticles(currentArticles){
                 }
             });
         },500);
-        // NIET meteen opslaan als gezien - pas bij klik op banner of sluiten
     }
 }
 
@@ -523,8 +505,10 @@ async function loadNews(isBackground=false) {
     allArticles = [];
     const results = await Promise.all(feeds.map(async feed => ({ source: feed.name, articles: await fetchRSS(feed.url) })));
     results.forEach(result => { addArticles(result.articles, result.source); });
-    const [gemeenteArtikelen, rtvArtikelen, oostArtikelen, vechtdalCentraalArtikelen] = await Promise.all([fetchGemeenteNieuws(), fetchRTVVechtdalNieuws(), fetchOostNieuws(), fetchVechtdalCentraalNieuws()]);
-    addArticles(gemeenteArtikelen, "Gemeente Ommen"); addArticles(rtvArtikelen, "RTV Vechtdal"); addArticles(oostArtikelen, "RTV Oost"); addArticles(vechtdalCentraalArtikelen, "Vechtdal Centraal");
+    const [gemeenteArtikelen, rtvArtikelen, oostArtikelen] = await Promise.all([fetchGemeenteNieuws(), fetchRTVVechtdalNieuws(), fetchOostNieuws()]);
+    addArticles(gemeenteArtikelen, "Gemeente Ommen"); 
+    addArticles(rtvArtikelen, "RTV Vechtdal"); 
+    addArticles(oostArtikelen, "RTV Oost");
     finalizeArticles();
     if(isBackground) checkForNewArticles(allArticles);
     else { searchNews(); setTimeout(()=>checkForNewArticles(allArticles),800); }
@@ -550,7 +534,6 @@ function renderArticles(articles) {
     container.innerHTML = html;
 }
 
-// === FIX: VANDAAG/MEER + GEMEENTE/REGIO filter toegevoegd zonder opmaak te veranderen ===
 function searchNews() {
     const searchInput = document.getElementById("search-input");
     const alleenOmmen = document.getElementById("only-ommen");
@@ -566,8 +549,6 @@ function searchNews() {
         return;
     }
     articles = articles.filter(article => gekozenBronnen.includes(article.source));
-
-    // NIEUW: VANDAAG/MEER + GEMEENTE/REGIO per bron uit nieuwsommen_bronnen_v2
     try{
         const raw = localStorage.getItem('nieuwsommen_bronnen_v2');
         if(raw){
@@ -593,7 +574,6 @@ function searchNews() {
             });
         }
     }catch(e){ console.warn('vandaag/gemeente filter fout', e); }
-
     articles.sort((a,b) => b.timestamp - a.timestamp);
     renderArticles(articles);
 }
@@ -609,6 +589,17 @@ function setupSearch() {
 }
 function refreshNews() { loadNews(false); }
 function saveSelectedSources(){
+    // NIEUW: sync met v2 state als die bestaat, anders legacy
+    try{
+        const v2raw = localStorage.getItem('nieuwsommen_bronnen_v2');
+        if(v2raw){
+            const v2 = JSON.parse(v2raw);
+            document.querySelectorAll(".source-filter").forEach(cb => {
+                if(v2[cb.value]) v2[cb.value].aan = cb.checked;
+            });
+            localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(v2));
+        }
+    }catch{}
     const all = {};
     document.querySelectorAll(".source-filter").forEach(cb => {
         all[cb.value] = cb.checked;
@@ -617,32 +608,28 @@ function saveSelectedSources(){
     updatePushPreferences();
 }
 function loadSelectedSources(){
+    // FIX v100: gebruik nieuwsommen_bronnen_v2 als master, niet LS_SOURCES_KEY
     try{
-        const saved = JSON.parse(localStorage.getItem(LS_SOURCES_KEY)||"null");
-        if(!saved || typeof saved !== 'object' || Array.isArray(saved)) {
-            if(Array.isArray(saved) && saved.length > 0){
-                const all = {};
-                document.querySelectorAll(".source-filter").forEach(cb => {
-                    all[cb.value] = saved.includes(cb.value);
-                });
-                localStorage.setItem(LS_SOURCES_KEY, JSON.stringify(all));
-                document.querySelectorAll(".source-filter").forEach(cb => {
-                    cb.checked = all[cb.value] ?? true;
-                });
-            }
+        const v2raw = localStorage.getItem('nieuwsommen_bronnen_v2');
+        if(v2raw){
+            const v2 = JSON.parse(v2raw);
+            const checkboxes = document.querySelectorAll(".source-filter");
+            checkboxes.forEach(cb => {
+                if(v2[cb.value] && typeof v2[cb.value].aan === 'boolean'){
+                    cb.checked = v2[cb.value].aan;
+                }
+            });
             return;
         }
-        const checkboxes = document.querySelectorAll(".source-filter");
-        let hasNew = false;
-        checkboxes.forEach(cb => {
+        // fallback legacy
+        const saved = JSON.parse(localStorage.getItem(LS_SOURCES_KEY)||"null");
+        if(!saved || typeof saved !== 'object') return;
+        if(Array.isArray(saved)) return;
+        document.querySelectorAll(".source-filter").forEach(cb => {
             if (saved.hasOwnProperty(cb.value)) {
                 cb.checked = saved[cb.value];
-            } else {
-                cb.checked = true;
-                hasNew = true;
             }
         });
-        if(hasNew) saveSelectedSources();
     }catch(e){
         console.error("loadSelectedSources fout", e);
     }
