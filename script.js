@@ -1,4 +1,4 @@
-/* Nieuw(s)Ommen v114 - FIX RTV Vechtdal menu definitief + bronvolgorde behouden */
+/* Nieuw(s)Ommen v115 - FIX RTV Vechtdal menu definitief + bronvolgorde behouden */
 const PROXIES = [
   'https://ommen-push.leeuw008.workers.dev/proxy?url=',
   'https://corsproxy.io/?',
@@ -7,7 +7,7 @@ const PROXIES = [
 ];
 const PROXY = PROXIES[0];
 const FETCH_TIMEOUT = 10000;
-const CACHE_KEY = 'ommen_cache_v114';
+const CACHE_KEY = 'ommen_cache_v115';
 const CACHE_TTL = 10*60*1000;
 async function fetchWithTimeout(url){ const c=new AbortController(); const t=setTimeout(()=>c.abort(),FETCH_TIMEOUT); try{ const r=await fetch(url,{signal:c.signal}); clearTimeout(t); return r; }catch(e){ clearTimeout(t); throw e; } }
 async function fetchViaProxy(targetUrl, attempt=0){
@@ -129,32 +129,92 @@ async function fetchRSS(url){ try{ const text=await fetchViaProxy(url); if(!text
 
 async function fetchGemeenteNieuws(){ const url="https://www.ommen.nl/actueel/"; try{ const text=await fetchViaProxy(url); const html=new DOMParser().parseFromString(text,"text/html"); const links=[]; for(const a of html.querySelectorAll("a")){ const title=a.querySelector("h3, h2")?.textContent?.trim()||a.textContent.trim(); const href=a.href; if(title && href.includes("/actueel/") && title.length>10 && links.length<5) links.push({title,link:href}); } const results=await Promise.allSettled(links.map(l=>fetchGemeenteGegevens(l.link))); return results.map((r,i)=>{ if(r.status==='fulfilled'&&r.value) return {title:links[i].title,link:links[i].link,description:r.value.tekst,timestamp:r.value.datum?Date.parse(r.value.datum):Date.now()}; return null; }).filter(Boolean); }catch{ return []; } }
 async function fetchGemeenteGegevens(url){ try{ const text=await fetchViaProxy(url); const html=new DOMParser().parseFromString(text,"text/html"); const bodyText=html.body?.innerText||""; const m=bodyText.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i); const datum=m?m[0]:""; let contentDiv=html.querySelector("article .content, .text-content, [class*='content'] p"); let tekst=""; if(contentDiv){ let parent=contentDiv.closest("article")||contentDiv.parentElement; tekst=cleanGemeenteHTML(parent?parent.innerHTML:contentDiv.innerHTML,650); } else { const regels=bodyText.split("\n").map(r=>r.trim()).filter(r=>r.length>40); if(regels.length>0) tekst=cleanTextWithEllipsis(regels.slice(0,2).join(" "),650); } return {datum,tekst}; }catch{ return {datum:"",tekst:""}; } }
-async function fetchRTVVechtdalNieuws(){ const apiUrl="https://www.vechtdalleeft.nl/wp-json/wp/v2/posts?per_page=12&_embed"; try{ const text=await fetchViaProxy(apiUrl); if(!text) throw new Error("leeg"); const data=JSON.parse(text); return data.map(item=>({ title:(item.title?.rendered||"Geen titel").replace(/<[^>]*>/g,"").trim(), link:item.link, description:cleanHTML(item.excerpt?.rendered||item.content?.rendered||"",MAX_DESC), timestamp:Date.parse(item.date)||Date.now() })); }catch{ return []; } }
-
 
 async function fetchRTVVechtdalNieuws(){
-    const apiUrl="https://www.vechtdalleeft.nl/wp-json/wp/v2/posts?per_page=20&_embed";
-    try{
-        const text=await fetchViaProxy(apiUrl);
-        if(!text) throw new Error("leeg");
-        const data=JSON.parse(text);
+    const apiUrls = [
+        "https://www.vechtdalleeft.nl/wp-json/wp/v2/posts?per_page=20&_embed",
+        "https://vechtdalleeft.nl/wp-json/wp/v2/posts?per_page=20&_embed"
+    ];
+    const feedUrls = [
+        "https://www.vechtdalleeft.nl/feed/",
+        "https://vechtdalleeft.nl/feed/"
+    ];
+
+    // Helper to parse API data
+    function parseApiData(data){
         return data.map(item=>{
             let raw = item.excerpt?.rendered || "";
-            // Als excerpt al menu bevat, negeer en gebruik content gefilterd
             if(raw.includes("Home Vechtdal TV") || raw.includes("Vechtdal TVNieuwsVideo") || raw.length<10){
                 raw = item.content?.rendered || "";
             }
-            // Knip menu er direct uit
             raw = raw.replace(/Home Vechtdal TV[\s\S]*?Stichting RTV Vechtdal[\s\S]*/gi, '');
             raw = raw.replace(/Home Vechtdal TV[\s\S]*?VechtdalNext[\s\S]*?Contact[\s\S]*?Stichting RTV[^<]*?/gi, '');
             let desc = raw ? cleanHTML(raw, MAX_DESC) : "";
             if(!desc || desc.includes("Home Vechtdal") || desc.includes("Vechtdal TVNieuwsVideo")){
-                desc = ""; // liever geen beschrijving dan menu
+                desc = "";
             }
             return { title:(item.title?.rendered||"Geen titel").replace(/<[^>]*>/g,"").trim(), link:item.link, description:desc, timestamp:Date.parse(item.date)||Date.now() };
         });
-    }catch(e){ console.error("RTV Vechtdal fout", e); return []; }
+    }
+
+    // Try API via proxy, then direct
+    for(const apiUrl of apiUrls){
+        try{
+            let text = null;
+            try{ text = await fetchViaProxy(apiUrl); }catch(e){ console.warn("RTV proxy fail", apiUrl, e.message); }
+            if(!text){
+                try{
+                    const r = await fetchWithTimeout(apiUrl);
+                    if(r.ok) text = await r.text();
+                }catch(e){ console.warn("RTV direct fail", apiUrl, e.message); }
+            }
+            if(text){
+                const data = JSON.parse(text);
+                if(Array.isArray(data) && data.length>0){
+                    console.log("RTV Vechtdal API ok", apiUrl, data.length);
+                    return parseApiData(data);
+                }
+            }
+        }catch(e){ console.warn("RTV API parse fail", apiUrl, e); }
+    }
+
+    // Fallback to RSS feed
+    for(const feedUrl of feedUrls){
+        try{
+            let text = null;
+            try{ text = await fetchViaProxy(feedUrl); }catch(e){}
+            if(!text){
+                try{
+                    const r = await fetchWithTimeout(feedUrl);
+                    if(r.ok) text = await r.text();
+                }catch(e){}
+            }
+            if(text){
+                const xml = new DOMParser().parseFromString(text, "text/xml");
+                if(!xml.querySelector("parsererror")){
+                    const items = Array.from(xml.getElementsByTagName("item")).slice(0,15);
+                    if(items.length>0){
+                        console.log("RTV Vechtdal FEED ok", feedUrl, items.length);
+                        return items.map(item=>{
+                            let link = "";
+                            const le = item.querySelector("link");
+                            if(le) link = le.getAttribute("href")||le.textContent||"";
+                            const date = item.querySelector("pubDate")?.textContent?.trim()||"";
+                            const rawDesc = item.querySelector("description")?.textContent||"";
+                            let desc = rawDesc ? cleanHTML(rawDesc, MAX_DESC) : "";
+                            if(desc.includes("Home Vechtdal") || desc.includes("Vechtdal TVNieuwsVideo")) desc = "";
+                            return { title:item.querySelector("title")?.textContent?.trim()||"Geen titel", description:desc, link:link.trim(), timestamp:Date.parse(date)||Date.now() };
+                        });
+                    }
+                }
+            }
+        }catch(e){ console.warn("RTV feed fail", feedUrl, e); }
+    }
+
+    console.error("RTV Vechtdal alle methods gefaald");
+    return [];
 }
+
 
 async function fetchOostNieuws(){ const url="https://www.oost.nl/nieuws"; try{ const html=await fetchViaProxy(url); const doc=new DOMParser().parseFromString(html,"text/html"); const links=[...doc.querySelectorAll("a")].map(a=>a.href).filter(h=>h&&h.includes("/nieuws/")&&/\/nieuws\/\d+\//.test(h)).map(h=>h.replace("https://leeuw008-nl.github.io","https://www.oost.nl")); const uniek=[...new Set(links)].slice(0,5); const arts=await Promise.allSettled(uniek.map(link=>fetchOostArtikel(link))); return arts.filter(r=>r.status==='fulfilled'&&r.value).map(r=>r.value); }catch{ return []; } }
 async function fetchOostArtikel(url){ try{ const html=await fetchViaProxy(url); const doc=new DOMParser().parseFromString(html,"text/html"); const title=doc.querySelector("h1")?.innerText?.trim()||"RTV Oost"; let datum=doc.querySelector('meta[property="article:published_time"]')?.content||doc.querySelector("time")?.getAttribute("datetime")||""; if(!datum){ const m=doc.body.innerText.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i); if(m) datum=m[0]; } const contentEl=doc.querySelector("article, .article__content"); const description=contentEl?cleanHTML(contentEl.innerHTML,MAX_DESC):cleanTextWithEllipsis(doc.querySelector('meta[name="description"]')?.content||"",MAX_DESC); return {title,link:url,description,timestamp:datum?Date.parse(datum):Date.now(),source:"RTV Oost"}; }catch{ return null; } }
