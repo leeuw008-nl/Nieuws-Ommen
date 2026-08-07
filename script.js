@@ -104,51 +104,52 @@ function cleanHTMLOriginal(html) {
         else if(["P","BR","STRONG","B","EM","I","U","A","UL","OL","LI","H2","H3","H4","BLOCKQUOTE","DIV","SPAN"].includes(node.tagName)) safe += node.outerHTML;
     });
     if(!safe.trim()) safe = doc.body.innerHTML;
+    safe = safe.replace(/\[&hellip;\]/gi,' ').replace(/&hellip;/gi,' ').replace(/…/g,' ').replace(/\s*\[...\]\s*/g,' ').replace(/\s+/g,' ').trim();
+    if(!safe.includes('[...]')){
+        safe = safe + ' [...]';
+    }
+    safe = safe.replace(/(\s*\[...\]\s*){2,}/g,' [...]');
     return stripFooters(safe).trim();
 }
 
 function normalizeEllipsis(html){
     if(!html) return "";
-    // verwijder alle bestaande [...] varianten eerst, ook dubbele
     let h = html.trim();
-    // haal  ...  [...]  [...] [...]  […]  [&hellip;] aan het eind weg
-    h = h.replace(/(\s*\[…\]\s*)+/g, ' ');
-    h = h.replace(/(\s*\[...\]\s*)+$/g, ' ');
-    h = h.replace(/(\s*\[…\]\s*|\s*\[…\]\s*|\s*\[&hellip;\]\s*|\s*…\s*)+$/g, ' ');
-    // verwijder dubbele "[...] [...]"
-    h = h.replace(/(\s*\[...\]\s*){2,}/g, ' [...]');
-    // verwijder "[...]" midden in tekst gevolgd door nog een aan het eind
-    h = h.replace(/\[...\]\s*\[...\]/g, '[...]');
-    return h.trim();
+    h = h.replace(/\[&hellip;\]/gi, ' ');
+    h = h.replace(/\[…\]/g, ' ');
+    h = h.replace(/&hellip;/gi, ' ');
+    h = h.replace(/…/g, ' ');
+    h = h.replace(/\s*\[...\]\s*/g, ' ');
+    h = h.replace(/\s*\.\.\.\s*/g, ' ');
+    return h.replace(/\s+/g,' ').trim();
 }
 function ensureSingleEllipsis(html){
     let h = normalizeEllipsis(html);
-    if(!h.includes('[...]')){
-        if(/<\/p>\s*$/i.test(h)) h = h.replace(/<\/p>\s*$/i, ' [...]</p>');
-        else if(/<\/div>\s*$/i.test(h)) h = h.replace(/<\/div>\s*$/i, ' [...]</div>');
-        else h = h + ' [...]';
+    if(!h) return " [...]";
+    if(/<\/p>\s*$/i.test(h)) h = h.replace(/<\/p>\s*$/i, ' [...]</p>');
+    else if(/<\/div>\s*$/i.test(h)) h = h.replace(/<\/div>\s*$/i, ' [...]</div>');
+    else if(!h.includes('[...]')) h = h + ' [...]';
+    else if(!h.trim().endsWith('[...]') && !h.trim().endsWith('[...] </p>') && !h.trim().endsWith('[...]</p>')){
+        // zorg dat er maar 1 aan het eind staat
+        if(!h.includes('[...]')) h = h + ' [...]';
     }
-    // final dedupe
-    h = h.replace(/(\s*\[...\]\s*){2,}/g, ' [...]');
-    h = h.replace(/\[...\]\s*\[...\]/g, '[...]');
-    return h;
+    h = h.replace(/(\s*\[...\]\s*){2,}/g,' [...]');
+    return h.trim();
 }
 
 function cleanHTML(html, maxLength = MAX_DESC) {
     if(!html) return "";
     html = stripFooters(html);
-    // WordPress excerpts bevatten al "[&hellip;]" of "[...]" - eerst normaliseren
-    html = html.replace(/\[&hellip;\]/g, '').replace(/\[…\]/g, '').replace(/\s*\[...\]\s*/g, ' ');
+    html = normalizeEllipsis(html);
     const textarea = document.createElement("textarea");
     textarea.innerHTML = html;
     let decoded = textarea.value;
-    decoded = stripFooters(decoded);
+    decoded = stripFooters(normalizeEllipsis(decoded));
     const doc = new DOMParser().parseFromString(decoded, "text/html");
     doc.querySelectorAll("script, style, iframe, form, object, embed, link, noscript").forEach(el=>el.remove());
     doc.querySelectorAll("a").forEach(a=>{ a.setAttribute("target","_blank"); a.setAttribute("rel","noopener"); });
     let plainText = doc.body.innerText.replace(/\s+/g," ").trim();
-    plainText = normalizeEllipsis(plainText);
-    plainText = stripFooters(plainText);
+    plainText = normalizeEllipsis(stripFooters(plainText));
     if(plainText.length > maxLength) {
         let currentLen = 0; let result = "";
         for(let child of Array.from(doc.body.childNodes)) {
@@ -166,19 +167,16 @@ function cleanHTML(html, maxLength = MAX_DESC) {
                 break;
             } else { result += child.outerHTML || child.textContent; currentLen += textLen; }
         }
-        result = stripFooters(normalizeEllipsis(result)).trim();
-        return ensureSingleEllipsis(result);
+        return ensureSingleEllipsis(stripFooters(result));
     }
-    let htmlOut = normalizeEllipsis(stripFooters(doc.body.innerHTML).trim());
+    let htmlOut = stripFooters(doc.body.innerHTML).trim();
     return ensureSingleEllipsis(htmlOut);
 }
 
 function cleanTextWithEllipsis(text, maxLength = MAX_DESC) {
     if(!text) return "";
     text = text.replace(/\s+/g," ").trim();
-    text = stripFooters(text);
-    text = text.replace(/\[&hellip;\]/g, '').replace(/\[…\]/g, '').replace(/\[...\]/g, '').trim();
-    text = normalizeEllipsis(text);
+    text = stripFooters(normalizeEllipsis(text));
     if(text.length > maxLength) { 
         let cut = text.substring(0, maxLength); 
         let lastSpace = cut.lastIndexOf(" "); 
@@ -196,10 +194,9 @@ function cleanGemeenteHTML(html, maxLength = 650) {
     doc.querySelectorAll("a").forEach(a=>{ a.setAttribute("target","_blank"); a.setAttribute("rel","noopener"); });
     let paragraphs = Array.from(doc.querySelectorAll("p")).map(p => p.outerHTML).filter(p => { let txt = p.replace(/<[^>]*>/g,"").trim(); return txt.length > 30 && !txt.includes("verscheen eerst op") && !txt.includes("appeared first on"); });
     if(paragraphs.length === 0) return cleanHTML(html, maxLength);
-    let result = ""; let currentLen = 0; let totalLen = paragraphs.join("").replace(/<[^>]*>/g,"").length;
+    let result = ""; let currentLen = 0;
     for(let p of paragraphs) { let textLen = p.replace(/<[^>]*>/g,"").length; if(currentLen + textLen > maxLength && currentLen > 200) break; result += p; currentLen += textLen; if(currentLen >= maxLength) break; }
-    result = normalizeEllipsis(stripFooters(result));
-    return ensureSingleEllipsis(result);
+    return ensureSingleEllipsis(stripFooters(result));
 }
 
 async function fetchRSS(url) {
@@ -544,6 +541,21 @@ async function loadNews(isBackground=false) {
 
 function renderArticles(articles) {
     const container = document.getElementById("news-container");
+    // FINAL SAFETY NET
+    articles.forEach(a => {
+        if(a.description){
+            let d = a.description;
+            d = d.replace(/\[&hellip;\]/gi,' ').replace(/&hellip;/gi,' ').replace(/…/g,' ');
+            d = d.replace(/\s*\[...\]\s*/g,' ').replace(/\s*\.\.\.\s*/g,' ');
+            d = d.replace(/\s+/g,' ').trim();
+            if(!d.includes('[...]')){
+                if(/<\/p>\s*$/i.test(d)) d = d.replace(/<\/p>\s*$/i,' [...]</p>');
+                else d = d + ' [...]';
+            }
+            d = d.replace(/(\s*\[...\]\s*){2,}/g,' [...]');
+            a.description = d;
+        }
+    });
     let html = `<p><strong>${articles.length} artikelen gevonden</strong></p>`;
     if (articles.length === 0) html += "<p>Geen artikelen gevonden.</p>";
     else html += articles.map(article => {
@@ -617,7 +629,6 @@ function setupSearch() {
 }
 function refreshNews() { loadNews(false); }
 function saveSelectedSources(){
-    // NIEUW: sync met v2 state als die bestaat, anders legacy
     try{
         const v2raw = localStorage.getItem('nieuwsommen_bronnen_v2');
         if(v2raw){
@@ -636,20 +647,17 @@ function saveSelectedSources(){
     updatePushPreferences();
 }
 function loadSelectedSources(){
-    // FIX v100: gebruik nieuwsommen_bronnen_v2 als master, niet LS_SOURCES_KEY
     try{
         const v2raw = localStorage.getItem('nieuwsommen_bronnen_v2');
         if(v2raw){
             const v2 = JSON.parse(v2raw);
-            const checkboxes = document.querySelectorAll(".source-filter");
-            checkboxes.forEach(cb => {
+            document.querySelectorAll(".source-filter").forEach(cb => {
                 if(v2[cb.value] && typeof v2[cb.value].aan === 'boolean'){
                     cb.checked = v2[cb.value].aan;
                 }
             });
             return;
         }
-        // fallback legacy
         const saved = JSON.parse(localStorage.getItem(LS_SOURCES_KEY)||"null");
         if(!saved || typeof saved !== 'object') return;
         if(Array.isArray(saved)) return;
