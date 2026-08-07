@@ -1,13 +1,32 @@
-/* Nieuw(s)Ommen v110 - FIX bel + [ ] [...] + SPEED */
-const PROXIES = ['https://ommen-push.leeuw008.workers.dev/proxy?url=','https://corsproxy.io/?'];
+/* Nieuw(s)Ommen v111 - FIX artikelen terug + bel + [ ] [...] */
+const PROXIES = [
+  'https://ommen-push.leeuw008.workers.dev/proxy?url=',
+  'https://corsproxy.io/?',
+  'https://api.allorigins.win/raw?url=',
+  'https://api.codetabs.com/v1/proxy?quest='
+];
 const PROXY = PROXIES[0];
-const FETCH_TIMEOUT = 4500;
-const CACHE_KEY = 'ommen_cache_v110';
+const FETCH_TIMEOUT = 8000;
+const CACHE_KEY = 'ommen_cache_v111';
 const CACHE_TTL = 10*60*1000;
 async function fetchWithTimeout(url){ const c=new AbortController(); const t=setTimeout(()=>c.abort(),FETCH_TIMEOUT); try{ const r=await fetch(url,{signal:c.signal}); clearTimeout(t); return r; }catch(e){ clearTimeout(t); throw e; } }
-async function fetchViaProxy(targetUrl, attempt=0){ if(attempt>=PROXIES.length) throw new Error('All proxies failed'); const proxyUrl=PROXIES[attempt]+encodeURIComponent(targetUrl); try{ const res=await fetchWithTimeout(proxyUrl); if(!res.ok) throw new Error('Proxy '+res.status); const text=await res.text(); if(!text||text.length<80) throw new Error('Empty'); return text; }catch(e){ return fetchViaProxy(targetUrl, attempt+1); } }
+async function fetchViaProxy(targetUrl, attempt=0){
+  if(attempt>=PROXIES.length) throw new Error('All proxies failed for '+targetUrl);
+  const proxyUrl = PROXIES[attempt] + encodeURIComponent(targetUrl);
+  try{
+    const res = await fetchWithTimeout(proxyUrl);
+    if(res.status===429) throw new Error('429');
+    if(!res.ok) throw new Error('Proxy '+res.status);
+    const text = await res.text();
+    if(!text || text.length<80) throw new Error('Empty');
+    return text;
+  }catch(e){
+    await new Promise(r=>setTimeout(r, 400*attempt));
+    return fetchViaProxy(targetUrl, attempt+1);
+  }
+}
 function loadCache(){ try{ const raw=localStorage.getItem(CACHE_KEY); if(!raw) return null; const obj=JSON.parse(raw); if(Date.now()-obj.ts>CACHE_TTL) return null; return obj.articles; }catch{ return null; } }
-function saveCache(a){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ts:Date.now(), articles:a.slice(0,80)})); }catch{} }
+function saveCache(a){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ts:Date.now(), articles:a.slice(0,100)})); }catch{} }
 const feeds = [
     { name: 'Ommen City', url: 'https://ommencity.nl/feed/' },
     { name: 'OudOmmen', url: 'https://weblog.oudommen.nl/feed/' },
@@ -93,7 +112,9 @@ async function loadNews(isBackground=false){
         const feedPromises=feeds.map(async f=>{ try{ const arts=await fetchRSS(f.url); return {source:f.name,articles:arts}; }catch{ return {source:f.name,articles:[]}; } });
         const [feedResults,gemeente,rtv,oost] = await Promise.all([ Promise.all(feedPromises), fetchGemeenteNieuws(), fetchRTVVechtdalNieuws(), fetchOostNieuws() ]);
         const fresh=[]; feedResults.forEach(r=>r.articles.forEach(a=>fresh.push({...a,source:r.source}))); gemeente.forEach(a=>fresh.push({...a,source:"Gemeente Ommen"})); rtv.forEach(a=>fresh.push({...a,source:"RTV Vechtdal"})); oost.forEach(a=>fresh.push({...a,source:"RTV Oost"}));
-        if(fresh.length>0){ allArticles=fresh; finalizeArticles(); saveCache(allArticles); searchNews(); const n=document.getElementById('cache-notice'); if(n) n.remove(); }
+        if(fresh.length>0){ allArticles=fresh; finalizeArticles(); saveCache(allArticles); searchNews(); const n=document.getElementById('cache-notice'); if(n) n.remove(); } else { // behoud cache als fetch faalt
+            const cached=loadCache(); if(cached && allArticles.length===0){ allArticles=cached; searchNews(); }
+        }
     }catch(e){ console.error(e); }
 }
 function renderArticles(articles){
