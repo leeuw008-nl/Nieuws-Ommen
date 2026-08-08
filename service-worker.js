@@ -7,8 +7,8 @@ self.addEventListener('push', function(event){
   const title = data.title || 'Nieuw Ommen nieuws';
   const options = {
     body: data.body || 'Nieuw artikel',
-    icon: APP_BASE + 'icon-192x192.png',
-    badge: APP_BASE + 'badge-72.png',
+    icon: APP_BASE + 'icons/icon-192x192.png',
+    badge: APP_BASE + 'icons/badge-72.png',
     data: {
       url: data.url,
       appUrl: data.appUrl || (APP_BASE + '?open=' + encodeURIComponent(data.url||'') + '&src=' + encodeURIComponent(data.source||'')),
