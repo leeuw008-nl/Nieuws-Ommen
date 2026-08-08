@@ -1,4 +1,4 @@
-/* Nieuw(s)Ommen v112c HARD FIX 07:01: geen refresh bij schakelaars + RTV tijd + RTV menu */
+/* Nieuw(s)Ommen v112d KILL-SW 07:07:36 07:01: geen refresh bij schakelaars + RTV tijd + RTV menu */
 const PROXIES = [
   'https://ommen-push.leeuw008.workers.dev/proxy?url=',
   'https://corsproxy.io/?',
@@ -7,7 +7,7 @@ const PROXIES = [
 ];
 const PROXY = PROXIES[0];
 const FETCH_TIMEOUT = 8000;
-const CACHE_KEY = 'ommen_cache_v112c';
+const CACHE_KEY = 'ommen_cache_v112d_1786198056';
 const CACHE_TTL = 10*60*1000;
 async function fetchWithTimeout(url){ const c=new AbortController(); const t=setTimeout(()=>c.abort(),FETCH_TIMEOUT); try{ const r=await fetch(url,{signal:c.signal}); clearTimeout(t); return r; }catch(e){ clearTimeout(t); throw e; } }
 async function fetchViaProxy(targetUrl, attempt=0){
