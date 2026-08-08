@@ -1,5 +1,13 @@
-// v111j RESTORE 2026-08-08 11:33:29 1786214009
-const CACHE_NAME='nieuws-ommen-v111j-1786214009';
+// RESTORE WEEK-OLD EXTERNAL SCRIPT 1786215185
+const CACHE_NAME='nieuws-ommen-external-1786215185';
 self.addEventListener('install', e=>{self.skipWaiting();});
 self.addEventListener('activate', e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.map(x=>caches.delete(x)))).then(()=>self.clients.claim()));});
-self.addEventListener('fetch', e=>{ if(e.request.url.includes('index.html')||e.request.url.includes('service-worker')){e.respondWith(fetch(e.request,{cache:'no-store'}).catch(()=>caches.match(e.request)));return;} e.respondWith(fetch(e.request).then(r=>r).catch(()=>caches.match(e.request))); });
+self.addEventListener('fetch', e=>{
+  const url=e.request.url;
+  // NEVER cache script.js and index.html - always fresh
+  if(url.includes('script.js') || url.includes('index.html') || url.includes('service-worker')){
+    e.respondWith(fetch(e.request, {cache:'no-store'}));
+    return;
+  }
+  e.respondWith(fetch(e.request).then(r=>r).catch(()=>caches.match(e.request)));
+});
