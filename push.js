@@ -1,6 +1,6 @@
-// push.js FINAL DEFINITIEF 06-08-2026 - Bel AAN: rand A7F3D0, achtergrond E8FFEA = identiek aan Alles aan
-const PUSH_WORKER_URL = 'https://ommen-push-v2.leeuw008.workers.dev';
-const ALLE_BRONNEN = ["De Stentor","Gemeente Ommen","Ommen City","OudOmmen","RondOmmen","RTV Oost","RTV Vechtdal","Salland Centraal","Vechtdal Centraal"];
+// push.js v12 FIX - zelfde worker als script.js + bronnen zonder Salland
+const PUSH_WORKER_URL = 'https://ommen-push.leeuw008.workers.dev';
+const ALLE_BRONNEN = ["De Stentor","Gemeente Ommen","Ommen City","OudOmmen","RondOmmen","RTV Oost","RTV Vechtdal","Vechtdal Centraal","Natuurlijk Ommen"];
 const BELL_BG = '#E8FFEA';
 const BELL_BORDER = '#A7F3D0';
 const BELL_TEXT = '#065f46';
@@ -17,15 +17,20 @@ function urlBase64ToUint8Array(base64String) {
 }
 async function getVapidPublicKey() {
   try {
+    // Probeer eerst nieuwe endpoint /vapid (json), daarna oude /vapidPublicKey (text)
+    let r = await fetch(`${PUSH_WORKER_URL}/vapid`, {cache:'no-store'});
+    if(r.ok){ const j = await r.json(); if(j.publicKey) return j.publicKey; if(j.key) return j.key; }
+  } catch {}
+  try {
     const r = await fetch(`${PUSH_WORKER_URL}/vapidPublicKey`, {cache:'no-store'});
-    if(!r.ok) throw new Error('no key');
-    return (await r.text()).trim();
-  } catch(e){ return null; }
+    if(r.ok) return (await r.text()).trim();
+  } catch(e){}
+  return null;
 }
 async function updatePushBell() {
   const target = document.getElementById('bell-slot')?.querySelector('button');
   if(!target) return;
-  if(!('Notification' in window) || !('serviceWorker' in navigator)){
+  if(!('Notification' in window) ||!('serviceWorker' in navigator)){
     target.textContent='🔕';
     target.style.setProperty('background', WHITE_BG, 'important');
     target.style.setProperty('border', `1px solid ${GRAY_BORDER}`, 'important');
@@ -40,9 +45,9 @@ async function updatePushBell() {
   try{
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
-    const isOn = !!sub;
-    target.textContent = isOn ? '🔔' : '🔕';
-    target.style.opacity = isOn ? '1' : '0.6';
+    const isOn =!!sub;
+    target.textContent = isOn? '🔔' : '🔕';
+    target.style.opacity = isOn? '1' : '0.6';
     if(isOn){
       target.style.setProperty('background', BELL_BG, 'important');
       target.style.setProperty('background-color', BELL_BG, 'important');
@@ -63,7 +68,7 @@ async function updatePushBell() {
 function getSelectedSources(){
   try{
     const v2 = JSON.parse(localStorage.getItem('nieuwsommen_bronnen_v2')||'{}');
-    if(v2 && typeof v2 === 'object' && !Array.isArray(v2) && Object.keys(v2).length>0){
+    if(v2 && typeof v2 === 'object' &&!Array.isArray(v2) && Object.keys(v2).length>0){
       const aan = Object.keys(v2).filter(id=> v2[id]?.aan);
       if(aan.length>0) return aan;
     }
@@ -77,7 +82,7 @@ function getSelectedSources(){
 async function togglePushIsolated(){
   try{
     const vapidKey = await getVapidPublicKey();
-    if(!vapidKey){ alert('VAPID key niet beschikbaar'); return; }
+    if(!vapidKey){ alert('VAPID key niet beschikbaar bij '+PUSH_WORKER_URL); return; }
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
     if(sub){
@@ -90,7 +95,10 @@ async function togglePushIsolated(){
     if(perm!=='granted'){ alert('Toestemming geweigerd'); return; }
     sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(vapidKey)});
     let sources = getSelectedSources();
-    await fetch(`${PUSH_WORKER_URL}/subscribe`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({endpoint:sub.endpoint, keys:{p256dh:btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''), auth:btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}, sources})});
+    // Stuur zelfde formaat als script.js v111: endpoint + keys + sources
+    const key_p256dh = btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    const key_auth = btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    await fetch(`${PUSH_WORKER_URL}/subscribe`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({endpoint:sub.endpoint, keys:{p256dh:key_p256dh, auth:key_auth}, sources})});
     localStorage.setItem('ommen_push_subscribed','1');
     alert('Meldingen aangezet!'); updatePushBell();
   }catch(e){ alert('Fout: '+e.message); }
@@ -101,7 +109,7 @@ window.addEventListener('load', ()=>{
   if(slot){
     const obs = new MutationObserver(()=>{
       const btn = slot.querySelector('button');
-      if(btn && !btn._pushBound){ btn._pushBound=true; btn.addEventListener('click', e=>{e.stopPropagation(); togglePushIsolated();}); updatePushBell(); }
+      if(btn &&!btn._pushBound){ btn._pushBound=true; btn.addEventListener('click', e=>{e.stopPropagation(); togglePushIsolated();}); updatePushBell(); }
     });
     obs.observe(slot, {childList:true});
   }
