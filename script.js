@@ -1,4 +1,4 @@
-/* Nieuw(s)Ommen v112d KILL-SW 07:07:36 07:01: geen refresh bij schakelaars + RTV tijd + RTV menu */
+/* Nieuw(s)Ommen v112f RTV FIX 07:24:48 07:07:36 07:01: geen refresh bij schakelaars + RTV tijd + RTV menu */
 const PROXIES = [
   'https://ommen-push.leeuw008.workers.dev/proxy?url=',
   'https://corsproxy.io/?',
@@ -7,7 +7,7 @@ const PROXIES = [
 ];
 const PROXY = PROXIES[0];
 const FETCH_TIMEOUT = 8000;
-const CACHE_KEY = 'ommen_cache_v112d_1786198056';
+const CACHE_KEY = 'ommen_cache_v112f_1786199088_1786198056';
 const CACHE_TTL = 10*60*1000;
 async function fetchWithTimeout(url){ const c=new AbortController(); const t=setTimeout(()=>c.abort(),FETCH_TIMEOUT); try{ const r=await fetch(url,{signal:c.signal}); clearTimeout(t); return r; }catch(e){ clearTimeout(t); throw e; } }
 async function fetchViaProxy(targetUrl, attempt=0){
@@ -69,61 +69,74 @@ async function fetchRSS(url){ try{ const text=await fetchViaProxy(url); if(!text
 async function fetchGemeenteNieuws(){ const url="https://www.ommen.nl/actueel/"; try{ const text=await fetchViaProxy(url); const html=new DOMParser().parseFromString(text,"text/html"); const links=[]; for(const a of html.querySelectorAll("a")){ const title=a.querySelector("h3, h2")?.textContent?.trim()||a.textContent.trim(); const href=a.href; if(title && href.includes("/actueel/") && title.length>10 && links.length<5) links.push({title,link:href}); } const results=await Promise.allSettled(links.map(l=>fetchGemeenteGegevens(l.link))); return results.map((r,i)=>{ if(r.status==='fulfilled'&&r.value) return {title:links[i].title,link:links[i].link,description:r.value.tekst,timestamp:r.value.datum?Date.parse(r.value.datum):Date.now()}; return null; }).filter(Boolean); }catch{ return []; } }
 async function fetchGemeenteGegevens(url){ try{ const text=await fetchViaProxy(url); const html=new DOMParser().parseFromString(text,"text/html"); const bodyText=html.body?.innerText||""; const m=bodyText.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i); const datum=m?m[0]:""; let contentDiv=html.querySelector("article .content, .text-content, [class*='content'] p"); let tekst=""; if(contentDiv){ let parent=contentDiv.closest("article")||contentDiv.parentElement; tekst=cleanGemeenteHTML(parent?parent.innerHTML:contentDiv.innerHTML,650); } else { const regels=bodyText.split("\n").map(r=>r.trim()).filter(r=>r.length>40); if(regels.length>0) tekst=cleanTextWithEllipsis(regels.slice(0,2).join(" "),650); } return {datum,tekst}; }catch{ return {datum:"",tekst:""}; } }
 
+
 async function fetchRTVVechtdalNieuws(){
   const apiUrl="https://www.vechtdalleeft.nl/wp-json/wp/v2/posts?per_page=12&_embed";
   try{
     const text=await fetchViaProxy(apiUrl);
     if(!text) throw new Error("leeg");
     const data=JSON.parse(text);
+    console.log("RTV raw items:", data.length);
     return data.map((item, idx)=>{
-      let raw = item.excerpt?.rendered || item.content?.rendered || "";
-      // HARD STRIP - verwijder alles tot Stichting RTV Vechtdal
-      raw = raw.replace(/[\s\S]*?Stichting RTV Vechtdal\s*/gi, " ");
-      raw = raw.replace(/Home Vechtdal[\s\S]*?Contact/gi, " ");
-      raw = raw.replace(/Vechtdal TVNieuws/gi, " ");
-      raw = raw.replace(/Programmagids/gi, " ");
-
-      if(raw.replace(/<[^>]*>/g,"").trim().length < 20){
-        let fallback = item.content?.rendered || "";
-        fallback = fallback.replace(/[\s\S]*?Stichting RTV Vechtdal\s*/gi, " ");
-        raw = fallback;
+      let raw = item.content?.rendered || item.excerpt?.rendered || "";
+      // Zoek de positie van het menu-einde, pak alles DAARNA
+      const menuEndMarkers = ["Stichting RTV Vechtdal", "Home - Stichting RTV Vechtdal"];
+      let cutPos = -1;
+      for(const marker of menuEndMarkers){
+        const pos = raw.toLowerCase().indexOf(marker.toLowerCase());
+        if(pos !== -1){
+          cutPos = Math.max(cutPos, pos + marker.length);
+        }
       }
-
+      if(cutPos !== -1){
+        raw = raw.substring(cutPos);
+      }
+      // Als er nog menu-spul vooraan zit, verwijder tot eerste <p> met echte tekst > 30 chars
       try{
-        const tmpDoc = new DOMParser().parseFromString(raw, "text/html");
-        let ps = Array.from(tmpDoc.querySelectorAll("p")).map(p=>p.innerHTML.trim()).filter(t=>{
-          const low = t.toLowerCase();
-          if(low.length < 25) return false;
-          if(low.includes("vechtdal tv") && low.includes("vechtdal fm")) return false;
-          if(low.includes("home - vechtdal")) return false;
-          if(low.includes("programmagids")) return false;
-          if(low.includes("stichting rtv")) return false;
+        const tmp = new DOMParser().parseFromString(raw, "text/html");
+        let paragraphs = Array.from(tmp.querySelectorAll("p")).map(p=>p.innerHTML.trim()).filter(t=>{
+          const txt = t.replace(/<[^>]*>/g,"").trim();
+          if(txt.length < 20) return false;
+          const low = txt.toLowerCase();
+          // filter alleen menu paragrafen, niet nieuws
+          if(low.startsWith("home vechtdal")) return false;
+          if(low.includes("vechtdal tv") && low.includes("vechtdal fm") && txt.length < 200) return false;
+          if(low === "home - vechtdal fm") return false;
+          if(low === "home - vechtdal nl") return false;
+          if(low.startsWith("programmagids")) return false;
           return true;
         });
-        if(ps.length>0) raw = ps.slice(0,3).join("<br><br>");
-      }catch{}
+        if(paragraphs.length > 0){
+          raw = paragraphs.slice(0,3).join("<br><br>");
+        }
+        // Als na filter niks over is, neem dan gewoon de eerste 2 paragrafen van originele content zonder menu
+        if(!raw || raw.replace(/<[^>]*>/g,"").trim().length < 20){
+          const orig = new DOMParser().parseFromString(item.content?.rendered || "", "text/html");
+          let origP = Array.from(orig.querySelectorAll("p")).map(p=>p.innerHTML).filter(h=>h.replace(/<[^>]*>/g,"").trim().length > 30).slice(0,2).join("<br><br>");
+          if(origP) raw = origP;
+        }
+      }catch(e){ console.warn("RTV parse fail", e); }
+
+      // Fallback als nog steeds leeg: gebruik excerpt zonder html strip
+      if(!raw || raw.replace(/<[^>]*>/g,"").trim().length < 10){
+        raw = item.excerpt?.rendered || "Lees verder op VechtdalLeeft.nl";
+      }
 
       let ts = 0;
-      const candidates = [item.date_gmt, item.date, item.modified_gmt, item.modified];
-      for(const c of candidates){
+      for(const c of [item.date_gmt, item.date, item.modified_gmt, item.modified]){
         if(!c) continue;
         const d = new Date(c);
         if(!isNaN(d.getTime())){ ts = d.getTime(); break; }
       }
-      if(!ts){
-        const idNum = item.id ? parseInt(item.id) : 0;
-        ts = Date.now() - (10000000 - idNum*10000) - idx*60000;
-      } else {
-        ts = ts - idx*1000;
-      }
+      if(!ts) ts = Date.now() - idx*60000;
 
       return {
         title:(item.title?.rendered||"Geen titel").replace(/<[^>]*>/g,"").trim(),
         link:item.link,
-        description:cleanHTML(raw,MAX_DESC),
-        timestamp:ts
+        description:cleanHTML(raw, MAX_DESC),
+        timestamp:ts - idx*100
       };
-    });
+    }).filter(a=>a.title);
   }catch(e){
     console.error("RTV fetch fail", e);
     return [];
