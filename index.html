@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nieuw(s)Ommen v111 FIX artikelen terug</title>
+    <title>Nieuw(s)Ommen v112 FIX 3 punten</title>
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" href="icon-192x192.png" type="image/png">
@@ -275,7 +275,7 @@ function render(){
       saveState(); render();
       if(window.filterNews) window.filterNews();
       if(window.applyFilters) window.applyFilters();
-      if(typeof refreshNews==='function' && type==='aan'){ setTimeout(()=>{ try{refreshNews()}catch{} }, 50); }
+      // v112 FIX punt 1: geen refreshNews meer bij AAN/UIT - alleen filteren via searchNews (instant, geen fetch)
     });
   });
 }
