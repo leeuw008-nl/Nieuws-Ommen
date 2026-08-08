@@ -1,4 +1,4 @@
-/* Nieuw(s)Ommen v111h MINIMAL-FIX 11:18 - FIX artikelen terug + bel + [ ] [...] */
+/* Nieuw(s)Ommen v111 - FIX artikelen terug + bel + [ ] [...] */
 const PROXIES = [
   'https://ommen-push.leeuw008.workers.dev/proxy?url=',
   'https://corsproxy.io/?',
@@ -7,7 +7,7 @@ const PROXIES = [
 ];
 const PROXY = PROXIES[0];
 const FETCH_TIMEOUT = 8000;
-const CACHE_KEY = 'ommen_cache_v111h MINIMAL-FIX 11:18';
+const CACHE_KEY = 'ommen_cache_v111';
 const CACHE_TTL = 10*60*1000;
 async function fetchWithTimeout(url){ const c=new AbortController(); const t=setTimeout(()=>c.abort(),FETCH_TIMEOUT); try{ const r=await fetch(url,{signal:c.signal}); clearTimeout(t); return r; }catch(e){ clearTimeout(t); throw e; } }
 async function fetchViaProxy(targetUrl, attempt=0){
