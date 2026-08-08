@@ -1,25 +1,25 @@
 {
   "name": "Nieuw(s)Ommen",
   "short_name": "Nieuw(s)Ommen",
-  "start_url": "/index.html",
+  "start_url": "/Nieuws-Ommen/index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0066cc",
   "icons": [
     {
-      "src": "/icons/icon-192x192.png",
+      "src": "/Nieuws-Ommen/icons/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512x512.png",
+      "src": "/Nieuws-Ommen/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/maskable-icon-512x512.png",
+      "src": "/Nieuws-Ommen/icons/maskable-icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
