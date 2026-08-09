@@ -8,44 +8,37 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="icon" href="icons/icon-192x192.png" type="image/png">
 <meta name="theme-color" content="#0b5bd3">
-<style id="override-lichter-groen-fix">
-  /* 1. Alles aan = lichter groen */
-  #btn-all.all-on,
-  #btn-all[aria-pressed="true"] {
+<style id="fix-lichter-groen-en-klikbaar">
+  /* Alles aan - lichter groen - alleen achtergrondkleur */
+  #btn-all.all-on {
     background: #d6ffdf !important;
     color: #065f46 !important;
     border-color: #86efac !important;
   }
 
-  /* 2. Bel - basis altijd klikbaar */
-  #bell-slot button,
-  #bell-slot .bell-btn,
-  #bell-slot [id*="bell"],
-  #bell-slot [class*="bell"] {
+  /* BEL - altijd klikbaar, boven filter-header */
+  #bell-slot {
+    position: relative !important;
+    z-index: 5 !important;
+    pointer-events: auto !important;
+  }
+  #push-bell-btn {
     pointer-events: auto !important;
     cursor: pointer !important;
+    position: relative !important;
+    z-index: 10 !important;
   }
 
-  /* 3. Bel UIT = wit (standaard) */
-  #bell-slot button:not(.enabled):not(.active):not(.on):not(.subscribed):not(.push-enabled):not([aria-pressed="true"]) {
-    background: #ffffff !important;
+  /* BEL UIT = wit */
+  #push-bell-btn:not(.enabled) {
+    background: #fff !important;
   }
 
-  /* 4. Bel AAN/ingeschakeld = zelfde lichte groen als Alles aan */
-  #bell-slot button.enabled,
-  #bell-slot button.active,
-  #bell-slot button.on,
-  #bell-slot button.subscribed,
-  #bell-slot button.push-enabled,
-  #bell-slot button[aria-pressed="true"],
-  #bell-slot .bell-btn.enabled,
-  #bell-slot .bell-btn.active,
-  #bell-slot [class*="bell"].enabled,
-  #bell-slot [class*="bell"].active {
+  /* BEL AAN = zelfde lichte groen als Alles aan */
+  #push-bell-btn.enabled {
     background: #d6ffdf !important;
     color: #065f46 !important;
     border-color: #86efac !important;
-    pointer-events: auto !important;
   }
 </style>
 </head>
@@ -86,25 +79,5 @@
 <script src="news.js"></script>
 <script src="push.js"></script>
 <script src="article-focus.js"></script>
-<script>
-// Fix: zorg dat bel altijd klikbaar blijft, ook nadat push.js hem opnieuw rendert
-(function(){
-  const slot = document.getElementById('bell-slot');
-  if(!slot) return;
-  const makeClickable = () => {
-    const btn = slot.querySelector('button, [role="button"]');
-    if(btn){
-      btn.style.pointerEvents = 'auto';
-      btn.style.cursor = 'pointer';
-    }
-  };
-  // Bij elke render van push.js opnieuw fixen
-  const obs = new MutationObserver(makeClickable);
-  obs.observe(slot, { childList: true, subtree: true });
-  // Ook na laden
-  window.addEventListener('load', makeClickable);
-  setTimeout(makeClickable, 500);
-})();
-</script>
 </body>
 </html>
