@@ -15,7 +15,7 @@ header h1{display:flex;align-items:center;gap:12px;justify-content:center;width:
 .filter-header-count{font-weight:600;color:#1d4ed8;font-size:11px;white-space:nowrap;background:#eff6ff;padding:4px 10px;border-radius:999px;border:1px solid #bfdbfe;height:28px;display:inline-flex;align-items:center;justify-content:center}
 .filter-header-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .bell-slot{display:flex;align-items:center;justify-content:center;min-width:42px;min-height:28px;width:42px}
-.bell-slot:empty::after{content:"🔔";opacity:1;font-size:18px}
+.bell-slot:empty::after{content:"🔔";opacity:1;font-size:18px;display:flex;align-items:center;justify-content:center;width:42px;height:28px;background:#16a34a;border:2px solid #16a34a;border-radius:8px;color:#fff}
 .bell-slot > *{width:42px;height:28px;min-width:42px;min-height:28px;display:flex;align-items:center;justify-content:center;background:#16a34a;border:2px solid #16a34a;border-radius:8px;font-size:20px;line-height:1;padding:0 4px;color:#fff;opacity:1}
 .btn-all-toets{font-size:11px;font-weight:700;background:#E8FFEA;border:1px solid #A7F3D0;color:#065f46;padding:4px 10px;border-radius:999px;cursor:pointer;white-space:nowrap;min-width:78px;height:28px;display:inline-flex;align-items:center;justify-content:center}
 .btn-all-toets.all-off{background:#fee2e2;border-color:#fca5a5;color:#991b1b}
@@ -64,5 +64,5 @@ body.panel-open #news-container::before{content:"";display:block;height:16px;mar
 footer{text-align:center;padding:1rem;background:#eee;max-width:640px;margin:16px auto 0;border-radius:12px 12px 0 0}
 footer button{margin:5px;padding:10px 18px;font-size:14px;background:var(--brand-dark);color:white;border:none;border-radius:8px;cursor:pointer}
 #bell-slot button.enabled{background:#16a34a !important;border:2px solid #16a34a !important;color:#fff !important;opacity:1 !important}
-#bell-slot button:not(.enabled){background:#fff !important;border:2px solid #000 !important;color:#000 !important;opacity:1 !important}
+#bell-slot button:not(.enabled){background:#16a34a !important;border:2px solid #16a34a !important;color:#fff !important;opacity:1 !important}
 @media(max-width:400px){header h1{font-size:1.4em} .source-row{grid-template-columns:1fr 140px}}
