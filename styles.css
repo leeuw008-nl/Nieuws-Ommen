@@ -1,4 +1,4 @@
-/* Nieuw(s)Ommen v200 - PRE 1927 - GOOD BEL - clean */
+/* Nieuw(s)Ommen v200 - ORIGINAL CLEAN - GOOD BEL - pre 1927 */
 :root{--brand:#0b5bd3; --brand-dark:#0f172a; --bg:#f4f6f8; --card:#ffffff; --border:#e5e7eb; --text:#0f172a; --muted:#64748b;}
 *{box-sizing:border-box}
 body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;padding:0;background:var(--bg);color:var(--text); -webkit-font-smoothing:antialiased}
@@ -8,6 +8,7 @@ header h1{display:flex;align-items:center;gap:12px;justify-content:center;width:
 .info-icon-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.45);display:inline-flex;align-items:center;justify-content:center;color:#fff;text-decoration:none;font-weight:900;font-size:20px;line-height:1;flex-shrink:0}
 .search-row{margin:0 auto 8px;width:100%;max-width:100%;display:block}
 .search-row input{width:100%;padding:11px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.7);font-size:15px;display:block;outline:none}
+.search-row input:focus{border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.25)}
 .filter-header{margin:0 auto;background:#fff;border:1px solid var(--border);border-radius:12px;padding:6px 8px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:all .2s;gap:6px;min-height:36px}
 .filter-header.open{border-radius:12px 12px 0 0;border-bottom:2px solid var(--brand);box-shadow:0 2px 8px rgba(0,0,0,.08)}
 .filter-header-center{flex:1;display:flex;justify-content:center;align-items:center}
@@ -57,6 +58,7 @@ main{padding:0 12px;box-sizing:border-box;margin:0 auto;width:100%;max-width:640
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 .article h2{margin:0 0 6px 0;font-size:1.08em;line-height:1.3}
 .article a{color:var(--brand);text-decoration:none}
+.article a:hover{text-decoration:underline}
 .article small{color:var(--muted);font-size:0.82em;display:block;margin-bottom:6px}
 footer{text-align:center;padding:1rem;background:#eee;max-width:640px;margin:16px auto 0;border-radius:12px 12px 0 0}
 footer button{margin:5px;padding:10px 18px;font-size:14px;background:var(--brand-dark);color:white;border:none;border-radius:8px;cursor:pointer}
