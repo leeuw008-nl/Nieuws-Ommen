@@ -6,21 +6,26 @@ function ensureBellButton(){
   const slot=document.getElementById('bell-slot'); if(!slot) return null;
   let btn=slot.querySelector('button');
   if(!btn){ btn=document.createElement('button'); btn.type='button'; btn.id='push-bell-btn'; btn.textContent='🔔'; slot.appendChild(btn); }
+  btn.onclick = (e)=>{ e.stopPropagation(); togglePush(); };
   return btn;
 }
 async function updatePushBell(){
   const btn=ensureBellButton(); if(!btn) return;
   try{
-    if(!('Notification' in window)||!('serviceWorker' in navigator)){ btn.textContent='🔕'; btn.classList.remove('enabled'); return; }
-    if(Notification.permission==='denied'){ btn.textContent='🔕'; btn.classList.remove('enabled'); btn.title='Geblokkeerd'; return; }
+    if(!('Notification' in window)||!('serviceWorker' in navigator)){ btn.textContent='🔕'; btn.classList.remove('enabled'); btn.title='Geen ondersteuning'; return; }
+    if(Notification.permission==='denied'){ btn.textContent='🔕'; btn.classList.remove('enabled'); btn.title='Geblokkeerd - klik voor uitleg'; return; }
     const reg=await navigator.serviceWorker.ready; const sub=await reg.pushManager.getSubscription();
     btn.textContent=sub?'🔔':'🔕'; btn.classList.toggle('enabled', !!sub);
     btn.title=sub?'Meldingen aan - klik om uit te zetten':'Meldingen uit - klik om aan te zetten';
-  }catch(e){ const b=ensureBellButton(); if(b) b.textContent='🔕'; }
+  }catch(e){ const b=ensureBellButton(); if(b){ b.textContent='🔕'; b.classList.remove('enabled'); } }
 }
 function getSelectedSourcesLocal(){ try{ const v=JSON.parse(localStorage.getItem('nieuwsommen_bronnen_v2')||'{}'); const aan=Object.keys(v).filter(id=>v[id]?.aan); if(aan.length) return aan; }catch{} return [...ALLE_BRONNEN]; }
 async function togglePush(){
   try{
+    if(Notification.permission==='denied'){
+      alert('Meldingen zijn geblokkeerd in je browser.\n\nChrome/Edge: klik op slotje in adresbalk > Site-instellingen > Meldingen > Toestaan\nFirefox: adresbalk icoon > Toestemmingen > Meldingen');
+      return;
+    }
     const vapidKey=await getVapidPublicKey(); if(!vapidKey){ alert('VAPID key niet beschikbaar'); return; }
     const reg=await navigator.serviceWorker.ready;
     let sub=await reg.pushManager.getSubscription();
@@ -42,8 +47,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   ensureBellButton();
   const slot=document.getElementById('bell-slot');
   if(slot){ slot.addEventListener('click', (e)=>{ e.stopPropagation(); togglePush(); }); }
-  if('serviceWorker' in navigator){ navigator.serviceWorker.ready.then(()=>updatePushBell()).catch(()=>{}); }
-  setTimeout(updatePushBell,800);
-  setTimeout(updatePushBell,2000);
+  if('serviceWorker' in navigator){ navigator.serviceWorker.ready.then(()=>updatePushBell()).catch(()=>{ ensureBellButton(); }); } else { ensureBellButton(); }
+  setTimeout(updatePushBell,500);
+  setTimeout(updatePushBell,1500);
 });
 window.togglePush=togglePush; window.updatePushBell=updatePushBell;
