@@ -1,76 +1,49 @@
-// push.js v200 - clean, no timeouts
-const PUSH_WORKER_URL = 'https://ommen-push.leeuw008.workers.dev';
-let VAPID_PUBLIC_KEY = null;
 
-async function getVapidKey(){
-  if(VAPID_PUBLIC_KEY) return VAPID_PUBLIC_KEY;
+const PUSH_WORKER_URL = 'https://ommen-push-v2.leeuw008.workers.dev';
+const ALLE_BRONNEN = ["De Stentor","Gemeente Ommen","Natuurlijk Ommen","Ommen City","OudOmmen","RondOmmen","RTV Oost","RTV Vechtdal","Vechtdal Centraal"];
+function urlBase64ToUint8Array(base64String){ const padding='='.repeat((4-base64String.length%4)%4); const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/'); const rawData=atob(base64); const out=new Uint8Array(rawData.length); for(let i=0;i<rawData.length;++i) out[i]=rawData.charCodeAt(i); return out; }
+async function getVapidPublicKey(){ try{ const r=await fetch(PUSH_WORKER_URL+'/vapidPublicKey',{cache:'no-store'}); if(!r.ok) throw new Error('no key'); return (await r.text()).trim(); }catch(e){ return null; } }
+async function updatePushBell(){
+  const btn=document.getElementById('push-bell'); if(!btn) return;
   try{
-    const r = await fetch(`${PUSH_WORKER_URL}/vapid`);
-    const j = await r.json();
-    VAPID_PUBLIC_KEY = j.publicKey;
-    return VAPID_PUBLIC_KEY;
-  }catch(e){ console.error('VAPID ophalen mislukt', e); return null; }
+    if(!('Notification' in window) || !('serviceWorker' in navigator)){ btn.textContent='🔕'; btn.classList.remove('enabled'); return; }
+    if(Notification.permission==='denied'){ btn.textContent='🔕'; btn.classList.remove('enabled'); btn.title='Meldingen geblokkeerd in browser'; return; }
+    const reg=await navigator.serviceWorker.ready; const sub=await reg.pushManager.getSubscription();
+    const isOn=!!sub;
+    btn.textContent=isOn?'🔔':'🔕';
+    btn.classList.toggle('enabled', isOn);
+    btn.title=isOn?'Meldingen aan - klik om uit te zetten':'Meldingen uit - klik om aan te zetten';
+  }catch(e){ console.error('bell update', e); }
 }
-function urlBase64ToUint8Array(base64String){
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/\-/g,'+').replace(/_/g,'/');
-  const rawData = atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for(let i=0;i<rawData.length;++i) outputArray[i]=rawData.charCodeAt(i);
-  return outputArray;
-}
-async function subscribePush(){
-  if(!('serviceWorker' in navigator) || !('PushManager' in window)){ alert('Push wordt niet ondersteund'); return; }
-  if(!VAPID_PUBLIC_KEY) await getVapidKey();
-  if(!VAPID_PUBLIC_KEY){ alert('VAPID key nog niet beschikbaar'); return; }
+function getSelectedSources(){ try{ const v2=JSON.parse(localStorage.getItem('nieuwsommen_bronnen_v2')||'{}'); if(v2 && Object.keys(v2).length>0){ const aan=Object.keys(v2).filter(id=>v2[id]?.aan); if(aan.length>0) return aan; } }catch{} try{ const s=JSON.parse(localStorage.getItem('ommen_selected_sources')||'[]'); if(Array.isArray(s)&&s.length>0) return s; }catch{} return [...ALLE_BRONNEN]; }
+async function togglePush(){
   try{
-    const reg = await navigator.serviceWorker.register('./service-worker.js',{scope:'./'});
-    await navigator.serviceWorker.ready;
-    if(Notification.permission==='denied'){ alert('Meldingen zijn geblokkeerd.\n\nIn Edge/Chrome: klik op slotje in adresbalk > Meldingen > Toestaan.'); return; }
-    const permission = await Notification.requestPermission();
-    if(permission!=='granted'){ alert('Geen toestemming voor notificaties ('+permission+')'); return; }
-    const sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
-    const sources = (typeof getSelectedSources==='function')?getSelectedSources(): (window.BRONNEN? window.BRONNEN.map(b=>b.id):[]);
-    const payload = Object.assign({}, sub.toJSON(), {sources});
-    await fetch(PUSH_WORKER_URL+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const vapidKey=await getVapidPublicKey(); if(!vapidKey){ alert('VAPID key niet beschikbaar'); return; }
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(sub){
+      await fetch(PUSH_WORKER_URL+'/unsubscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint})});
+      await sub.unsubscribe();
+      localStorage.removeItem('ommen_push_subscribed');
+      updatePushBell();
+      return;
+    }
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){ alert('Toestemming geweigerd'); updatePushBell(); return; }
+    sub=await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(vapidKey)});
+    let sources=getSelectedSources();
+    const p256dhKey=sub.getKey('p256dh'); const authKey=sub.getKey('auth');
+    const p256dh=btoa(String.fromCharCode(...new Uint8Array(p256dhKey))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    const auth=btoa(String.fromCharCode(...new Uint8Array(authKey))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    await fetch(PUSH_WORKER_URL+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint, keys:{p256dh, auth}, sources})});
     localStorage.setItem('ommen_push_subscribed','1');
-    updatePushButton();
-  }catch(e){ console.error(e); alert('Push mislukt: '+e.message); }
+    updatePushBell();
+  }catch(e){ console.error(e); alert('Fout: '+e.message); }
 }
-async function unsubscribePush(){
-  try{
-    const reg = await navigator.serviceWorker.getRegistration();
-    if(reg){ const sub=await reg.pushManager.getSubscription(); if(sub){ await fetch(PUSH_WORKER_URL+'/unsubscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint})}); await sub.unsubscribe(); } }
-    localStorage.removeItem('ommen_push_subscribed');
-    updatePushButton();
-  }catch(e){ console.error(e); }
-}
-function updatePushButton(){
-  const btn=document.getElementById('push-toggle'); if(!btn) return;
-  const isOn=localStorage.getItem('ommen_push_subscribed')==='1';
-  btn.textContent=isOn?'🔔':'🔕';
-  btn.classList.toggle('enabled', isOn);
-  btn.title=isOn?'Push aan - klik om uit te zetten':'Push uit - klik om aan te zetten';
-  btn.setAttribute('aria-pressed', isOn?'true':'false');
-  // groene styling via CSS class
-  if(isOn){ btn.style.background='#E8FFEA'; btn.style.borderColor='#A7F3D0'; }
-  else { btn.style.background='#ffffff'; btn.style.borderColor='#e5e7eb'; }
-}
-function injectPushButton(){
-  if(document.getElementById('push-toggle')){ updatePushButton(); return; }
-  const slot = document.getElementById('bell-slot');
-  if(!slot) return;
-  const btn=document.createElement('button');
-  btn.id='push-toggle';
-  btn.type='button';
-  btn.style.cssText='padding:0 6px;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;font-size:20px;line-height:1;background:#fff;width:42px;height:28px;display:flex;align-items:center;justify-content:center;';
-  btn.onclick=async()=>{ if(localStorage.getItem('ommen_push_subscribed')==='1') await unsubscribePush(); else await subscribePush(); };
-  slot.innerHTML=''; slot.appendChild(btn);
-  updatePushButton();
-}
-function ensurePushInit(){
-  injectPushButton();
-  getVapidKey();
-}
-document.addEventListener('DOMContentLoaded', ensurePushInit);
-window.subscribePush=subscribePush; window.unsubscribePush=unsubscribePush; window.updatePushButton=updatePushButton; window.injectPushButton=injectPushButton;
+document.addEventListener('DOMContentLoaded', ()=>{
+  const btn=document.getElementById('push-bell');
+  if(btn){ btn.addEventListener('click', (e)=>{ e.stopPropagation(); togglePush(); }); }
+  if('serviceWorker' in navigator){ navigator.serviceWorker.ready.then(()=>updatePushBell()).catch(()=>{}); }
+  setTimeout(updatePushBell, 1500);
+});
+window.togglePush=togglePush; window.updatePushBell=updatePushBell;
