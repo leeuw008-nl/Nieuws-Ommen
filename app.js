@@ -1,4 +1,4 @@
-// app.js v200 - fixed - geen moveOldBell
+// app.js v200 - FIXED - werkt met index.html met 📰 + filter-count + bell-slot
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -16,22 +16,15 @@ function loadState(){
     const v2 = localStorage.getItem('nieuwsommen_bronnen_v2');
     if(v2){
       state = JSON.parse(v2);
-      let changed=false;
-      if(state['Salland Centraal']){ delete state['Salland Centraal']; changed=true; }
-      BRONNEN.forEach(b=>{ if(!state[b.id]){ state[b.id]={aan:true, vandaag:false, scope:'gemeente'}; changed=true; }});
-      if(changed) saveState();
+      if(state['Salland Centraal']) delete state['Salland Centraal'];
+      BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true, vandaag:false, scope:'gemeente'}; });
     } else {
       BRONNEN.forEach(b=> state[b.id] = {aan:true, vandaag:false, scope:'gemeente'});
-      saveState();
+      localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
     }
-  }catch(e){ 
-    BRONNEN.forEach(b=> state[b.id]={aan:true,vandaag:false,scope:'gemeente'});
-  }
+  }catch(e){ BRONNEN.forEach(b=> state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); }
 }
-function saveState(){
-  localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
-  updateHeaderCount();
-}
+function saveState(){ localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state)); updateHeaderCount(); }
 function renderFilters(){
   const list = document.getElementById('source-list'); if(!list) return;
   list.innerHTML='';
@@ -43,7 +36,7 @@ function renderFilters(){
     row.innerHTML = `<div class="source-meta"><div class="source-name">${b.name}</div><div class="source-sub">${b.sub}</div></div>
       <div class="toggles">
         <div class="toggle-col"><label class="mini-switch vandaag ${s.vandaag?'checked':''}"><input type="checkbox" ${s.vandaag?'checked':''} data-type="vandaag" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${s.vandaag?'VANDAAG':'MEER'}</span></div>
-        <div class="toggle-col"><label class="mini-switch ${scopeIsGemeente?'checked scope-gemeente':'checked scope-regio'}" style="background:${scopeIsGemeente?'#0b5bd3':'#7c3aed'}"><input type="checkbox" ${scopeIsGemeente?'checked':''} data-type="scope" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${scopeIsGemeente?'GEMEENTE':'REGIO'}</span></div>
+        <div class="toggle-col"><label class="mini-switch ${scopeIsGemeente?'checked scope-gemeente':'checked scope-regio'}"><input type="checkbox" ${scopeIsGemeente?'checked':''} data-type="scope" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${scopeIsGemeente?'GEMEENTE':'REGIO'}</span></div>
         <div class="toggle-col"><label class="mini-switch aan ${s.aan?'checked':''}"><input type="checkbox" ${s.aan?'checked':''} data-type="aan" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${s.aan?'AAN':'UIT'}</span></div>
       </div>`;
     list.appendChild(row);
@@ -55,8 +48,7 @@ function renderFilters(){
       if(type==='vandaag') state[id].vandaag = e.target.checked;
       if(type==='scope') state[id].scope = e.target.checked?'gemeente':'regio';
       if(type==='aan') state[id].aan = e.target.checked;
-      saveState(); renderFilters();
-      if(window.filterNews) window.filterNews();
+      saveState(); renderFilters(); if(window.filterNews) window.filterNews();
     });
   });
 }
@@ -84,12 +76,12 @@ function setupFilterHeader(){
     e.stopPropagation();
     const allOn = Object.values(state).every(s=>s.aan);
     BRONNEN.forEach(b=>state[b.id].aan = !allOn);
-    saveState(); renderFilters(); if(window.filterNews) filterNews();
+    saveState(); renderFilters(); if(window.filterNews) window.filterNews();
   });
   document.getElementById('btn-close')?.addEventListener('click', closePanel);
-  document.getElementById('btn-reset')?.addEventListener('click', ()=>{ BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); saveState(); renderFilters(); if(window.filterNews) filterNews(); });
+  document.getElementById('btn-reset')?.addEventListener('click', ()=>{ BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); saveState(); renderFilters(); if(window.filterNews) window.filterNews(); });
 }
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); updateHeaderCount(); setupFilterHeader(); closePanel();
 });
-window.closePanel=closePanel; window.BRONNEN=BRONNEN; window.getAppState=()=>state;
+window.closePanel=closePanel; window.BRONNEN=BRONNEN;
