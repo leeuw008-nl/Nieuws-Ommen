@@ -1,4 +1,4 @@
-/* push.js v202 - FIX dubbel laden + rode streep verwijderd + wel popup */
+/* push.js v203 - FIX popup komt niet: requestPermission MOET als eerste, zonder await ervoor */
 if (!window._ommenPushLoaded) {
 window._ommenPushLoaded = true;
 
@@ -18,17 +18,16 @@ function ensureBellButton(){
 
 async function updatePushBell(){
   const btn=ensureBellButton(); if(!btn) return;
-  btn.style.textDecoration='none'; // nooit meer rode streep
+  btn.style.textDecoration='none';
   try{
     if(!('Notification' in window)||!('serviceWorker' in navigator)){
       btn.textContent='🔕'; btn.classList.remove('enabled'); btn.title='Geen ondersteuning'; return;
     }
-    // Let op: bij denied geen rode streep meer, wel uitleg bij klik
     if(Notification.permission==='denied'){
       btn.textContent='🔕'; btn.classList.remove('enabled'); btn.title='Geblokkeerd - klik voor uitleg'; return;
     }
     const reg=await navigator.serviceWorker.ready.catch(()=>null);
-    if(!reg){ btn.textContent='🔕'; btn.classList.remove('enabled'); btn.title='Service worker niet actief - klik'; return; }
+    if(!reg){ btn.textContent='🔕'; btn.classList.remove('enabled'); return; }
     const sub=await reg.pushManager.getSubscription();
     btn.textContent=sub?'🔔':'🔕';
     btn.classList.toggle('enabled', !!sub);
@@ -39,24 +38,49 @@ async function updatePushBell(){
 function getSelectedSourcesLocal(){ try{ const v=JSON.parse(localStorage.getItem('nieuwsommen_bronnen_v2')||'{}'); const aan=Object.keys(v).filter(id=>v[id]?.aan); if(aan.length) return aan; }catch{} return [...ALLE_BRONNEN]; }
 
 async function togglePush(){
-  try{
-    console.log('togglePush, permission:', Notification.permission);
-    if(Notification.permission==='denied'){
-      alert('Meldingen zijn geblokkeerd door je browser (daarom zag je soms een rode streep).\n\nFix:\n1. Klik op het slotje 🔒 links in de adresbalk\n2. Site-instellingen > Meldingen > Toestaan\n3. Verversen (Ctrl+F5)\n\nDaarna klik je opnieuw op de bel.');
+  // BELANGRIJK: toestemming DIRECT vragen, zonder await ervoor, anders blokkeert browser de popup!
+  let currentPerm = Notification.permission;
+  console.log('togglePush start, permission:', currentPerm);
+
+  if(currentPerm==='denied'){
+    alert('Meldingen zijn geblokkeerd.\n\nFix: klik op slotje 🔒 in adresbalk > Site-instellingen > Meldingen > Toestaan > daarna pagina verversen.');
+    return;
+  }
+
+  // Als nog niet gevraagd, vraag NU meteen toestemming (nog steeds in user gesture)
+  if(currentPerm==='default'){
+    const perm = await Notification.requestPermission();
+    console.log('permission result direct:', perm);
+    currentPerm = perm;
+    if(perm!=='granted'){
+      alert('Toestemming geweigerd.');
+      await updatePushBell();
       return;
     }
-    const vapidKey=await getVapidPublicKey(); if(!vapidKey){ alert('VAPID key niet bereikbaar'); return; }
+    // nu verder met subscriben
+  }
+
+  // Vanaf hier hebben we permission granted
+  try{
+    const btn=document.getElementById('push-bell-btn');
+    if(btn) btn.textContent='⏳';
+
     const reg=await navigator.serviceWorker.ready;
     let sub=await reg.pushManager.getSubscription();
+
     if(sub){
+      // uitzetten
       await fetch(PUSH_WORKER_URL+'/unsubscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint})}).catch(()=>{});
       await sub.unsubscribe();
       localStorage.removeItem('ommen_push_subscribed');
       await updatePushBell();
       return;
     }
-    const perm=await Notification.requestPermission();
-    if(perm!=='granted'){ alert('Toestemming geweigerd - geen meldingen'); await updatePushBell(); return; }
+
+    // aanzetten - permission is al granted
+    const vapidKey=await getVapidPublicKey();
+    if(!vapidKey){ alert('Server niet bereikbaar (VAPID)'); await updatePushBell(); return; }
+
     sub=await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(vapidKey)});
     const sources=getSelectedSourcesLocal();
     const p256dhKey=sub.getKey('p256dh'), authKey=sub.getKey('auth');
@@ -65,13 +89,15 @@ async function togglePush(){
     await fetch(PUSH_WORKER_URL+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint, keys:{p256dh, auth}, sources})});
     localStorage.setItem('ommen_push_subscribed','1');
     await updatePushBell();
-  }catch(e){ console.error(e); alert('Fout: '+e.message); }
+  }catch(e){
+    console.error('togglePush error:', e);
+    alert('Fout bij inschakelen: '+e.message);
+    await updatePushBell();
+  }
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
   ensureBellButton();
-  const slot=document.getElementById('bell-slot');
-  if(slot){ slot.addEventListener('click', (ev)=>{ if(ev.target===slot){ ev.stopPropagation(); togglePush(); } }); }
   if('serviceWorker' in navigator){ navigator.serviceWorker.ready.then(()=>updatePushBell()).catch(()=>{ ensureBellButton(); }); } else { ensureBellButton(); }
   setTimeout(updatePushBell,600);
   setTimeout(updatePushBell,1800);
