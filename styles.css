@@ -90,6 +90,7 @@ button { margin:5px; padding:12px 20px; font-size:1rem; background:#0066cc; colo
 footer{text-align:center;padding:1rem;background:#eee;max-width:640px;margin:16px auto 0;border-radius:12px 12px 0 0}
 footer button{margin:5px;padding:10px 18px;font-size:14px;background:var(--brand-dark);color:white;border:none;border-radius:8px;cursor:pointer}
 
-#bell-slot button.enabled{background:#E8FFEA !important;border-color:#A7F3D0 !important;color:#065f46 !important;opacity:1 !important}
+#bell-slot button.enabled{background:#16a34a !important;border-color:#16a34a !important;color:#fff !important;opacity:1 !important}
+#bell-slot button.enabled:hover{background:#15803d !important}
 
 @media(max-width:400px){header h1{font-size:1.4em} .source-row{grid-template-columns:1fr 140px}}
