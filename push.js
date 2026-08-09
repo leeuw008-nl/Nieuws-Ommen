@@ -1,109 +1,76 @@
-// push.js FINAL DEFINITIEF 06-08-2026 - Bel AAN: rand A7F3D0, achtergrond E8FFEA = identiek aan Alles aan
-const PUSH_WORKER_URL = 'https://ommen-push-v2.leeuw008.workers.dev';
-const ALLE_BRONNEN = ["De Stentor","Gemeente Ommen","Ommen City","OudOmmen","RondOmmen","RTV Oost","RTV Vechtdal","Salland Centraal","Vechtdal Centraal"];
-const BELL_BG = '#E8FFEA';
-const BELL_BORDER = '#A7F3D0';
-const BELL_TEXT = '#065f46';
-const WHITE_BG = '#ffffff';
-const GRAY_BORDER = '#e5e7eb';
+// push.js v200 - clean, no timeouts
+const PUSH_WORKER_URL = 'https://ommen-push.leeuw008.workers.dev';
+let VAPID_PUBLIC_KEY = null;
 
-function urlBase64ToUint8Array(base64String) {
+async function getVapidKey(){
+  if(VAPID_PUBLIC_KEY) return VAPID_PUBLIC_KEY;
+  try{
+    const r = await fetch(`${PUSH_WORKER_URL}/vapid`);
+    const j = await r.json();
+    VAPID_PUBLIC_KEY = j.publicKey;
+    return VAPID_PUBLIC_KEY;
+  }catch(e){ console.error('VAPID ophalen mislukt', e); return null; }
+}
+function urlBase64ToUint8Array(base64String){
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const base64 = (base64String + padding).replace(/\-/g,'+').replace(/_/g,'/');
   const rawData = atob(base64);
   const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  for(let i=0;i<rawData.length;++i) outputArray[i]=rawData.charCodeAt(i);
   return outputArray;
 }
-async function getVapidPublicKey() {
-  try {
-    const r = await fetch(`${PUSH_WORKER_URL}/vapidPublicKey`, {cache:'no-store'});
-    if(!r.ok) throw new Error('no key');
-    return (await r.text()).trim();
-  } catch(e){ return null; }
-}
-async function updatePushBell() {
-  const target = document.getElementById('bell-slot')?.querySelector('button');
-  if(!target) return;
-  if(!('Notification' in window) || !('serviceWorker' in navigator)){
-    target.textContent='🔕';
-    target.style.setProperty('background', WHITE_BG, 'important');
-    target.style.setProperty('border', `1px solid ${GRAY_BORDER}`, 'important');
-    return;
-  }
-  if(Notification.permission==='denied'){
-    target.textContent='🔕';
-    target.style.setProperty('background', WHITE_BG, 'important');
-    target.style.setProperty('border', `1px solid ${GRAY_BORDER}`, 'important');
-    return;
-  }
+async function subscribePush(){
+  if(!('serviceWorker' in navigator) || !('PushManager' in window)){ alert('Push wordt niet ondersteund'); return; }
+  if(!VAPID_PUBLIC_KEY) await getVapidKey();
+  if(!VAPID_PUBLIC_KEY){ alert('VAPID key nog niet beschikbaar'); return; }
   try{
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    const isOn = !!sub;
-    target.textContent = isOn ? '🔔' : '🔕';
-    target.style.opacity = isOn ? '1' : '0.6';
-    if(isOn){
-      target.style.setProperty('background', BELL_BG, 'important');
-      target.style.setProperty('background-color', BELL_BG, 'important');
-      target.style.setProperty('border', `1px solid ${BELL_BORDER}`, 'important');
-      target.style.setProperty('border-color', BELL_BORDER, 'important');
-      target.style.setProperty('color', BELL_TEXT, 'important');
-      target.classList.add('enabled','active');
-      target.setAttribute('aria-pressed','true');
-    } else {
-      target.style.setProperty('background', WHITE_BG, 'important');
-      target.style.setProperty('background-color', WHITE_BG, 'important');
-      target.style.setProperty('border', `1px solid ${GRAY_BORDER}`, 'important');
-      target.classList.remove('enabled','active');
-      target.setAttribute('aria-pressed','false');
-    }
-  }catch{}
-}
-function getSelectedSources(){
-  try{
-    const v2 = JSON.parse(localStorage.getItem('nieuwsommen_bronnen_v2')||'{}');
-    if(v2 && typeof v2 === 'object' && !Array.isArray(v2) && Object.keys(v2).length>0){
-      const aan = Object.keys(v2).filter(id=> v2[id]?.aan);
-      if(aan.length>0) return aan;
-    }
-  }catch{}
-  try{
-    const s = JSON.parse(localStorage.getItem('ommen_selected_sources')||'[]');
-    if(Array.isArray(s) && s.length>0) return s;
-  }catch{}
-  return [...ALLE_BRONNEN];
-}
-async function togglePushIsolated(){
-  try{
-    const vapidKey = await getVapidPublicKey();
-    if(!vapidKey){ alert('VAPID key niet beschikbaar'); return; }
-    const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    if(sub){
-      await fetch(`${PUSH_WORKER_URL}/unsubscribe`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({endpoint:sub.endpoint})});
-      await sub.unsubscribe();
-      localStorage.removeItem('ommen_push_subscribed');
-      alert('Meldingen uitgezet'); updatePushBell(); return;
-    }
-    const perm = await Notification.requestPermission();
-    if(perm!=='granted'){ alert('Toestemming geweigerd'); return; }
-    sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(vapidKey)});
-    let sources = getSelectedSources();
-    await fetch(`${PUSH_WORKER_URL}/subscribe`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({endpoint:sub.endpoint, keys:{p256dh:btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''), auth:btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}, sources})});
+    const reg = await navigator.serviceWorker.register('./service-worker.js',{scope:'./'});
+    await navigator.serviceWorker.ready;
+    if(Notification.permission==='denied'){ alert('Meldingen zijn geblokkeerd.\n\nIn Edge/Chrome: klik op slotje in adresbalk > Meldingen > Toestaan.'); return; }
+    const permission = await Notification.requestPermission();
+    if(permission!=='granted'){ alert('Geen toestemming voor notificaties ('+permission+')'); return; }
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+    const sources = (typeof getSelectedSources==='function')?getSelectedSources(): (window.BRONNEN? window.BRONNEN.map(b=>b.id):[]);
+    const payload = Object.assign({}, sub.toJSON(), {sources});
+    await fetch(PUSH_WORKER_URL+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     localStorage.setItem('ommen_push_subscribed','1');
-    alert('Meldingen aangezet!'); updatePushBell();
-  }catch(e){ alert('Fout: '+e.message); }
+    updatePushButton();
+  }catch(e){ console.error(e); alert('Push mislukt: '+e.message); }
 }
-window.addEventListener('load', ()=>{
-  if('serviceWorker' in navigator) navigator.serviceWorker.ready.then(()=>updatePushBell()).catch(()=>{});
+async function unsubscribePush(){
+  try{
+    const reg = await navigator.serviceWorker.getRegistration();
+    if(reg){ const sub=await reg.pushManager.getSubscription(); if(sub){ await fetch(PUSH_WORKER_URL+'/unsubscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint})}); await sub.unsubscribe(); } }
+    localStorage.removeItem('ommen_push_subscribed');
+    updatePushButton();
+  }catch(e){ console.error(e); }
+}
+function updatePushButton(){
+  const btn=document.getElementById('push-toggle'); if(!btn) return;
+  const isOn=localStorage.getItem('ommen_push_subscribed')==='1';
+  btn.textContent=isOn?'🔔':'🔕';
+  btn.classList.toggle('enabled', isOn);
+  btn.title=isOn?'Push aan - klik om uit te zetten':'Push uit - klik om aan te zetten';
+  btn.setAttribute('aria-pressed', isOn?'true':'false');
+  // groene styling via CSS class
+  if(isOn){ btn.style.background='#E8FFEA'; btn.style.borderColor='#A7F3D0'; }
+  else { btn.style.background='#ffffff'; btn.style.borderColor='#e5e7eb'; }
+}
+function injectPushButton(){
+  if(document.getElementById('push-toggle')){ updatePushButton(); return; }
   const slot = document.getElementById('bell-slot');
-  if(slot){
-    const obs = new MutationObserver(()=>{
-      const btn = slot.querySelector('button');
-      if(btn && !btn._pushBound){ btn._pushBound=true; btn.addEventListener('click', e=>{e.stopPropagation(); togglePushIsolated();}); updatePushBell(); }
-    });
-    obs.observe(slot, {childList:true});
-  }
-});
-window.togglePush = togglePushIsolated;
+  if(!slot) return;
+  const btn=document.createElement('button');
+  btn.id='push-toggle';
+  btn.type='button';
+  btn.style.cssText='padding:0 6px;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;font-size:20px;line-height:1;background:#fff;width:42px;height:28px;display:flex;align-items:center;justify-content:center;';
+  btn.onclick=async()=>{ if(localStorage.getItem('ommen_push_subscribed')==='1') await unsubscribePush(); else await subscribePush(); };
+  slot.innerHTML=''; slot.appendChild(btn);
+  updatePushButton();
+}
+function ensurePushInit(){
+  injectPushButton();
+  getVapidKey();
+}
+document.addEventListener('DOMContentLoaded', ensurePushInit);
+window.subscribePush=subscribePush; window.unsubscribePush=unsubscribePush; window.updatePushButton=updatePushButton; window.injectPushButton=injectPushButton;
