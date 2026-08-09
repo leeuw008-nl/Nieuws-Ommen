@@ -1,3 +1,7 @@
+/* FIX: guard tegen dubbel laden - voorkomt SyntaxError PUSH_WORKER_URL already declared */
+if (!window._ommenPushLoaded) {
+window._ommenPushLoaded = true;
+
 const PUSH_WORKER_URL='https://ommen-push-v2.leeuw008.workers.dev';
 const ALLE_BRONNEN=["De Stentor","Gemeente Ommen","Natuurlijk Ommen","Ommen City","OudOmmen","RondOmmen","RTV Oost","RTV Vechtdal","Vechtdal Centraal"];
 function urlBase64ToUint8Array(b64){ const p='='.repeat((4-b64.length%4)%4); const base=(b64+p).replace(/-/g,'+').replace(/_/g,'/'); const raw=atob(base); const out=new Uint8Array(raw.length); for(let i=0;i<raw.length;++i) out[i]=raw.charCodeAt(i); return out; }
@@ -52,3 +56,5 @@ document.addEventListener('DOMContentLoaded', ()=>{
   setTimeout(updatePushBell,1500);
 });
 window.togglePush=togglePush; window.updatePushBell=updatePushBell;
+
+} // einde guard
