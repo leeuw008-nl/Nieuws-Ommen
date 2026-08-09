@@ -1,4 +1,4 @@
-// app.js v200 - FIXED - werkt met index.html met 📰 + filter-count + bell-slot
+// app.js v200 - FIXED BEL - geen moveOldBell
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -13,75 +13,66 @@ const BRONNEN = [
 let state = {};
 function loadState(){
   try{
-    const v2 = localStorage.getItem('nieuwsommen_bronnen_v2');
-    if(v2){
-      state = JSON.parse(v2);
+    const v=JSON.parse(localStorage.getItem('nieuwsommen_bronnen_v2')||'{}');
+    if(Object.keys(v).length){
+      state=v;
       if(state['Salland Centraal']) delete state['Salland Centraal'];
       BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true, vandaag:false, scope:'gemeente'}; });
     } else {
-      BRONNEN.forEach(b=> state[b.id] = {aan:true, vandaag:false, scope:'gemeente'});
-      localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
+      BRONNEN.forEach(b=> state[b.id]={aan:true, vandaag:false, scope:'gemeente'});
     }
-  }catch(e){ BRONNEN.forEach(b=> state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); }
+  }catch{ BRONNEN.forEach(b=> state[b.id]={aan:true, vandaag:false, scope:'gemeente'}); }
 }
 function saveState(){ localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state)); updateHeaderCount(); }
 function renderFilters(){
-  const list = document.getElementById('source-list'); if(!list) return;
+  const list=document.getElementById('source-list'); if(!list) return;
   list.innerHTML='';
   BRONNEN.forEach(b=>{
-    const s = state[b.id] || {aan:true,vandaag:false,scope:'gemeente'};
-    const row = document.createElement('div');
-    row.className='source-row'+(s.aan?'':' off');
-    const scopeIsGemeente = s.scope==='gemeente';
-    row.innerHTML = `<div class="source-meta"><div class="source-name">${b.name}</div><div class="source-sub">${b.sub}</div></div>
+    const s=state[b.id]||{aan:true, vandaag:false, scope:'gemeente'};
+    const row=document.createElement('div'); row.className='source-row'+(s.aan?'':' off');
+    const geme=s.scope==='gemeente';
+    row.innerHTML=`<div class="source-meta"><div class="source-name">${b.name}</div><div class="source-sub">${b.sub}</div></div>
       <div class="toggles">
         <div class="toggle-col"><label class="mini-switch vandaag ${s.vandaag?'checked':''}"><input type="checkbox" ${s.vandaag?'checked':''} data-type="vandaag" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${s.vandaag?'VANDAAG':'MEER'}</span></div>
-        <div class="toggle-col"><label class="mini-switch ${scopeIsGemeente?'checked scope-gemeente':'checked scope-regio'}"><input type="checkbox" ${scopeIsGemeente?'checked':''} data-type="scope" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${scopeIsGemeente?'GEMEENTE':'REGIO'}</span></div>
+        <div class="toggle-col"><label class="mini-switch ${geme?'checked scope-gemeente':'checked scope-regio'}"><input type="checkbox" ${geme?'checked':''} data-type="scope" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${geme?'GEMEENTE':'REGIO'}</span></div>
         <div class="toggle-col"><label class="mini-switch aan ${s.aan?'checked':''}"><input type="checkbox" ${s.aan?'checked':''} data-type="aan" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${s.aan?'AAN':'UIT'}</span></div>
       </div>`;
     list.appendChild(row);
   });
-  list.querySelectorAll('input').forEach(inp=>{
-    inp.addEventListener('change', (e)=>{
-      const id = e.target.dataset.id; const type = e.target.dataset.type;
-      if(!state[id]) state[id]={aan:true,vandaag:false,scope:'gemeente'};
-      if(type==='vandaag') state[id].vandaag = e.target.checked;
-      if(type==='scope') state[id].scope = e.target.checked?'gemeente':'regio';
-      if(type==='aan') state[id].aan = e.target.checked;
-      saveState(); renderFilters(); if(window.filterNews) window.filterNews();
+  list.querySelectorAll('input').forEach(i=>{
+    i.addEventListener('change', e=>{
+      const id=e.target.dataset.id, t=e.target.dataset.type;
+      if(!state[id]) state[id]={aan:true, vandaag:false, scope:'gemeente'};
+      if(t==='vandaag') state[id].vandaag=e.target.checked;
+      if(t==='scope') state[id].scope=e.target.checked?'gemeente':'regio';
+      if(t==='aan') state[id].aan=e.target.checked;
+      saveState(); renderFilters(); window.filterNews&&window.filterNews();
     });
   });
 }
 function updateHeaderCount(){
-  const aan = Object.values(state).filter(s=>s.aan).length;
-  const countEl = document.getElementById('filter-count') || document.getElementById('header-count');
-  if(countEl) countEl.textContent = `${aan} / ${BRONNEN.length} bronnen actief`;
-  const btn = document.getElementById('btn-all');
-  if(btn){
-    if(aan===BRONNEN.length){ btn.textContent='Alles aan'; btn.className='btn-all-toets'; }
-    else if(aan===0){ btn.textContent='Alles uit'; btn.className='btn-all-toets all-off'; }
-    else { btn.textContent=`${aan} aan`; btn.className='btn-all-toets some-on'; }
-  }
+  const aan=Object.values(state).filter(s=>s.aan).length;
+  const el=document.getElementById('header-count') || document.getElementById('filter-count');
+  if(el) el.textContent=`${aan} / ${BRONNEN.length} bronnen actief`;
+  const btn=document.getElementById('btn-all');
+  if(btn){ btn.textContent= aan===BRONNEN.length?'Alles aan': aan===0?'Alles uit': `${aan} aan`; btn.className= aan===BRONNEN.length?'btn-all-toets': aan===0?'btn-all-toets all-off':'btn-all-toets some-on'; }
 }
-function openPanel(){ document.getElementById('filter-header')?.classList.add('open'); document.getElementById('source-panel')?.classList.add('open'); document.body.classList.add('panel-open'); }
-function closePanel(){ document.getElementById('filter-header')?.classList.remove('open'); document.getElementById('source-panel')?.classList.remove('open'); document.body.classList.remove('panel-open'); }
-function setupFilterHeader(){
-  const fh = document.getElementById('filter-header'); if(!fh) return;
-  fh.addEventListener('click', (e)=>{
+function openPanel(){ document.getElementById('filter-header')?.classList.add('open'); document.getElementById('source-panel')?.classList.add('open'); }
+function closePanel(){ document.getElementById('filter-header')?.classList.remove('open'); document.getElementById('source-panel')?.classList.remove('open'); }
+function setupHeader(){
+  const fh=document.getElementById('filter-header'); if(!fh) return;
+  fh.addEventListener('click', e=>{
     if(e.target.closest('#bell-slot') || e.target.closest('#btn-all')) return;
-    const p = document.getElementById('source-panel');
+    const p=document.getElementById('source-panel');
     if(p.classList.contains('open')) closePanel(); else openPanel();
   });
-  document.getElementById('btn-all')?.addEventListener('click', (e)=>{
+  document.getElementById('btn-all')?.addEventListener('click', e=>{
     e.stopPropagation();
-    const allOn = Object.values(state).every(s=>s.aan);
-    BRONNEN.forEach(b=>state[b.id].aan = !allOn);
-    saveState(); renderFilters(); if(window.filterNews) window.filterNews();
+    const allOn=Object.values(state).every(s=>s.aan);
+    BRONNEN.forEach(b=>state[b.id].aan=!allOn);
+    saveState(); renderFilters(); window.filterNews&&window.filterNews();
   });
   document.getElementById('btn-close')?.addEventListener('click', closePanel);
-  document.getElementById('btn-reset')?.addEventListener('click', ()=>{ BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); saveState(); renderFilters(); if(window.filterNews) window.filterNews(); });
+  document.getElementById('btn-reset')?.addEventListener('click', ()=>{ BRONNEN.forEach(b=>state[b.id]={aan:true, vandaag:false, scope:'gemeente'}); saveState(); renderFilters(); window.filterNews&&window.filterNews(); });
 }
-document.addEventListener('DOMContentLoaded', ()=>{
-  loadState(); renderFilters(); updateHeaderCount(); setupFilterHeader(); closePanel();
-});
-window.closePanel=closePanel; window.BRONNEN=BRONNEN;
+document.addEventListener('DOMContentLoaded', ()=>{ loadState(); renderFilters(); updateHeaderCount(); setupHeader(); closePanel(); });
