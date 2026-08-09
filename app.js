@@ -93,7 +93,7 @@ function setupFilterHeader(){
   const fh = document.getElementById('filter-header'); if(!fh) return;
   fh.addEventListener('click', (e)=>{
     if(e.target.id==='btn-all' || e.target.closest('#btn-all') || e.target.closest('.bell-slot')){
-      if(e.target.closest('.bell-slot')) return;
+      if(e.target.closest('.bell-slot')){ e.stopPropagation(); return; }
       e.stopPropagation();
       const allOn = Object.values(state).every(s=>s.aan);
       BRONNEN.forEach(b=>state[b.id].aan = !allOn);
