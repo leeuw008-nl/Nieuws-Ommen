@@ -16,10 +16,12 @@
   <div class="filter-header" id="filter-header">
     <div class="filter-header-center"><span class="filter-header-count" id="header-count">9 v/d 9 bronnen</span></div>
     <div class="filter-header-right">
-      <div class="bell-slot" id="bell-slot"></div>
-      <button class="btn-all-toets" id="btn-all">Alles aan</button>
-      <span class="filter-header-arrow">▼</span>
-    </div>
+  <div class="bell-slot" id="bell-slot" style="display:flex;align-items:center;justify-content:center;width:46px;height:32px;">
+    <button id="push-bell" onclick="window.togglePush && window.togglePush()" style="width:46px;height:32px;background:#ffffff;border:1.5px solid #94a3b8;border-radius:8px;font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:1;visibility:visible;">🔕</button>
+  </div>
+  <button class="btn-all-toets" id="btn-all">Alles aan</button>
+  <span class="filter-header-arrow">▼</span>
+  </div>
   </div>
   <div id="source-panel">
     <div class="panel-hint">
