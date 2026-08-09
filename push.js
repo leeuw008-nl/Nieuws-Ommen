@@ -1,16 +1,64 @@
-/* Nieuw(s)Ommen - push.js - FIX dubbel laden + rode streep */
-if (!window._ommenPushLoaded) {
+/* DEBUG versie - bel MOET nu groen/wit togglen bij klik, los van push */
+if (window._ommenPushLoaded) { console.log('oude push nog geladen, overschrijf'); }
 window._ommenPushLoaded = true;
+
 const PUSH_WORKER_URL='https://ommen-push-v2.leeuw008.workers.dev';
-const ALLE_BRONNEN=["De Stentor","Gemeente Ommen","Natuurlijk Ommen","Ommen City","OudOmmen","RondOmmen","RTV Oost","RTV Vechtdal","Vechtdal Centraal"];
-const SW_PATH='/sw.js';
-function urlBase64ToUint8Array(b64){const p='='.repeat((4-b64.length%4)%4);const base=(b64+p).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(base);const out=new Uint8Array(raw.length);for(let i=0;i<raw.length;++i)out[i]=raw.charCodeAt(i);return out;}
-async function getVapidPublicKey(){try{const r=await fetch(PUSH_WORKER_URL+'/vapidPublicKey',{cache:'no-store'});if(!r.ok)throw new Error();return (await r.text()).trim();}catch{return null;}}
-function ensureBellButton(){const slot=document.getElementById('bell-slot');if(!slot)return null;let btn=slot.querySelector('button');if(!btn){btn=document.createElement('button');btn.type='button';btn.id='push-bell-btn';btn.textContent='🔔';slot.appendChild(btn);}btn.onclick=(e)=>{e.preventDefault();e.stopPropagation();console.log('bel geklikt');togglePush();};return btn;}
-async function ensureServiceWorker(){if(!('serviceWorker' in navigator))throw new Error('ServiceWorker niet ondersteund');let reg=await navigator.serviceWorker.getRegistration();if(!reg){console.log('SW registreren',SW_PATH);reg=await navigator.serviceWorker.register(SW_PATH);}await navigator.serviceWorker.ready;return reg;}
-async function updatePushBell(){const btn=ensureBellButton();if(!btn)return;try{if(!('Notification' in window)||!('serviceWorker' in navigator)){btn.textContent='🔕';btn.classList.remove('enabled');btn.classList.add('blocked');btn.title='Niet ondersteund';btn.style.textDecoration='line-through';btn.style.textDecorationColor='red';return;}if(Notification.permission==='denied'){btn.textContent='🔕';btn.classList.remove('enabled');btn.classList.add('blocked');btn.title='Geblokkeerd - klik voor uitleg';btn.style.textDecoration='line-through';btn.style.textDecorationColor='red';return;}const reg=await navigator.serviceWorker.ready.catch(()=>null);if(!reg){btn.textContent='🔕';btn.classList.remove('enabled');btn.title='Service worker niet actief';return;}const sub=await reg.pushManager.getSubscription();console.log('sub:',!!sub,'perm:',Notification.permission);btn.textContent=sub?'🔔':'🔕';btn.classList.toggle('enabled',!!sub);btn.classList.remove('blocked');btn.style.textDecoration='none';btn.title=sub?'Meldingen AAN (groen) - klik om uit te zetten':'Meldingen UIT - klik om aan te zetten';}catch(e){console.error(e);}}
-function getSelectedSourcesLocal(){try{const v=JSON.parse(localStorage.getItem('nieuwsommen_bronnen_v2')||'{}');const aan=Object.keys(v).filter(id=>v[id]?.aan);if(aan.length)return aan;}catch{}return [...ALLE_BRONNEN];}
-async function togglePush(){const btn=document.getElementById('push-bell-btn');try{console.log('togglePush perm:',Notification.permission);if(location.protocol!=='https:'&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1'){alert('Push werkt alleen via HTTPS. Je zit op '+location.protocol+'//'+location.host);return;}if(Notification.permission==='denied'){alert('Meldingen GEBLOKKEERD - daarom rode streep.\n\nChrome/Edge: slotje 🔒 in adresbalk > Site-instellingen > Meldingen > Toestaan\nDaarna verversen.');return;}const reg=await ensureServiceWorker();const vapidKey=await getVapidPublicKey();if(!vapidKey){alert('Server niet bereikbaar (VAPID)');return;}let sub=await reg.pushManager.getSubscription();if(sub){if(btn)btn.textContent='⏳';await fetch(PUSH_WORKER_URL+'/unsubscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint})}).catch(()=>{});await sub.unsubscribe();localStorage.removeItem('ommen_push_subscribed');await updatePushBell();alert('Meldingen uitgezet.');return;}if(btn)btn.textContent='⏳';const perm=await Notification.requestPermission();console.log('perm result',perm);if(perm!=='granted'){alert('Toestemming geweigerd.');await updatePushBell();return;}sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(vapidKey)});const sources=getSelectedSourcesLocal();const p256dhKey=sub.getKey('p256dh'),authKey=sub.getKey('auth');const p256dh=btoa(String.fromCharCode(...new Uint8Array(p256dhKey))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');const auth=btoa(String.fromCharCode(...new Uint8Array(authKey))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');await fetch(PUSH_WORKER_URL+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint,keys:{p256dh,auth},sources})});localStorage.setItem('ommen_push_subscribed','1');await updatePushBell();alert('✅ Meldingen AAN! Bel wordt nu lichtgroen #d6ffdf.');try{new Notification('Nieuw(s)Ommen',{body:'Test: je ontvangt nu meldingen 🔔',icon:'icons/icon-192x192.png'});}catch{}}catch(e){console.error(e);alert('Fout: '+e.message);await updatePushBell();}}
-document.addEventListener('DOMContentLoaded',()=>{ensureBellButton();if('serviceWorker' in navigator){navigator.serviceWorker.ready.then(()=>updatePushBell()).catch(()=>{ensureBellButton();updatePushBell();});}else{ensureBellButton();updatePushBell();}setTimeout(updatePushBell,800);setTimeout(updatePushBell,2000);});
-window.togglePush=togglePush;window.updatePushBell=updatePushBell;
+
+function ensureBellButton(){
+  const slot=document.getElementById('bell-slot'); if(!slot){ console.error('geen bell-slot'); return null; }
+  let btn=slot.querySelector('button');
+  if(!btn){
+    btn=document.createElement('button');
+    btn.type='button'; btn.id='push-bell-btn';
+    slot.appendChild(btn);
+  }
+  btn.id='push-bell-btn';
+  // FORCEER klikbaar
+  btn.style.pointerEvents='auto';
+  btn.style.cursor='pointer';
+  btn.style.textDecoration='none';
+  btn.onclick = (e)=>{
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('>>> BEL GEKLIKT <<< permission=', Notification.permission);
+    toggleDebug();
+  };
+  return btn;
 }
+
+async function updatePushBell(){
+  const btn=ensureBellButton(); if(!btn) return;
+  const isEnabled = localStorage.getItem('ommen_bel_debug') === '1';
+  btn.textContent = isEnabled ? '🔔' : '🔕';
+  btn.classList.toggle('enabled', isEnabled);
+  btn.style.textDecoration='none';
+  btn.title = isEnabled ? 'DEBUG AAN (groen)' : 'DEBUG UIT (wit) - klik';
+  console.log('updatePushBell debug:', isEnabled);
+}
+
+function toggleDebug(){
+  const was = localStorage.getItem('ommen_bel_debug') === '1';
+  const now = !was;
+  localStorage.setItem('ommen_bel_debug', now ? '1' : '0');
+  console.log('toggle debug naar', now);
+  const btn=document.getElementById('push-bell-btn');
+  if(btn){
+    btn.textContent = now ? '🔔' : '🔕';
+    btn.classList.toggle('enabled', now);
+    btn.style.background = now ? '#d6ffdf' : '#fff';
+    btn.style.textDecoration='none';
+  }
+  alert((now ? 'BEL AAN (groen) - click werkt! ✅\n' : 'BEL UIT (wit) - click werkt! ✅\n') + '\nPermission status: ' + Notification.permission + '\n\nAls je dit ziet, is de bel weer klikbaar. Daarna lossen we de echte push-popup op.');
+}
+
+// echte push pas na deze test
+async function togglePush(){ toggleDebug(); }
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  console.log('DOMContentLoaded debug');
+  ensureBellButton();
+  updatePushBell();
+});
+setTimeout(()=>{ ensureBellButton(); updatePushBell(); }, 500);
+
+window.togglePush=togglePush; window.updatePushBell=updatePushBell;
