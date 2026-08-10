@@ -1,5 +1,5 @@
-/* service-worker.js - SCHOON + FIX VOOR showNotification pending */
-const CACHE_NAME = 'nieuws-ommen-v4';
+/* service-worker.js v5 - FIX notificatie klik = terug naar app met omlijnd artikel + respect voor bronvoorkeur */
+const CACHE_NAME = 'nieuws-ommen-v5';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -13,13 +13,10 @@ self.addEventListener('activate', (e) => {
   })());
 });
 
-// GEEN fetch handler die alles onderschept! 
-// Laat browser gewoon network doen, alleen cache voor eigen shell
 self.addEventListener('fetch', (e) => {
-  // Alleen GET en alleen same-origin cachen, geen corsproxy.io etc.
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
-  if (url.origin !== location.origin) return; // laat corsproxy.io en rss feeds met rust -> fixt 526
+  if (url.origin !== location.origin) return;
   if (url.pathname.includes('/api/') || url.pathname.includes('/proxy')) return;
   
   e.respondWith(
@@ -36,7 +33,7 @@ self.addEventListener('fetch', (e) => {
 });
 
 self.addEventListener('push', (event) => {
-  let data = { title: 'Nieuws Ommen', body: 'Nieuw artikel beschikbaar', url: '/' };
+  let data = { title: 'Nieuws Ommen', body: 'Nieuw artikel beschikbaar', url: '/', source: '' };
   try {
     if (event.data) {
       const json = event.data.json();
@@ -48,7 +45,7 @@ self.addEventListener('push', (event) => {
       body: data.body,
       icon: 'icons/icon-192x192.png',
       badge: 'icons/badge-72.png',
-      data: { url: data.url || '/' },
+      data: { url: data.url || '/', source: data.source || '', articleUrl: data.url || '/' },
       vibrate: [100, 50, 100]
     })
   );
@@ -56,13 +53,23 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || '/';
+  const articleUrl = event.notification.data?.articleUrl || event.notification.data?.url || '/';
+  const source = event.notification.data?.source || '';
+  
+  // NIET direct naar bron, maar naar app met focus parameter
+  // base URL = scope van deze SW (werkt voor /Nieuws-Ommen/)
+  const baseUrl = self.registration.scope;
+  const focusUrl = `${baseUrl}?focus=${encodeURIComponent(articleUrl)}&src=${encodeURIComponent(source)}`;
+  
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then(list => {
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
       for (const c of list) {
-        if (c.url.includes('Nieuws-Ommen') && 'focus' in c) return c.focus();
+        if (c.url.includes('Nieuws-Ommen') && 'focus' in c) {
+          c.navigate(focusUrl);
+          return c.focus();
+        }
       }
-      return clients.openWindow(url);
+      return clients.openWindow(focusUrl);
     })
   );
 });
