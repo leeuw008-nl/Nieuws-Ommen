@@ -1,4 +1,4 @@
-// app.js v215 - FIX [...] + title/link mismatch + Vechtdal Centraal & RTV Oost leeg
+// app.js v216 - alleen app.js gewijzigd - Gemeente terug zoals v214b (werkend) + [...] + 3 bronnen fix
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -112,7 +112,6 @@ async function fetchViaWorker(url){
 }
 function parseRSSFull(xml, bronId){
   const max = MAX_PER_BRON[bronId] || 10;
-  // Ondersteun zowel <item> (RSS) als <entry> (Atom)
   let items = [...xml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)];
   if(items.length===0) items = [...xml.matchAll(/<entry[^>]*>([\s\S]*?)<\/entry>/gi)];
   items = items.slice(0,max);
@@ -121,7 +120,6 @@ function parseRSSFull(xml, bronId){
     let title=(it.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i)||[])[1]||'';
     title=title.replace(/<[^>]*>/g,'').trim();
     let link=(it.match(/<link[^>]*>([\s\S]*?)<\/link>/i)||[])[1]||'';
-    // Atom link href
     if(!link || link.includes('<')) {
       const hrefMatch = it.match(/<link[^>]+href=["']([^"']+)["']/i);
       if(hrefMatch) link=hrefMatch[1];
@@ -141,44 +139,52 @@ function parseRSSFull(xml, bronId){
     return {title, link, pubDate:pub?new Date(pub):new Date(), description:useDesc};
   }).filter(x=>x.link && x.title);
 }
+function extractDescAfter(pos, clean){
+  const slice = clean.substring(pos, pos+1500);
+  const re = /<(p|div)[^>]*>([\s\S]*?)<\/\1>/gi;
+  let m;
+  while((m=re.exec(slice))!==null){
+    let txt = m[2].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+    if(txt.length<25) continue;
+    if(txt.includes('Facebook') && txt.includes('Instagram')) continue;
+    if(txt.includes('prefetch') || txt.includes('wp-admin') || txt.includes('{"source"')) continue;
+    if(/^(Lees meer|Meer lezen|Home|Actueel)$/i.test(txt)) continue;
+    if(txt.length>180) txt=txt.slice(0,177)+' [...]'; else txt=txt+' [...]';
+    return txt;
+  }
+  return ' [...]';
+}
 function parseGemeenteFull(html){
   const max = MAX_PER_BRON['Gemeente Ommen'];
-  const clean = html.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<!--[\s\S]*?-->/g,' ');
-  const results=[];
-  // FIX title/link mismatch: alleen matchen binnen zelfde <a> ... </a> zonder andere <a> ertussen
-  const reOrig = /<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>\s*<h[23][^>]*>([^<]+)<\/h[23]>\s*<\/a>\s*<(p|div)[^>]*>([\s\S]*?)<\/\3>/gi;
+  let clean = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<!--[\s\S]*?-->/g,' ');
+  const results = []; const seen = new Set();
+  const titleRe = /<h[23][^>]*>\s*<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([\s\S]*?)<\/a>\s*<\/h[23]>/gi;
   let m;
-  while((m=reOrig.exec(clean))!==null && results.length<max){
-    let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim(), desc=m[4].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+  while((m=titleRe.exec(clean))!==null && results.length<max){
+    let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim();
     if(title.length<8) continue;
-    if(desc.includes('prefetch')) continue;
-    if(desc.length>180) desc=desc.slice(0,177)+' [...]'; else if(desc) desc=desc+' [...]';
     const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
-    if(results.find(r=>r.link===full)) continue;
+    if(seen.has(full)) continue;
+    seen.add(full);
+    const desc = extractDescAfter(m.index, clean);
     results.push({title:title.slice(0,130), link:full, pubDate:new Date(), description:desc});
   }
   if(results.length < max){
-    const re2 = /<h[23][^>]*>\s*<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([^<]+)<\/a>\s*<\/h[23]>\s*<(p|div)[^>]*>([\s\S]*?)<\/\3>/gi;
+    const re2 = /<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>\s*<h[23][^>]*>([\s\S]*?)<\/h[23]>/gi;
     while((m=re2.exec(clean))!==null && results.length<max){
-      let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim(), desc=m[4].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+      let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim();
       if(title.length<8) continue;
-      if(desc.includes('prefetch')) continue;
-      if(desc.length>180) desc=desc.slice(0,177)+' [...]'; else if(desc) desc=desc+' [...]';
       const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
-      if(results.find(r=>r.link===full)) continue;
+      if(seen.has(full)) continue;
+      seen.add(full);
+      const desc = extractDescAfter(m.index, clean);
       results.push({title:title.slice(0,130), link:full, pubDate:new Date(), description:desc});
     }
-  }
-  if(results.length===0){
-    const links=[...clean.matchAll(/href=["']([^"']*\/actueel\/[^"'?#\/]{4,}[^"'?#]*?)["']/gi)].map(x=>x[1]).filter(h=>!h.includes('/page'));
-    const uniq=[...new Set(links.map(h=>h.startsWith('http')?h:'https://www.ommen.nl'+h))].slice(0,max);
-    return uniq.map(link=>({title:decodeURIComponent(link.split('/').filter(Boolean).pop().replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase()).slice(0,90)), link, pubDate:new Date(), description:'[...]'}));
   }
   return results.slice(0,max);
 }
 function parseOostFull(html){
   const max = MAX_PER_BRON['RTV Oost'];
-  // Nieuwe tolerant: zowel /nieuws/ommen als absolute URLs met ommen
   const patterns = [
     /<a[^>]+href=["'](\/nieuws\/[^"']*ommen[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
     /<a[^>]+href=["'](https:\/\/www\.oost\.nl\/nieuws\/[^"']*ommen[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
@@ -194,7 +200,6 @@ function parseOostFull(html){
       if(!uniqMap.has(full)) uniqMap.set(full, text);
     }
   }
-  // fallback: als nog leeg, pak alle links naar oost.nl/nieuws
   if(uniqMap.size===0){
     const fallback = [...html.matchAll(/<a[^>]+href=["']([^"']*\/nieuws\/[^"']+)["'][^>]*>([^<]{10,120})<\/a>/gi)];
     for(const f of fallback){
@@ -208,7 +213,6 @@ function parseOostFull(html){
 }
 function parseVechtdalCentraalFallback(html){
   const max = MAX_PER_BRON['Vechtdal Centraal'];
-  // Scrape homepage als RSS leeg is
   const re = /<a[^>]+href=["']([^"']*\/[^"']+)["'][^>]*>\s*<h[23][^>]*>([^<]{8,120})<\/h[23]>/gi;
   const map=new Map();
   let m;
@@ -231,7 +235,6 @@ async function loadOneSource(b){
       try{
         const xml=await fetchViaWorker(cfg.url);
         arts=parseRSSFull(xml, b.id);
-        // Als RSS leeg en we hebben fallback (Vechtdal Centraal), probeer homepage scrape
         if(arts.length===0 && cfg.fallback){
           const html2=await fetchViaWorker(cfg.fallback);
           arts=parseVechtdalCentraalFallback(html2);
