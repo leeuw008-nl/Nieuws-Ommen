@@ -1,4 +1,4 @@
-// app.js v219 - FIX echte tijd Gemeente - zoekt voor EN na titel + per article blok
+// app.js v220 - FIX komma-formaat "7 augustus 2026, 12:15"
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -140,43 +140,38 @@ function parseRSSFull(xml, bronId){
   }).filter(x=>x.link && x.title);
 }
 function extractDateFromBlock(block){
-  // 1. time datetime="2026-08-10T13:45:00+02:00"  -> beste, heeft echte tijd
-  let m = block.match(/<time[^>]+datetime=["']([^"']+)["']/i);
+  // NIEUW: ondersteunt "7 augustus 2026, 12:15" exact zoals screenshot
+  let m;
+  // 1. datetime met tijd
+  m = block.match(/<time[^>]+datetime=["']([^"']+)["']/i);
   if(m){
     const d = new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
   }
-  // 2. JSON-LD of andere meta: "datePublished": "2026-08-10T13:45:00"
-  m = block.match(/"date(?:Published|Modified)"\s*:\s*"([^"]+)"/i);
-  if(m){
-    const d = new Date(m[1]);
-    if(!isNaN(d.getTime())) return d;
-  }
-  // 3. Tekst met datum + tijd: "10 augustus 2026 om 14:23" of "10 augustus 2026 14:23" of "10-08-2026 14:23"
-  m = block.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})[^<]{0,30}?(\d{1,2}):(\d{2})/i);
+  // 2. "7 augustus 2026, 12:15"  -> met komma!
+  m = block.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*,\s*(\d{1,2}):(\d{2})/i);
   if(m){
     const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
-    const d=parseInt(m[1]), mon=months[m[2].toLowerCase()], y=parseInt(m[3]), h=parseInt(m[4]), min=parseInt(m[5]);
-    if(mon!==undefined) return new Date(y,mon,d,h,min);
+    return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), parseInt(m[4]), parseInt(m[5]));
   }
-  // 4. Alleen datum + losse tijd in zelfde blok: "10 augustus 2026" ... "14:23"
+  // 3. "7 augustus 2026 om 12:15" of "7 augustus 2026 12:15"
+  m = block.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})[^<]{0,15}?(\d{1,2}):(\d{2})/i);
+  if(m){
+    const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
+    return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), parseInt(m[4]), parseInt(m[5]));
+  }
+  // 4. Alleen datum + zoek tijd er vlak achter
   let dm = block.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
   if(dm){
     const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
-    const d=parseInt(dm[1]), mon=months[dm[2].toLowerCase()], y=parseInt(dm[3]);
-    // zoek tijd binnen 300 chars na datum
-    const after = block.substring(dm.index, dm.index+400);
+    const after = block.substring(dm.index, dm.index+200);
     const tm = after.match(/(\d{1,2}):(\d{2})/);
-    if(tm) return new Date(y,mon,d,parseInt(tm[1]),parseInt(tm[2]));
-    return new Date(y,mon,d,9,0); // alleen datum bekend -> 09:00 als fallback was fout, nu laten we 09:00 alleen als echt geen tijd
+    if(tm) return new Date(parseInt(dm[3]), months[dm[2].toLowerCase()], parseInt(dm[1]), parseInt(tm[1]), parseInt(tm[2]));
+    return new Date(parseInt(dm[3]), months[dm[2].toLowerCase()], parseInt(dm[1]), 12, 0);
   }
-  // 5. ISO datum zonder tijd
-  m = block.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-  if(m) return new Date(parseInt(m[1]),parseInt(m[2])-1,parseInt(m[3]),parseInt(m[4]),parseInt(m[5]));
   return null;
 }
 function extractDescFromBlock(block){
-  // pak eerste <p> of <div> met >25 chars die geen datum is
   const re = /<(p|div)[^>]*>([\s\S]*?)<\/\1>/gi;
   let mm;
   while((mm=re.exec(block))!==null){
@@ -184,7 +179,6 @@ function extractDescFromBlock(block){
     if(txt.length<30) continue;
     if(txt.length>400) continue;
     if(/^\d{1,2}\s+\w+\s+\d{4}/.test(txt)) continue;
-    if(/^\d{1,2}:\d{2}/.test(txt)) continue;
     if(txt.includes('Facebook') && txt.includes('Instagram')) continue;
     if(txt.includes('prefetch') || txt.includes('wp-admin')) continue;
     if(/^(Lees meer|Meer lezen|Home|Actueel)$/i.test(txt)) continue;
@@ -196,18 +190,13 @@ function extractDescFromBlock(block){
 function parseGemeenteFull(html){
   const max = MAX_PER_BRON['Gemeente Ommen'];
   let clean = html.replace(/<!--[\s\S]*?-->/g,' ');
-  // Splits op <article> - dan hebben we per artikel de echte datum+tijd bij elkaar
   let articles = [...clean.matchAll(/<article[^>]*>([\s\S]*?)<\/article>/gi)].map(a=>a[0]);
-  // fallback als geen article tags: splits op ommen.nl/actueel/ links
   if(articles.length===0){
-    const parts = clean.split(/<a[^>]+href=["'][^"']*\/actueel\/[^"']+["']/i);
-    articles = parts.slice(1).map(p=>p.substring(0,3000));
+    articles = [...clean.matchAll(/<div[^>]*class=["'][^"']*news[^"']*["'][\s\S]*?<\/div>\s*<\/div>/gi)].map(a=>a[0]);
   }
   const results=[]; const seen=new Set();
   for(let block of articles){
     if(results.length>=max) break;
-    const linkMatch = block.match(/href=["']([^"']*\/actueel\/[^"'?#]+)["']/i) || clean.match(/href=["']([^"']*\/actueel\/[^"'?#]+)["']/i);
-    // beter: zoek in block zelf naar h2/h3 a
     let href='', title='';
     let tm = block.match(/<h[23][^>]*>\s*<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([\s\S]*?)<\/a>/i);
     if(tm){ href=tm[1]; title=tm[2].replace(/<[^>]*>/g,'').trim(); }
@@ -223,7 +212,6 @@ function parseGemeenteFull(html){
     const desc = extractDescFromBlock(block);
     results.push({title:title.slice(0,130), link:full, pubDate:pub, description:desc});
   }
-  // Als nog leeg, oude methode
   if(results.length===0){
     const titleRe = /<h[23][^>]*>\s*<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([\s\S]*?)<\/a>\s*<\/h[23]>/gi;
     let m;
@@ -233,7 +221,7 @@ function parseGemeenteFull(html){
       const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
       if(seen.has(full)) continue;
       seen.add(full);
-      const block = clean.substring(Math.max(0,m.index-1000), m.index+2500);
+      const block = clean.substring(Math.max(0,m.index-800), m.index+2500);
       const pub = extractDateFromBlock(block) || new Date();
       const desc = extractDescFromBlock(block);
       results.push({title:title.slice(0,130), link:full, pubDate:pub, description:desc});
