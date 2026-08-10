@@ -1,4 +1,4 @@
-// app.js v205 - FIX beschrijving + tijd + aantal + geen dubbele bron
+// app.js v206 - FIX beschrijving + bel scope voor GitHub Pages subpad
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -119,49 +119,43 @@ function parseRSSFull(xml){
     link=link.replace(/<!\[CDATA\[/g,'').replace(/\]\]>/g,'').trim();
     if(!link.startsWith('http')){ const mm=it.match(/https?:\/\/[^\s<"\]]+/); if(mm) link=mm[0]; }
     let pub=(it.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i)||[])[1]||'';
-    // FIX: pak ook content:encoded voor beschrijving bij Vechtdal
     let desc=(it.match(/<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i)||[])[1]||'';
     let content=(it.match(/<content:encoded[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/i)||[])[1]||'';
-    let useDesc = content || desc;
-    useDesc=useDesc.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+    let useDesc = (content || desc || '').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
     if(useDesc.length>280) useDesc=useDesc.slice(0,277)+'...';
     return {title, link, pubDate:pub?new Date(pub):new Date(), description:useDesc};
   }).filter(x=>x.link && x.title);
 }
 function parseGemeenteFull(html){
-  // FIX: gemeente heeft geen RSS, maar wel artikelen met datum in HTML
-  const items=[];
-  const re = /<a[^>]+href=["']([^"']*\/actueel\/[^"']+)["'][^>]*>[\s\S]*?<h[23][^>]*>([\s\S]*?)<\/h[23]>/gi;
+  // Pak h2/h3 + eerste p erna als beschrijving
+  const results=[];
+  const re = /<a[^>]+href=["']([^"']*\/actueel\/[^"']+)["'][^>]*>[\s\S]*?<h[23][^>]*>([\s\S]*?)<\/h[23]>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/gi;
   let m;
   while((m=re.exec(html))!==null){
-    const href=m[1]; const t=m[2].replace(/<[^>]*>/g,'').trim();
-    if(t.length<8) continue;
+    const href=m[1]; let title=m[2].replace(/<[^>]*>/g,'').trim(); let desc=m[3].replace(/<[^>]*>/g,'').trim();
+    if(title.length<8) continue;
     const fullHref = href.startsWith('http')?href:'https://www.ommen.nl'+href;
-    // probeer datum erbij te vinden in buurt
-    const snippet = html.slice(m.index, m.index+800);
-    const dateMatch = snippet.match(/(\d{1,2}\s+\w+\s+\d{4}|\d{2}-\d{2}-\d{4})/);
-    items.push({title:t.slice(0,120), link:fullHref, pubDate: dateMatch?new Date(dateMatch[1]):new Date(), description:''});
+    if(desc.length>200) desc=desc.slice(0,197)+'...';
+    results.push({title:title.slice(0,120), link:fullHref, pubDate:new Date(), description:desc});
+    if(results.length>=12) break;
   }
-  // fallback oude methode als bovenstaande niks vindt
-  if(items.length===0){
+  if(results.length===0){
     const links=[...html.matchAll(/href=["']([^"']*\/actueel\/[^"'?#]+)["']/gi)].map(x=>x[1]);
     const uniq=[...new Set(links.map(h=>h.startsWith('http')?h:'https://www.ommen.nl'+h))].slice(0,12);
     return uniq.map(link=>({title:decodeURIComponent(link.split('/').filter(Boolean).pop().replace(/-/g,' ').slice(0,90)), link, pubDate:new Date(), description:''}));
   }
-  return items.slice(0,15);
+  return results;
 }
 function parseOostFull(html){
   const raw=[...html.matchAll(/<a[^>]+href=["'](\/nieuws\/ommen\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)];
   const uniqMap=new Map();
-  for(const m of raw){
-    const href=m[1]; const text=m[2].replace(/<[^>]*>/g,'').trim();
+  for(const mm of raw){
+    const href=mm[1]; const text=mm[2].replace(/<[^>]*>/g,'').trim();
     if(text.length<10) continue;
     const full='https://www.oost.nl'+href;
     if(!uniqMap.has(full)) uniqMap.set(full, text.slice(0,120));
   }
-  return Array.from(uniqMap.entries()).slice(0,15).map(([link,title])=>({
-    title, link, pubDate:new Date(), description:''
-  }));
+  return Array.from(uniqMap.entries()).slice(0,15).map(([link,title])=>({title, link, pubDate:new Date(), description:''}));
 }
 async function loadOneSource(b){
   const cfg = BRON_URLS[b.id];
@@ -173,17 +167,14 @@ async function loadOneSource(b){
     if(arts.length===0) throw new Error('empty');
     return arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
   }catch(e){
-    // als bron echt offline is, geef homepage met Offline label
-    return [{title:b.name+' (offline - homepage)', link:cfg.homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - klik voor homepage. Komt automatisch terug zodra server online is.', source:b.name, id:b.id, isFallback:true}];
+    return [{title:b.name, link:cfg.homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - homepage', source:b.name, id:b.id, isFallback:true}];
   }
 }
 function formatDate(d){
   if(d.getTime()===0) return 'offline';
   const now=new Date();
   const isToday = d.toDateString()===now.toDateString();
-  if(isToday){
-    return 'vandaag '+d.toLocaleTimeString('nl-NL',{hour:'2-digit', minute:'2-digit'});
-  }
+  if(isToday) return 'vandaag '+d.toLocaleTimeString('nl-NL',{hour:'2-digit', minute:'2-digit'});
   return d.toLocaleString('nl-NL',{day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
 }
 function renderArticles(){
@@ -193,14 +184,10 @@ function renderArticles(){
   if(search) filtered = filtered.filter(a=> (a.title+' '+a.description+' '+a.source).toLowerCase().includes(search));
   filtered = filtered.sort((a,b)=>b.pubDate - a.pubDate);
   const realCount = filtered.filter(a=>!a.isFallback).length;
-  const fallbackCount = filtered.filter(a=>a.isFallback).length;
-  const countHtml = `<div class="articles-count">${realCount} artikelen${fallbackCount?` + ${fallbackCount} offline` : ''} - ${loadedSources.size} v/d ${BRONNEN.length} bronnen</div>`;
-  if(filtered.length===0){
-    container.innerHTML = countHtml + '<div class="article">Geen artikelen</div>';
-    return;
-  }
+  const countHtml = `<div class="articles-count">${realCount} artikelen - ${loadedSources.size} v/d ${BRONNEN.length} bronnen geladen</div>`;
+  if(filtered.length===0){ container.innerHTML = countHtml + '<div class="article">Geen artikelen</div>'; return; }
   const html = filtered.map(a=>{
-    const cleanTitle = a.title.replace(/^\[[^\]]+\]\s*/,'').replace(new RegExp('^'+a.source+'\\s*[:\\-]?\\s*','i'),'').trim() || a.title;
+    const cleanTitle = a.title.replace(/^\[[^\]]+\]\s*/,'').trim() || a.title;
     if(a.isFallback){
       return `<div class="article fallback" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${a.source}</a></h2><small>${a.source} - ${formatDate(a.pubDate)}</small><div style="margin-top:6px;color:#666;">${a.description}</div></div>`;
     }
