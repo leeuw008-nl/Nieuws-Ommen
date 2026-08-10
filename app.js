@@ -1,4 +1,4 @@
-// app.js v221 - FIX echte tijd via detailpagina fetchen (zoals vroeger)
+// app.js v222 - FIX VANDAAG filter + datum/tijd via detailpagina
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -140,7 +140,6 @@ function parseRSSFull(xml, bronId){
   }).filter(x=>x.link && x.title);
 }
 function extractGemeenteDate(html){
-  // Exact zoals op screenshot: "7 augustus 2026, 12:15"
   let m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*,\s*(\d{1,2}):(\d{2})/i);
   if(m){
     const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
@@ -188,7 +187,6 @@ function parseGemeenteOverview(html){
     if(seen.has(full)) continue;
     seen.add(full);
     const desc = extractDescAfter(m.index, clean);
-    // tijdelijke datum uit overzicht (vaak alleen datum zonder tijd)
     let tempDate = extractGemeenteDate(clean.substring(Math.max(0,m.index-500), m.index+2500)) || new Date();
     results.push({title:title.slice(0,130), link:full, pubDate:tempDate, description:desc});
   }
@@ -208,7 +206,6 @@ function parseGemeenteOverview(html){
   return results.slice(0,max);
 }
 async function enrichGemeenteWithDetail(arts){
-  // Haal echte datum/tijd van detailpagina (zoals screenshot 7 augustus 2026, 12:15)
   const promises = arts.map(async (a)=>{
     try{
       const html = await fetchViaWorker(a.link);
@@ -217,7 +214,6 @@ async function enrichGemeenteWithDetail(arts){
     }catch(e){}
     return a;
   });
-  // Doe max 3 tegelijk om worker niet te overbelasten, maar wacht wel op allemaal
   const results=[];
   for(let i=0;i<promises.length;i+=3){
     const chunk = await Promise.all(promises.slice(i,i+3));
@@ -298,6 +294,10 @@ async function loadOneSource(b){
     return [{title:b.name, link:cfg.homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - homepage [...]', source:b.name, id:b.id, isFallback:true}];
   }
 }
+function isSameDay(d1,d2){
+  if(!d1 || !d2) return false;
+  return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate();
+}
 function formatDate(d){
   if(!d || isNaN(d.getTime()) || d.getTime()===0) return '';
   const dateStr = d.toLocaleDateString('nl-NL',{day:'numeric', month:'short'});
@@ -307,12 +307,28 @@ function formatDate(d){
 function renderArticles(){
   const container=document.getElementById('news-container'); if(!container) return;
   const search = (document.getElementById('search-input')?.value||'').toLowerCase();
-  let filtered = allArticles.filter(a=>{ const s=state[a.id]; return s && s.aan; });
+  const today = new Date();
+  let filtered = allArticles.filter(a=>{
+    const s=state[a.id];
+    if(!s || !s.aan) return false;
+    // VANDAAG filter per bron
+    if(s.vandaag){
+      if(a.isFallback) return false;
+      if(!isSameDay(a.pubDate, today)) return false;
+    }
+    // GEMEENTE vs REGIO - voor nu alleen visual, maar je kan hier later extra filter doen
+    return true;
+  });
   if(search) filtered = filtered.filter(a=> (a.title+' '+a.description+' '+a.source).toLowerCase().includes(search));
   filtered = filtered.sort((a,b)=>b.pubDate - a.pubDate);
   const realCount = filtered.filter(a=>!a.isFallback).length;
-  const countHtml = `<div class="articles-count">${realCount} artikelen - ${loadedSources.size} v/d ${BRONNEN.length} bronnen geladen</div>`;
-  if(filtered.length===0){ container.innerHTML = countHtml + '<div class="article">Geen artikelen</div>'; return; }
+  const vandaagActive = Object.values(state).some(s=>s.aan && s.vandaag);
+  const countHtml = `<div class="articles-count">${realCount} artikelen${vandaagActive?' (alleen vandaag)':''} - ${loadedSources.size} v/d ${BRONNEN.length} bronnen geladen</div>`;
+  if(filtered.length===0){
+    if(vandaagActive) container.innerHTML = countHtml + '<div class="article" style="color:#666;padding:20px;text-align:center;">Geen artikelen van vandaag gevonden.<br>Zet op MEER om oudere artikelen te zien.</div>';
+    else container.innerHTML = countHtml + '<div class="article">Geen artikelen</div>';
+    return;
+  }
   const html = filtered.map(a=>{
     const cleanTitle = a.title.replace(/^\[[^\]]+\]\s*/,'').trim() || a.title;
     if(a.isFallback){
