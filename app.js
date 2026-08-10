@@ -1,4 +1,4 @@
-// app.js v214 - TERUG naar originele werkende Gemeente parser van weken geleden
+// app.js v214b - zelfde originele parser maar met DEBUG log + tolerantie voor div excerpt
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -106,7 +106,7 @@ function moveOldBell(){
 }
 const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
 async function fetchViaWorker(url){
-  const r = await fetch(`${WORKER}/proxy?url=${encodeURIComponent(url)}`);
+  const r = await fetch(`${WORKER}/proxy?url=${encodeURIComponent(url)}`, {cache:'no-store'});
   const t = await r.text();
   return t;
 }
@@ -128,31 +128,47 @@ function parseRSSFull(xml, bronId){
     return {title, link, pubDate:pub?new Date(pub):new Date(), description:useDesc};
   }).filter(x=>x.link && x.title);
 }
-// ORIGINELE WERKENDE PARSER - alleen script strip toegevoegd
 function parseGemeenteFull(html){
   const max = MAX_PER_BRON['Gemeente Ommen'];
-  // Alleen dit toegevoegd om Facebook rommel te voorkomen
   const clean = html.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<!--[\s\S]*?-->/g,' ');
+  console.log('Gemeente HTML length', clean.length);
   const results=[];
-  const re = /<a[^>]+href=["']([^"']*\/actueel\/[^"']+)["'][^>]*>[\s\S]*?<h[23][^>]*>([\s\S]*?)<\/h[23]>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/gi;
+  // 1. Originele werkende: <a href="/actueel/"><h3>Titel</h3> ... <p>desc</p>
+  const reOrig = /<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>[\s\S]*?<h[23][^>]*>([\s\S]*?)<\/h[23]>[\s\S]*?<(p|div)[^>]*>([\s\S]*?)<\/\3>/gi;
   let m;
-  while((m=re.exec(clean))!==null){
-    const href=m[1]; let title=m[2].replace(/<[^>]*>/g,'').trim(); let desc=m[3].replace(/<[^>]*>/g,'').trim();
+  while((m=reOrig.exec(clean))!==null && results.length<max){
+    let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim(), desc=m[4].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
     if(title.length<8) continue;
-    // filter alleen echte rommel
-    if(desc.includes('prefetch') && desc.includes('Facebook')) continue;
-    if(desc.includes('wp-') && desc.length<30) continue;
-    const fullHref = href.startsWith('http')?href:'https://www.ommen.nl'+href;
-    if(desc.length>200) desc=desc.slice(0,197)+'...';
-    results.push({title:title.slice(0,120), link:fullHref, pubDate:new Date(), description:desc});
-    if(results.length>=max) break;
+    if(desc.includes('Facebook') && desc.includes('prefetch')) { desc=''; }
+    if(desc.length<10) continue;
+    if(desc.length>220) desc=desc.slice(0,217)+'...';
+    const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
+    if(results.find(r=>r.link===full)) continue;
+    results.push({title:title.slice(0,130), link:full, pubDate:new Date(), description:desc});
   }
+  console.log('Gemeente after reOrig', results.length);
+  // 2. Variant: <h3><a href><...></a></h3> <p/div>
+  if(results.length < max){
+    const re2 = /<h[23][^>]*>\s*<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([\s\S]*?)<\/a>\s*<\/h[23]>[\s\S]{0,800}?<(p|div)[^>]*>([\s\S]*?)<\/\3>/gi;
+    while((m=re2.exec(clean))!==null && results.length<max){
+      let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim(), desc=m[4].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+      if(title.length<8) continue;
+      if(desc.includes('Facebook') && desc.includes('prefetch')) desc='';
+      if(desc.length<15) continue;
+      if(desc.length>220) desc=desc.slice(0,217)+'...';
+      const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
+      if(results.find(r=>r.link===full)) continue;
+      results.push({title:title.slice(0,130), link:full, pubDate:new Date(), description:desc});
+    }
+  }
+  console.log('Gemeente after re2', results.length);
   if(results.length===0){
-    const links=[...clean.matchAll(/href=["']([^"']*\/actueel\/[^"'?#]+)["']/gi)].map(x=>x[1]);
+    // laatste redmiddel
+    const links=[...clean.matchAll(/href=["']([^"']*\/actueel\/[^"'?#\/]{4,}[^"'?#]*?)["']/gi)].map(x=>x[1]).filter(h=>!h.includes('/page'));
     const uniq=[...new Set(links.map(h=>h.startsWith('http')?h:'https://www.ommen.nl'+h))].slice(0,max);
-    return uniq.map(link=>({title:decodeURIComponent(link.split('/').filter(Boolean).pop().replace(/-/g,' ').slice(0,90)), link, pubDate:new Date(), description:''}));
+    return uniq.map(link=>({title:decodeURIComponent(link.split('/').filter(Boolean).pop().replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase()).slice(0,90)), link, pubDate:new Date(), description:''}));
   }
-  return results;
+  return results.slice(0,max);
 }
 function parseOostFull(html){
   const max = MAX_PER_BRON['RTV Oost'];
@@ -171,12 +187,13 @@ async function loadOneSource(b){
   const cfg = BRON_URLS[b.id];
   try{
     let arts=[];
-    if(cfg.type==='gemeente'){ const html=await fetchViaWorker(cfg.url); arts=parseGemeenteFull(html); }
+    if(cfg.type==='gemeente'){ const html=await fetchViaWorker(cfg.url); arts=parseGemeenteFull(html); console.log('Gemeente parsed', arts.length, arts[0]); }
     else if(cfg.type==='oost'){ const html=await fetchViaWorker(cfg.url); arts=parseOostFull(html); }
     else { const xml=await fetchViaWorker(cfg.url); arts=parseRSSFull(xml, b.id); }
     if(arts.length===0) throw new Error('empty');
     return arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
   }catch(e){
+    console.error('load fail', b.id, e);
     return [{title:b.name, link:cfg.homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - homepage', source:b.name, id:b.id, isFallback:true}];
   }
 }
@@ -200,7 +217,7 @@ function renderArticles(){
     if(a.isFallback){
       return `<div class="article fallback" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${a.source}</a></h2><small>${a.source}${a.pubDate.getTime()?` - ${formatDate(a.pubDate)}`:''}</small><div style="margin-top:6px;color:#666;">${a.description}</div></div>`;
     }
-    return `<div class="article" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${cleanTitle}</a></h2><small>${a.source} - ${formatDate(a.pubDate)}</small>${a.description?`<div style="margin-top:6px;">${a.description}</div>`:''}</div>`;
+    return `<div class="article" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${cleanTitle}</a></h2><small>${a.source} - ${formatDate(a.pubDate)}</small>${a.description?`<div style="margin-top:6px;color:#555;">${a.description}</div>`:''}</div>`;
   }).join('');
   container.innerHTML = countHtml + html;
   window.getAllArticles = ()=> filtered;
