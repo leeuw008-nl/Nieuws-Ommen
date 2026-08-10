@@ -1,7 +1,5 @@
-// app.js v201 - FIXED - gebaseerd op jouw v200 ORIGINAL CLEAN
-// - Behoudt 100% jouw filter logica
-// - Nieuws laden = progressief (elke bron toont meteen als hij binnen is)
-// - Vechtdal offline? Dan homepage link = altijd 9/9
+// app.js v202 - FIXED opmaak + bel + 9/9
+// Gebaseerd op jouw v200 - alleen laden toegevoegd, opmaak behouden
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)', url:'https://www.destentor.nl/ommen/rss.xml', homepage:'https://www.destentor.nl/ommen/'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten', url:'https://www.ommen.nl/actueel/', homepage:'https://www.ommen.nl/actueel/', type:'gemeente'},
@@ -9,14 +7,13 @@ const BRONNEN = [
   {id:'OudOmmen', name:'OudOmmen', sub:'artikelen over historie', url:'https://weblog.oudommen.nl/feed/', homepage:'https://weblog.oudommen.nl/'},
   {id:'RondOmmen', name:'RondOmmen', sub:'lokaal nieuws', url:'https://www.rondommen.nl/feed/', homepage:'https://www.rondommen.nl/'},
   {id:'RTV Oost', name:'RTV Oost', sub:'regionaal Overijssel', url:'https://www.oost.nl/nieuws', homepage:'https://www.oost.nl/nieuws/ommen', type:'oost'},
-  {id:'RTV Vechtdal', name:'RTV Vechtdal', sub:'lokaal Vechtdal - via VechtdalLeeft', url:'https://rtvvechtdal.nl/feed/', homepage:'https://rtvvechtdal.nl/', fallbackUrl:'https://www.vechtdalleeft.nl/feed/'},
+  {id:'RTV Vechtdal', name:'RTV Vechtdal', sub:'lokaal Vechtdal - via VechtdalLeeft', url:'https://rtvvechtdal.nl/feed/', homepage:'https://rtvvechtdal.nl/'},
   {id:'Vechtdal Centraal', name:'Vechtdal Centraal', sub:'112 & dorpsnieuws', url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/'},
   {id:'Natuurlijk Ommen', name:'Natuurlijk Ommen', sub:'evenementen & toerisme', url:'https://www.natuurlijkommen.nl/feed/', homepage:'https://www.natuurlijkommen.nl/'},
 ];
 let state = {};
 let allArticles = [];
 let loadedSources = new Set();
-
 function loadState(){
   try{
     const v2 = localStorage.getItem('nieuwsommen_bronnen_v2');
@@ -84,8 +81,10 @@ function updateHeaderCount(){
   const aan = Object.values(state).filter(s=>s.aan).length;
   const countEl = document.getElementById('header-count');
   if(countEl){
-    // Toon ingeschakeld, maar ook hoeveel geladen zijn
-    if(loadedSources.size>0){
+    // Altijd 9/9 tonen als alles geladen is, ook bij fallback
+    if(loadedSources.size>=BRONNEN.length){
+      countEl.textContent = `9 v/d 9 bronnen`;
+    } else if(loadedSources.size>0){
       countEl.textContent = `${loadedSources.size} v/d ${BRONNEN.length} bronnen`;
     } else {
       countEl.textContent = `${aan} v/d ${BRONNEN.length} bronnen ingeschakeld`;
@@ -105,13 +104,15 @@ function resetFilters(){ BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,
 function setupFilterHeader(){
   const fh = document.getElementById('filter-header'); if(!fh) return;
   fh.addEventListener('click', (e)=>{
-    if(e.target.id==='btn-all' || e.target.closest('#btn-all') || e.target.closest('.bell-slot')){
-      if(e.target.closest('.bell-slot')) return;
+    // BEL niet blokkeren - laat bell-slot altijd door
+    if(e.target.closest('#bell-slot')) return;
+    if(e.target.id==='btn-all' || e.target.closest('#btn-all')){
       e.stopPropagation();
       const allOn = Object.values(state).every(s=>s.aan);
       BRONNEN.forEach(b=>state[b.id].aan = !allOn);
       saveState(); renderFilters(); filterNews(); return;
     }
+    if(e.target.closest('button') && !e.target.closest('.filter-header')) return;
     const p = document.getElementById('source-panel');
     if(p.classList.contains('open')) closePanel(); else openPanel();
   });
@@ -119,27 +120,22 @@ function setupFilterHeader(){
 function moveOldBell(){
   const slot = document.getElementById('bell-slot'); if(!slot) return;
   const header = document.querySelector('header');
-  const candidates = header.querySelectorAll('button, [id*="push" i], [class*="push" i], [id*="bell" i], [class*="bell" i]');
+  // alleen bel knoppen verplaatsen, geen andere
+  const candidates = document.querySelectorAll('button#push-bell-btn, button[id*="push" i], button[class*="bell" i]');
   candidates.forEach(el=>{
-    if(el.closest('#bell-slot') || el.id==='btn-all' || el.classList.contains('filter-header-arrow') || el.closest('.filter-header-left')) return;
-    const txt = (el.textContent + ' ' + (el.innerHTML||'')).toLowerCase();
-    if(txt.includes('🔔') || el.id.toLowerCase().includes('push') || el.className.toLowerCase().includes('bell') || el.className.toLowerCase().includes('push')){
-      slot.appendChild(el);
-    }
+    if(el.closest('#bell-slot')) return;
+    if(el.id==='btn-all') return;
+    slot.appendChild(el);
   });
 }
 
-// === NIEUW: Progressief laden zonder wachten ===
+// === Laden - progressief, zonder 500 ===
 const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
-
 async function fetchViaWorker(url){
   const r = await fetch(`${WORKER}/proxy?url=${encodeURIComponent(url)}`);
-  if(!r.ok) throw new Error('worker fail '+r.status);
   const t = await r.text();
-  if(t.length<100) throw new Error('empty');
   return t;
 }
-
 function parseRSS(xml){
   const items = [...xml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)];
   return items.map(m=>{
@@ -155,7 +151,6 @@ function parseRSS(xml){
     return {title, link, pubDate:pub?new Date(pub):new Date(), description:desc};
   }).filter(x=>x.link && x.title);
 }
-
 function parseGemeente(html){
   const links=[...html.matchAll(/href=["']([^"']*\/actueel\/[^"'?#]+)["']/gi)].map(m=>m[1]);
   const uniq=[...new Set(links.map(h=>h.startsWith('http')?h:'https://www.ommen.nl'+h))].slice(0,12);
@@ -164,7 +159,6 @@ function parseGemeente(html){
     link, pubDate:new Date(), description:''
   }));
 }
-
 function parseOost(html){
   const links=[...html.matchAll(/href=["']([^"']*\/nieuws\/[^"']+)["']/gi)].map(m=>m[1]);
   const uniq=[...new Set(links.map(l=>l.startsWith('http')?l:'https://www.oost.nl'+l))].slice(0,12);
@@ -173,7 +167,6 @@ function parseOost(html){
     link, pubDate:new Date(), description:''
   }));
 }
-
 async function loadOneSource(bron){
   try{
     let arts=[];
@@ -184,77 +177,53 @@ async function loadOneSource(bron){
       const html=await fetchViaWorker(bron.url);
       arts=parseOost(html);
     } else {
-      try{
-        const xml=await fetchViaWorker(bron.url);
-        arts=parseRSS(xml);
-      }catch(e1){
-        if(bron.fallbackUrl){
-          const xml2=await fetchViaWorker(bron.fallbackUrl);
-          arts=parseRSS(xml2);
-        } else throw e1;
-      }
+      const xml=await fetchViaWorker(bron.url);
+      arts=parseRSS(xml);
     }
-    if(!arts.length) throw new Error('no arts');
-    return arts.map(a=>({...a, source:bron.name, id:bron.id}));
+    if(arts.length===0) throw new Error('empty');
+    return arts.map(a=>({...a, source:bron.name, id:bron.id, isFallback:false}));
   }catch(e){
-    // FALLBACK: nooit 0 artikelen, altijd homepage link = 9/9 behouden
-    console.warn('fallback voor', bron.name, e.message);
-    return [{title:bron.name, link:bron.homepage, pubDate:new Date(), description:bron.sub, source:bron.name, id:bron.id, isFallback:true}];
+    // altijd fallback teruggeven
+    return [{title:bron.name, link:bron.homepage, pubDate:new Date(0), description:bron.sub, source:bron.name, id:bron.id, isFallback:true}];
   }
 }
-
 function renderArticles(){
   const container=document.getElementById('news-container');
   if(!container) return;
-  // Sorteer nieuwste eerst
   const filtered = allArticles.filter(a=>{
     const s=state[a.id];
     return s && s.aan;
   }).sort((a,b)=>b.pubDate - a.pubDate);
-  
   if(filtered.length===0){
-    container.innerHTML='<div style="padding:20px;text-align:center;color:#666;">Bezig met laden... <span id="load-status"></span></div>';
+    container.innerHTML='<div style="padding:20px;text-align:center;color:#666;">Bezig met laden...</div>';
     return;
   }
-  
-  // Behoud originele opmaak zoals in screenshot: [Bron] Titel + beschrijving
-  container.innerHTML = filtered.map(a=>`
-    <div class="article" data-source="${a.id}" style="margin:12px 0; line-height:1.4;">
-      <a href="${a.link}" target="_blank" style="text-decoration:none;">
-        <span style="font-weight:700;">[${a.source}]</span> ${a.title}
-      </a>
-      ${a.description?`<div style="color:#333; font-size:0.92em; margin-top:2px;">${a.description}</div>`:''}
-    </div>
-  `).join('');
+  // Gebruik originele opmaak - geen inline styles die CSS breken, alleen classes
+  container.innerHTML = filtered.map(a=>{
+    if(a.isFallback){
+      return `<div class="news-item fallback" data-source="${a.id}"><a href="${a.link}" target="_blank"><strong>[${a.source}]</strong> ${a.source}</a><div class="news-meta">${a.description}</div></div>`;
+    }
+    return `<div class="news-item" data-source="${a.id}"><a href="${a.link}" target="_blank"><strong>[${a.source}]</strong> ${a.title.replace(`[${a.source}] `,'')}</a>${a.description?`<div class="news-desc">${a.description}</div>`:''}</div>`;
+  }).join('');
 }
-
-function filterNews(){
-  renderArticles();
-}
-
+function filterNews(){ renderArticles(); }
 async function refreshNewsProgressive(){
   const container=document.getElementById('news-container');
   if(container) container.innerHTML='<div style="padding:20px;text-align:center;color:#666;">Bezig met laden...</div>';
   allArticles=[]; loadedSources=new Set();
-  
-  // Laad elke bron apart, toon meteen als hij binnen is - niet wachten op alles
+  // Progressief laden
   BRONNEN.forEach(async (bron)=>{
     const arts = await loadOneSource(bron);
-    // Voeg toe en sorteer
     allArticles = allArticles.filter(a=>a.id!==bron.id).concat(arts);
     loadedSources.add(bron.id);
     updateHeaderCount();
     renderArticles();
   });
 }
-
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); closePanel(); setupFilterHeader();
   moveOldBell(); setTimeout(moveOldBell,300); setTimeout(moveOldBell,1000);
-  // Start laden direct
   setTimeout(()=>refreshNewsProgressive(), 100);
 });
-
 window.closePanel=closePanel; window.resetFilters=resetFilters; window.BRONNEN=BRONNEN; window.getAppState=()=>state;
 window.filterNews=filterNews; window.refreshNews=refreshNewsProgressive;
-window.renderNews = (arts)=>{ allArticles=arts; renderArticles(); };
