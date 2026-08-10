@@ -1,4 +1,4 @@
-// app.js v214b - zelfde originele parser maar met DEBUG log + tolerantie voor div excerpt
+// app.js v215 - FIX [...] + title/link mismatch + Vechtdal Centraal & RTV Oost leeg
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -19,7 +19,7 @@ const BRON_URLS = {
   'RondOmmen': {url:'https://www.rondommen.nl/feed/', homepage:'https://www.rondommen.nl/'},
   'RTV Oost': {url:'https://www.oost.nl/nieuws/ommen', homepage:'https://www.oost.nl/nieuws/ommen', type:'oost'},
   'RTV Vechtdal': {url:'https://rtvvechtdal.nl/feed/', homepage:'https://rtvvechtdal.nl/'},
-  'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/'},
+  'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/', fallback:'https://www.vechtdalcentraal.nl/'},
   'Natuurlijk Ommen': {url:'https://www.natuurlijkommen.nl/feed/', homepage:'https://www.natuurlijkommen.nl/'},
 };
 let state = {}; let allArticles = []; let loadedSources = new Set();
@@ -112,89 +112,141 @@ async function fetchViaWorker(url){
 }
 function parseRSSFull(xml, bronId){
   const max = MAX_PER_BRON[bronId] || 10;
-  const items = [...xml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)].slice(0,max);
+  // Ondersteun zowel <item> (RSS) als <entry> (Atom)
+  let items = [...xml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)];
+  if(items.length===0) items = [...xml.matchAll(/<entry[^>]*>([\s\S]*?)<\/entry>/gi)];
+  items = items.slice(0,max);
   return items.map(m=>{
     const it=m[0];
     let title=(it.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i)||[])[1]||'';
     title=title.replace(/<[^>]*>/g,'').trim();
     let link=(it.match(/<link[^>]*>([\s\S]*?)<\/link>/i)||[])[1]||'';
+    // Atom link href
+    if(!link || link.includes('<')) {
+      const hrefMatch = it.match(/<link[^>]+href=["']([^"']+)["']/i);
+      if(hrefMatch) link=hrefMatch[1];
+    }
     link=link.replace(/<!\[CDATA\[/g,'').replace(/\]\]>/g,'').trim();
     if(!link.startsWith('http')){ const mm=it.match(/https?:\/\/[^\s<"\]]+/); if(mm) link=mm[0]; }
-    let pub=(it.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i)||[])[1]||'';
+    let pub=(it.match(/<(pubDate|published|updated)[^>]*>([\s\S]*?)<\/(pubDate|published|updated)>/i)||[])[2]||'';
     let desc=(it.match(/<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i)||[])[1]||'';
     let content=(it.match(/<content:encoded[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/i)||[])[1]||'';
+    if(!desc) {
+      const summ = (it.match(/<summary[^>]*>([\s\S]*?)<\/summary>/i)||[])[1]||'';
+      desc=summ;
+    }
     let useDesc = (content || desc || '').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
-    if(useDesc.length>280) useDesc=useDesc.slice(0,277)+'...';
+    if(useDesc.length>180) useDesc=useDesc.slice(0,177)+' [...]';
+    else if(useDesc) useDesc=useDesc+' [...]';
     return {title, link, pubDate:pub?new Date(pub):new Date(), description:useDesc};
   }).filter(x=>x.link && x.title);
 }
 function parseGemeenteFull(html){
   const max = MAX_PER_BRON['Gemeente Ommen'];
   const clean = html.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<!--[\s\S]*?-->/g,' ');
-  console.log('Gemeente HTML length', clean.length);
   const results=[];
-  // 1. Originele werkende: <a href="/actueel/"><h3>Titel</h3> ... <p>desc</p>
-  const reOrig = /<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>[\s\S]*?<h[23][^>]*>([\s\S]*?)<\/h[23]>[\s\S]*?<(p|div)[^>]*>([\s\S]*?)<\/\3>/gi;
+  // FIX title/link mismatch: alleen matchen binnen zelfde <a> ... </a> zonder andere <a> ertussen
+  const reOrig = /<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>\s*<h[23][^>]*>([^<]+)<\/h[23]>\s*<\/a>\s*<(p|div)[^>]*>([\s\S]*?)<\/\3>/gi;
   let m;
   while((m=reOrig.exec(clean))!==null && results.length<max){
     let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim(), desc=m[4].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
     if(title.length<8) continue;
-    if(desc.includes('Facebook') && desc.includes('prefetch')) { desc=''; }
-    if(desc.length<10) continue;
-    if(desc.length>220) desc=desc.slice(0,217)+'...';
+    if(desc.includes('prefetch')) continue;
+    if(desc.length>180) desc=desc.slice(0,177)+' [...]'; else if(desc) desc=desc+' [...]';
     const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
     if(results.find(r=>r.link===full)) continue;
     results.push({title:title.slice(0,130), link:full, pubDate:new Date(), description:desc});
   }
-  console.log('Gemeente after reOrig', results.length);
-  // 2. Variant: <h3><a href><...></a></h3> <p/div>
   if(results.length < max){
-    const re2 = /<h[23][^>]*>\s*<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([\s\S]*?)<\/a>\s*<\/h[23]>[\s\S]{0,800}?<(p|div)[^>]*>([\s\S]*?)<\/\3>/gi;
+    const re2 = /<h[23][^>]*>\s*<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([^<]+)<\/a>\s*<\/h[23]>\s*<(p|div)[^>]*>([\s\S]*?)<\/\3>/gi;
     while((m=re2.exec(clean))!==null && results.length<max){
       let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim(), desc=m[4].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
       if(title.length<8) continue;
-      if(desc.includes('Facebook') && desc.includes('prefetch')) desc='';
-      if(desc.length<15) continue;
-      if(desc.length>220) desc=desc.slice(0,217)+'...';
+      if(desc.includes('prefetch')) continue;
+      if(desc.length>180) desc=desc.slice(0,177)+' [...]'; else if(desc) desc=desc+' [...]';
       const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
       if(results.find(r=>r.link===full)) continue;
       results.push({title:title.slice(0,130), link:full, pubDate:new Date(), description:desc});
     }
   }
-  console.log('Gemeente after re2', results.length);
   if(results.length===0){
-    // laatste redmiddel
     const links=[...clean.matchAll(/href=["']([^"']*\/actueel\/[^"'?#\/]{4,}[^"'?#]*?)["']/gi)].map(x=>x[1]).filter(h=>!h.includes('/page'));
     const uniq=[...new Set(links.map(h=>h.startsWith('http')?h:'https://www.ommen.nl'+h))].slice(0,max);
-    return uniq.map(link=>({title:decodeURIComponent(link.split('/').filter(Boolean).pop().replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase()).slice(0,90)), link, pubDate:new Date(), description:''}));
+    return uniq.map(link=>({title:decodeURIComponent(link.split('/').filter(Boolean).pop().replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase()).slice(0,90)), link, pubDate:new Date(), description:'[...]'}));
   }
   return results.slice(0,max);
 }
 function parseOostFull(html){
   const max = MAX_PER_BRON['RTV Oost'];
-  const raw=[...html.matchAll(/<a[^>]+href=["'](\/nieuws\/ommen\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)];
+  // Nieuwe tolerant: zowel /nieuws/ommen als absolute URLs met ommen
+  const patterns = [
+    /<a[^>]+href=["'](\/nieuws\/[^"']*ommen[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
+    /<a[^>]+href=["'](https:\/\/www\.oost\.nl\/nieuws\/[^"']*ommen[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
+    /<a[^>]+href=["'](\/nieuws\/ommen\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi
+  ];
   const uniqMap=new Map();
-  for(const mm of raw){
-    const href=mm[1]; const text=mm[2].replace(/<[^>]*>/g,'').trim();
-    if(text.length<10) continue;
-    const full='https://www.oost.nl'+href;
-    if(!uniqMap.has(full)) uniqMap.set(full, text.slice(0,120));
-    if(uniqMap.size>=max) break;
+  for(const re of patterns){
+    let mm;
+    while((mm=re.exec(html))!==null && uniqMap.size<max){
+      const href=mm[1]; let text=mm[2].replace(/<[^>]*>/g,'').trim();
+      if(text.length<10 || text.length>200) continue;
+      const full=href.startsWith('http')?href:'https://www.oost.nl'+href;
+      if(!uniqMap.has(full)) uniqMap.set(full, text);
+    }
   }
-  return Array.from(uniqMap.entries()).slice(0,max).map(([link,title])=>({title, link, pubDate:new Date(), description:''}));
+  // fallback: als nog leeg, pak alle links naar oost.nl/nieuws
+  if(uniqMap.size===0){
+    const fallback = [...html.matchAll(/<a[^>]+href=["']([^"']*\/nieuws\/[^"']+)["'][^>]*>([^<]{10,120})<\/a>/gi)];
+    for(const f of fallback){
+      if(uniqMap.size>=max) break;
+      const href=f[1], txt=f[2].trim();
+      const full=href.startsWith('http')?href:'https://www.oost.nl'+href;
+      if(!uniqMap.has(full)) uniqMap.set(full, txt);
+    }
+  }
+  return Array.from(uniqMap.entries()).slice(0,max).map(([link,title])=>({title:title.slice(0,120), link, pubDate:new Date(), description:'[...]'}));
+}
+function parseVechtdalCentraalFallback(html){
+  const max = MAX_PER_BRON['Vechtdal Centraal'];
+  // Scrape homepage als RSS leeg is
+  const re = /<a[^>]+href=["']([^"']*\/[^"']+)["'][^>]*>\s*<h[23][^>]*>([^<]{8,120})<\/h[23]>/gi;
+  const map=new Map();
+  let m;
+  while((m=re.exec(html))!==null && map.size<max){
+    let href=m[1], title=m[2].trim();
+    if(href.startsWith('/')) href='https://www.vechtdalcentraal.nl'+href;
+    if(!href.includes('vechtdalcentraal.nl')) continue;
+    if(href.includes('/category/') || href.includes('/tag/') || href.includes('#')) continue;
+    if(!map.has(href)) map.set(href, title);
+  }
+  return Array.from(map.entries()).slice(0,max).map(([link,title])=>({title, link, pubDate:new Date(), description:'[...]'}));
 }
 async function loadOneSource(b){
   const cfg = BRON_URLS[b.id];
   try{
     let arts=[];
-    if(cfg.type==='gemeente'){ const html=await fetchViaWorker(cfg.url); arts=parseGemeenteFull(html); console.log('Gemeente parsed', arts.length, arts[0]); }
+    if(cfg.type==='gemeente'){ const html=await fetchViaWorker(cfg.url); arts=parseGemeenteFull(html); }
     else if(cfg.type==='oost'){ const html=await fetchViaWorker(cfg.url); arts=parseOostFull(html); }
-    else { const xml=await fetchViaWorker(cfg.url); arts=parseRSSFull(xml, b.id); }
+    else {
+      try{
+        const xml=await fetchViaWorker(cfg.url);
+        arts=parseRSSFull(xml, b.id);
+        // Als RSS leeg en we hebben fallback (Vechtdal Centraal), probeer homepage scrape
+        if(arts.length===0 && cfg.fallback){
+          const html2=await fetchViaWorker(cfg.fallback);
+          arts=parseVechtdalCentraalFallback(html2);
+        }
+      }catch(e){
+        if(cfg.fallback){
+          const html2=await fetchViaWorker(cfg.fallback);
+          arts=parseVechtdalCentraalFallback(html2);
+        } else throw e;
+      }
+    }
     if(arts.length===0) throw new Error('empty');
     return arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
   }catch(e){
-    console.error('load fail', b.id, e);
-    return [{title:b.name, link:cfg.homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - homepage', source:b.name, id:b.id, isFallback:true}];
+    return [{title:b.name, link:cfg.homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - homepage [...]', source:b.name, id:b.id, isFallback:true}];
   }
 }
 function formatDate(d){
