@@ -1,23 +1,22 @@
-
-// news.js v204 - DEFINITIEF FIX voor [ ] [...] - eerst schoonmaken dan pas knippen
+// news.js v206 - originele limieten: Stentor 25, RondOmmen 20, rest 10 + FIX [ ] [...]
 const PROXIES = [
   'https://ommen-push.leeuw008.workers.dev/proxy?url=',
   'https://corsproxy.io/?',
   'https://api.allorigins.win/raw?url=',
   'https://api.codetabs.com/v1/proxy?quest='
 ];
-const CACHE_KEY = 'ommen_cache_v204';
+const CACHE_KEY = 'ommen_cache_v206';
 const CACHE_TTL = 10*60*1000;
 const MAX_DESC = 380;
 
 let allArticles = [];
 const feeds = [
-    { name: 'Ommen City', url: 'https://ommencity.nl/feed/' },
-    { name: 'OudOmmen', url: 'https://weblog.oudommen.nl/feed/' },
-    { name: 'De Stentor', url: 'https://www.destentor.nl/ommen/rss.xml' },
-    { name: 'RondOmmen', url: 'https://www.rondommen.nl/feed/' },
-    { name: 'Vechtdal Centraal', url: 'https://www.vechtdalcentraal.nl/feed/' },
-    { name: 'Natuurlijk Ommen', url: 'https://www.natuurlijkommen.nl/feed/' }
+    { name: 'Ommen City', url: 'https://ommencity.nl/feed/', limit: 10 },
+    { name: 'OudOmmen', url: 'https://weblog.oudommen.nl/feed/', limit: 10 },
+    { name: 'De Stentor', url: 'https://www.destentor.nl/ommen/rss.xml', limit: 25 },
+    { name: 'RondOmmen', url: 'https://www.rondommen.nl/feed/', limit: 20 },
+    { name: 'Vechtdal Centraal', url: 'https://www.vechtdalcentraal.nl/feed/', limit: 10 },
+    { name: 'Natuurlijk Ommen', url: 'https://www.natuurlijkommen.nl/feed/', limit: 10 }
 ];
 const ommenKeywords = ["ommen","arriën","arrien","beerze","beerzerveld","besthmen","diffelen","giethmen","junne","lemele","stegeren","vilsteren","witharen","varsen","ommermars"];
 
@@ -40,9 +39,7 @@ function stripFooters(html){ if(!html) return ""; return html.replace(/<p[^>]*>\
 function sanitizeFinal(text){
     if(!text) return " [...]";
     let d = String(text);
-    // VERWIJDER ALLES TUSSEN [ en ] inclusief [ ] , [] , [...]
     d = d.replace(/\[[^\]]*\]/g, ' ');
-    // ook losse ... en … weghalen
     d = d.replace(/&hellip;/gi, ' ');
     d = d.replace(/…/g, ' ');
     d = d.replace(/\s*\.\.\.\s*/g, ' ');
@@ -59,7 +56,6 @@ function cleanHTML(html, maxLength=MAX_DESC){
     const doc=new DOMParser().parseFromString(dec,"text/html");
     doc.querySelectorAll("script, style, iframe").forEach(el=>el.remove());
     let plain=doc.body.innerText.replace(/\s+/g," ").trim();
-    // EERST schoonmaken (zodat [ ] [...] er al uit is), DAN pas knippen
     plain = plain.replace(/\[[^\]]*\]/g, ' ').replace(/\s{2,}/g,' ').trim();
     if(plain.length>maxLength){
         let cut=plain.substring(0,maxLength);
@@ -76,11 +72,11 @@ function cleanHTMLOriginal(html){
     return sanitizeFinal(dec);
 }
 function isOmmenNieuws(article){ const text=(article.title+" "+(article.description||"")).toLowerCase().replace(/<[^>]*>/g," "); return ommenKeywords.some(k=>text.includes(k)); }
-async function fetchRSS(url){
+async function fetchRSS(url, limit=10){
   try{
     const text=await fetchViaProxy(url); if(!text) return [];
     const xml=new DOMParser().parseFromString(text,"text/xml"); if(xml.querySelector("parsererror")) return [];
-    return Array.from(xml.getElementsByTagName("item")).slice(0,12).map(item=>{
+    return Array.from(xml.getElementsByTagName("item")).slice(0,limit).map(item=>{
       let link=""; const le=item.querySelector("link"); if(le) link=le.getAttribute("href")||le.textContent||"";
       const date=item.querySelector("pubDate")?.textContent?.trim()||""; const ts=Date.parse(date);
       const rawDesc=item.querySelector("description")?.textContent||""; const isOud=url.includes("oudommen");
@@ -90,7 +86,7 @@ async function fetchRSS(url){
 }
 async function fetchGemeenteNieuws(){ const url="https://www.ommen.nl/actueel/"; try{ const text=await fetchViaProxy(url); const html=new DOMParser().parseFromString(text,"text/html"); const links=[]; for(const a of html.querySelectorAll("a")){ const title=a.querySelector("h3, h2")?.textContent?.trim()||a.textContent.trim(); const href=a.href; if(title && href.includes("/actueel/") && title.length>10 && links.length<5) links.push({title,link:href}); } const results=await Promise.allSettled(links.map(l=>fetchGemeenteGegevens(l.link))); return results.map((r,i)=>{ if(r.status==='fulfilled'&&r.value) return {title:links[i].title,link:links[i].link,description:r.value.tekst,timestamp:r.value.datum?Date.parse(r.value.datum):Date.now()}; return null; }).filter(Boolean); }catch{ return []; } }
 async function fetchGemeenteGegevens(url){ try{ const text=await fetchViaProxy(url); const html=new DOMParser().parseFromString(text,"text/html"); const bodyText=html.body?.innerText||""; const m=bodyText.match(/\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}/i); const datum=m?m[0]:""; let contentDiv=html.querySelector("article .content, .text-content, [class*='content'] p"); let tekst=""; if(contentDiv){ let parent=contentDiv.closest("article")||contentDiv.parentElement; const doc=new DOMParser().parseFromString(parent?parent.innerHTML:contentDiv.innerHTML,"text/html"); tekst=sanitizeFinal(doc.body.innerText.substring(0,650)); } return {datum,tekst}; }catch{ return {datum:"",tekst:""}; } }
-async function fetchRTVVechtdalNieuws(){ const apiUrl="https://www.vechtdalleeft.nl/wp-json/wp/v2/posts?per_page=12&_embed"; try{ const text=await fetchViaProxy(apiUrl); const data=JSON.parse(text); return data.map(item=>({ title:(item.title?.rendered||"").replace(/<[^>]*>/g,"").trim(), link:item.link, description:cleanHTML(item.excerpt?.rendered||"",MAX_DESC), timestamp:Date.parse(item.date)||Date.now() })); }catch{ return []; } }
+async function fetchRTVVechtdalNieuws(){ const apiUrl="https://www.vechtdalleeft.nl/wp-json/wp/v2/posts?per_page=10&_embed"; try{ const text=await fetchViaProxy(apiUrl); const data=JSON.parse(text); return data.map(item=>({ title:(item.title?.rendered||"").replace(/<[^>]*>/g,"").trim(), link:item.link, description:cleanHTML(item.excerpt?.rendered||"",MAX_DESC), timestamp:Date.parse(item.date)||Date.now() })); }catch{ return []; } }
 async function fetchOostNieuws(){ const url="https://www.oost.nl/nieuws"; try{ const html=await fetchViaProxy(url); const doc=new DOMParser().parseFromString(html,"text/html"); const links=[...doc.querySelectorAll("a")].map(a=>a.href).filter(h=>h&&h.includes("/nieuws/")&&/\/nieuws\/\d+\//.test(h)).map(h=>h.replace("https://leeuw008-nl.github.io","https://www.oost.nl")); const uniek=[...new Set(links)].slice(0,5); const arts=await Promise.allSettled(uniek.map(link=>fetchOostArtikel(link))); return arts.filter(r=>r.status==='fulfilled'&&r.value).map(r=>r.value); }catch{ return []; } }
 async function fetchOostArtikel(url){ try{ const html=await fetchViaProxy(url); if(!html) return null; const lower=html.toLowerCase(); if(lower.includes('<title>404') || lower.includes('pagina niet gevonden')) return null; const doc=new DOMParser().parseFromString(html,"text/html"); const title=(doc.querySelector("h1")?.innerText?.trim()||"RTV Oost").trim(); if(!title || title.length<5) return null; let datum=doc.querySelector('meta[property="article:published_time"]')?.content||""; const contentEl=doc.querySelector("article, .article__content"); const description=contentEl?cleanHTML(contentEl.innerHTML,MAX_DESC):""; if(!description) return null; return {title,link:url,description,timestamp:datum?Date.parse(datum):Date.now(),source:"RTV Oost"}; }catch{ return null; } }
 function finalizeArticles(){ const seen=new Set(); allArticles=allArticles.filter(a=>{ if(seen.has(a.link)) return false; seen.add(a.link); return true; }); allArticles.sort((a,b)=>b.timestamp-a.timestamp); }
@@ -102,7 +98,7 @@ async function loadNews(isBackground=false){
         else container.innerHTML="<p>Nieuws laden... (eerste keer 4-7s)</p>";
     }
     try{
-        const feedPromises=feeds.map(async f=>{ try{ const arts=await fetchRSS(f.url); return {source:f.name,articles:arts}; }catch{ return {source:f.name,articles:[]}; } });
+        const feedPromises=feeds.map(async f=>{ try{ const arts=await fetchRSS(f.url, f.limit); return {source:f.name,articles:arts}; }catch{ return {source:f.name,articles:[]}; } });
         const [feedResults,gemeente,rtv,oost] = await Promise.all([ Promise.all(feedPromises), fetchGemeenteNieuws(), fetchRTVVechtdalNieuws(), fetchOostNieuws() ]);
         const fresh=[]; feedResults.forEach(r=>r.articles.forEach(a=>fresh.push({...a,source:r.source}))); gemeente.forEach(a=>fresh.push({...a,source:"Gemeente Ommen"})); rtv.forEach(a=>fresh.push({...a,source:"RTV Vechtdal"})); oost.forEach(a=>fresh.push({...a,source:"RTV Oost"}));
         if(fresh.length>0){ allArticles=fresh; finalizeArticles(); saveCache(allArticles); searchNews(); document.getElementById('cache-notice')?.remove(); }
