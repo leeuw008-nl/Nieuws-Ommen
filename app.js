@@ -1,4 +1,4 @@
-// app.js v210 - CORRECTE aantallen: Stentor 25, RondOmmen 20, rest 10 - bel + datum onaangeroerd
+// app.js v211 - FIX Gemeente Ommen parser - 10 artikelen ipv 1, geen Facebook rommel
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -138,25 +138,60 @@ function parseRSSFull(xml, bronId){
     return {title, link, pubDate:pub?new Date(pub):new Date(), description:useDesc};
   }).filter(x=>x.link && x.title);
 }
+// === FIX GEMEENTE ===
 function parseGemeenteFull(html){
   const max = MAX_PER_BRON['Gemeente Ommen'];
-  const results=[];
-  const re = /<a[^>]+href=["']([^"']*\/actueel\/[^"']+)["'][^>]*>[\s\S]*?<h[23][^>]*>([\s\S]*?)<\/h[23]>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/gi;
+  // Strip scripts en styles - dat was de Facebook/Instagram rommel
+  let clean = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<!--[\s\S]*?-->/g,' ');
+  const results = [];
+  const seen = new Set();
+  
+  // Methode 1: zoek article cards met h2/h3 en p
+  // Gemeente site heeft vaak <a href="/actueel/xxx"><h3>Titel</h3></a><p>excerpt</p> of alles in <article>
+  const articleRe = /<article[^>]*>[\s\S]*?<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>[\s\S]*?<h[23][^>]*>([\s\S]*?)<\/h[23]>[\s\S]*?<\/a>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/gi;
   let m;
-  while((m=re.exec(html))!==null){
-    const href=m[1]; let title=m[2].replace(/<[^>]*>/g,'').trim(); let desc=m[3].replace(/<[^>]*>/g,'').trim();
+  while((m=articleRe.exec(clean))!==null && results.length < max){
+    let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim(), desc=m[3].replace(/<[^>]*>/g,'').trim();
     if(title.length<8) continue;
-    const fullHref = href.startsWith('http')?href:'https://www.ommen.nl'+href;
+    if(desc.includes('Facebook') && desc.includes('prefetch')) continue;
+    if(desc.includes('wp-') && desc.includes('.php')) continue;
     if(desc.length>200) desc=desc.slice(0,197)+'...';
-    results.push({title:title.slice(0,120), link:fullHref, pubDate:new Date(), description:desc});
-    if(results.length>=max) break;
+    const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
+    if(seen.has(full)) continue;
+    seen.add(full);
+    results.push({title:title.slice(0,120), link:full, pubDate:new Date(), description:desc});
   }
+  
+  // Methode 2: losse links met h3 in buurt (fallback als methode 1 weinig oplevert)
+  if(results.length < max){
+    const linkRe = /<a[^>]+href=["']([^"']*\/actueel\/([^"'?#/]+))["'][^>]*>(?:[^<]*<[^>]+>)*?\s*([^<]{10,120})\s*(?:<[^>]+>)*?\s*<\/a>/gi;
+    while((m=linkRe.exec(clean))!==null && results.length < max){
+      let href=m[1], slug=m[2], innerText=m[3].trim();
+      if(href.includes('/page/') || href.includes('/categorie/') || href.includes('#')) continue;
+      const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
+      if(seen.has(full)) continue;
+      if(innerText.length<8) continue;
+      // filter menu items
+      if(/^(Home|Actueel|Contact|Zoeken)$/i.test(innerText)) continue;
+      seen.add(full);
+      // Probeer beschrijving te vinden in 500 chars na link
+      const after = clean.substring(m.index, m.index+800);
+      const pMatch = after.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+      let desc = pMatch ? pMatch[1].replace(/<[^>]*>/g,'').trim() : '';
+      if(desc.includes('Facebook') || desc.includes('prefetch') || desc.includes('wp-')) desc='';
+      if(desc.length>200) desc=desc.slice(0,197)+'...';
+      results.push({title:innerText.slice(0,120), link:full, pubDate:new Date(), description:desc});
+    }
+  }
+
+  // Methode 3: als nog steeds weinig, gewoon alle unieke /actueel/ links met slug als titel
   if(results.length===0){
-    const links=[...html.matchAll(/href=["']([^"']*\/actueel\/[^"'?#]+)["']/gi)].map(x=>x[1]);
+    const links=[...clean.matchAll(/href=["']([^"']*\/actueel\/[^"'?#\/]{4,}[^"'?#]*?)["']/gi)].map(x=>x[1]).filter(h=>!h.includes('/page') && !h.includes('/feed'));
     const uniq=[...new Set(links.map(h=>h.startsWith('http')?h:'https://www.ommen.nl'+h))].slice(0,max);
-    return uniq.map(link=>({title:decodeURIComponent(link.split('/').filter(Boolean).pop().replace(/-/g,' ').slice(0,90)), link, pubDate:new Date(), description:''}));
+    return uniq.map(link=>({title:decodeURIComponent(link.split('/').filter(Boolean).pop().replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase()).slice(0,90)), link, pubDate:new Date(), description:''}));
   }
-  return results;
+  
+  return results.slice(0,max);
 }
 function parseOostFull(html){
   const max = MAX_PER_BRON['RTV Oost'];
