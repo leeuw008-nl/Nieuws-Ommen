@@ -1,4 +1,4 @@
-// app.js v220 - FIX komma-formaat "7 augustus 2026, 12:15"
+// app.js v221 - FIX echte tijd via detailpagina fetchen (zoals vroeger)
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -139,42 +139,30 @@ function parseRSSFull(xml, bronId){
     return {title, link, pubDate:pub?new Date(pub):new Date(), description:useDesc};
   }).filter(x=>x.link && x.title);
 }
-function extractDateFromBlock(block){
-  // NIEUW: ondersteunt "7 augustus 2026, 12:15" exact zoals screenshot
-  let m;
-  // 1. datetime met tijd
-  m = block.match(/<time[^>]+datetime=["']([^"']+)["']/i);
+function extractGemeenteDate(html){
+  // Exact zoals op screenshot: "7 augustus 2026, 12:15"
+  let m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*,\s*(\d{1,2}):(\d{2})/i);
   if(m){
-    const d = new Date(m[1]);
+    const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
+    return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), parseInt(m[4]), parseInt(m[5]));
+  }
+  m = html.match(/<time[^>]+datetime=["']([^"']+)["']/i);
+  if(m){
+    const d=new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
   }
-  // 2. "7 augustus 2026, 12:15"  -> met komma!
-  m = block.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*,\s*(\d{1,2}):(\d{2})/i);
+  m = html.match(/"date(?:Published|Modified)"\s*:\s*"([^"]+)"/i);
   if(m){
-    const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
-    return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), parseInt(m[4]), parseInt(m[5]));
-  }
-  // 3. "7 augustus 2026 om 12:15" of "7 augustus 2026 12:15"
-  m = block.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})[^<]{0,15}?(\d{1,2}):(\d{2})/i);
-  if(m){
-    const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
-    return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), parseInt(m[4]), parseInt(m[5]));
-  }
-  // 4. Alleen datum + zoek tijd er vlak achter
-  let dm = block.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
-  if(dm){
-    const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
-    const after = block.substring(dm.index, dm.index+200);
-    const tm = after.match(/(\d{1,2}):(\d{2})/);
-    if(tm) return new Date(parseInt(dm[3]), months[dm[2].toLowerCase()], parseInt(dm[1]), parseInt(tm[1]), parseInt(tm[2]));
-    return new Date(parseInt(dm[3]), months[dm[2].toLowerCase()], parseInt(dm[1]), 12, 0);
+    const d=new Date(m[1]);
+    if(!isNaN(d.getTime())) return d;
   }
   return null;
 }
-function extractDescFromBlock(block){
+function extractDescAfter(pos, clean){
+  const slice = clean.substring(pos, pos+1500);
   const re = /<(p|div)[^>]*>([\s\S]*?)<\/\1>/gi;
   let mm;
-  while((mm=re.exec(block))!==null){
+  while((mm=re.exec(slice))!==null){
     let txt = mm[2].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
     if(txt.length<30) continue;
     if(txt.length>400) continue;
@@ -187,47 +175,55 @@ function extractDescFromBlock(block){
   }
   return ' [...]';
 }
-function parseGemeenteFull(html){
+function parseGemeenteOverview(html){
   const max = MAX_PER_BRON['Gemeente Ommen'];
   let clean = html.replace(/<!--[\s\S]*?-->/g,' ');
-  let articles = [...clean.matchAll(/<article[^>]*>([\s\S]*?)<\/article>/gi)].map(a=>a[0]);
-  if(articles.length===0){
-    articles = [...clean.matchAll(/<div[^>]*class=["'][^"']*news[^"']*["'][\s\S]*?<\/div>\s*<\/div>/gi)].map(a=>a[0]);
-  }
   const results=[]; const seen=new Set();
-  for(let block of articles){
-    if(results.length>=max) break;
-    let href='', title='';
-    let tm = block.match(/<h[23][^>]*>\s*<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([\s\S]*?)<\/a>/i);
-    if(tm){ href=tm[1]; title=tm[2].replace(/<[^>]*>/g,'').trim(); }
-    else {
-      tm = block.match(/<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>\s*<h[23][^>]*>([\s\S]*?)<\/h[23]>/i);
-      if(tm){ href=tm[1]; title=tm[2].replace(/<[^>]*>/g,'').trim(); }
-    }
-    if(!href || !title || title.length<8) continue;
+  const titleRe = /<h[23][^>]*>\s*<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([\s\S]*?)<\/a>\s*<\/h[23]>/gi;
+  let m;
+  while((m=titleRe.exec(clean))!==null && results.length<max){
+    let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim();
+    if(title.length<8) continue;
     const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
     if(seen.has(full)) continue;
     seen.add(full);
-    const pub = extractDateFromBlock(block) || new Date();
-    const desc = extractDescFromBlock(block);
-    results.push({title:title.slice(0,130), link:full, pubDate:pub, description:desc});
+    const desc = extractDescAfter(m.index, clean);
+    // tijdelijke datum uit overzicht (vaak alleen datum zonder tijd)
+    let tempDate = extractGemeenteDate(clean.substring(Math.max(0,m.index-500), m.index+2500)) || new Date();
+    results.push({title:title.slice(0,130), link:full, pubDate:tempDate, description:desc});
   }
-  if(results.length===0){
-    const titleRe = /<h[23][^>]*>\s*<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([\s\S]*?)<\/a>\s*<\/h[23]>/gi;
-    let m;
-    while((m=titleRe.exec(clean))!==null && results.length<max){
+  if(results.length < max){
+    const re2 = /<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>\s*<h[23][^>]*>([\s\S]*?)<\/h[23]>/gi;
+    while((m=re2.exec(clean))!==null && results.length<max){
       let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim();
       if(title.length<8) continue;
       const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
       if(seen.has(full)) continue;
       seen.add(full);
-      const block = clean.substring(Math.max(0,m.index-800), m.index+2500);
-      const pub = extractDateFromBlock(block) || new Date();
-      const desc = extractDescFromBlock(block);
-      results.push({title:title.slice(0,130), link:full, pubDate:pub, description:desc});
+      const desc = extractDescAfter(m.index, clean);
+      let tempDate = extractGemeenteDate(clean.substring(Math.max(0,m.index-500), m.index+2500)) || new Date();
+      results.push({title:title.slice(0,130), link:full, pubDate:tempDate, description:desc});
     }
   }
   return results.slice(0,max);
+}
+async function enrichGemeenteWithDetail(arts){
+  // Haal echte datum/tijd van detailpagina (zoals screenshot 7 augustus 2026, 12:15)
+  const promises = arts.map(async (a)=>{
+    try{
+      const html = await fetchViaWorker(a.link);
+      const realDate = extractGemeenteDate(html);
+      if(realDate) a.pubDate = realDate;
+    }catch(e){}
+    return a;
+  });
+  // Doe max 3 tegelijk om worker niet te overbelasten, maar wacht wel op allemaal
+  const results=[];
+  for(let i=0;i<promises.length;i+=3){
+    const chunk = await Promise.all(promises.slice(i,i+3));
+    results.push(...chunk);
+  }
+  return results;
 }
 function parseOostFull(html){
   const max = MAX_PER_BRON['RTV Oost'];
@@ -275,7 +271,11 @@ async function loadOneSource(b){
   const cfg = BRON_URLS[b.id];
   try{
     let arts=[];
-    if(cfg.type==='gemeente'){ const html=await fetchViaWorker(cfg.url); arts=parseGemeenteFull(html); }
+    if(cfg.type==='gemeente'){
+      const html=await fetchViaWorker(cfg.url);
+      let overview = parseGemeenteOverview(html);
+      arts = await enrichGemeenteWithDetail(overview);
+    }
     else if(cfg.type==='oost'){ const html=await fetchViaWorker(cfg.url); arts=parseOostFull(html); }
     else {
       try{
