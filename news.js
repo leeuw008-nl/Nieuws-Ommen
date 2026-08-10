@@ -9,9 +9,9 @@ const SOURCES = [
   {name:'De Stentor', url:'https://www.destentor.nl/ommen/rss.xml', type:'rss'},
   {name:'RondOmmen', url:'https://www.rondommen.nl/feed/', type:'rss'},
   {name:'Natuurlijk Ommen', url:'https://www.natuurlijkommen.nl/feed/', type:'rss'},
-  {name:'Vechtdal Centraal', url:'https://www.vechtdalcentraal.nl/feed/', type:'rss2json'},
+  {name:'Vechtdal Centraal', url:'http://www.vechtdalcentraal.nl/feed/', type:'rss2json'},
   {name:'Gemeente Ommen', url:'https://www.ommen.nl/actueel/', type:'gemeente'},
-  {name:'RTV Vechtdal', url:'https://www.vechtdalleeft.nl/feed/', type:'rss2json'},
+  {name:'RTV Vechtdal', url:'http://www.vechtdalleeft.nl/feed/', type:'rss2json'},
   {name:'RTV Oost', url:'https://www.oost.nl/nieuws', type:'oost'}
 ];
 
