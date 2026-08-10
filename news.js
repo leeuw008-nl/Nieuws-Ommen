@@ -12,7 +12,7 @@ const PROXIES_ALT = [
   'https://corsproxy.io/?',
   'https://ommen-push.leeuw008.workers.dev/proxy?url='
 ];
-const CACHE_KEY = 'ommen_cache_v209';
+const CACHE_KEY = 'ommen_cache_v210';
 const CACHE_TTL = 10*60*1000;
 const MAX_DESC = 380;
 
@@ -140,16 +140,37 @@ async function fetchGemeenteGegevens(url){
   }catch{ return {datum:"",tekst:""}; }
 }
 async function fetchRTVVechtdalNieuws(){
+  // 1. probeer via rss2json omweg (om Cloudflare te omzeilen)
+  const rss2jsonUrls = [
+    "https://api.rss2json.com/v1/api.json?rss_url=https://www.vechtdalleeft.nl/feed/",
+    "https://api.rss2json.com/v1/api.json?rss_url=https://www.vechtdalleeft.nl/wp-json/wp/v2/posts?per_page=10"
+  ];
+  for(const u of rss2jsonUrls){
+    try{
+      const text=await fetchViaProxy(u,0,true);
+      const data=JSON.parse(text);
+      if(data && data.items && data.items.length>0){
+        return data.items.slice(0,10).map(it=>({
+          title:(it.title||"").replace(/<[^>]*>/g,"").trim(),
+          link:it.link,
+          description:cleanHTML(it.description||it.content||"",MAX_DESC),
+          timestamp:Date.parse(it.pubDate)||Date.now()
+        }));
+      }
+    }catch{}
+  }
+  // 2. probeer direct via onze proxies
   const urls = [
     "https://www.vechtdalleeft.nl/wp-json/wp/v2/posts?per_page=10&_embed",
     "https://www.vechtdalleeft.nl/feed/",
-    "https://www.vechtdalleeft.nl/wp-json/wp/v2/posts?per_page=10"
+    "https://www.vechtdalleeft.nl/wp-json/wp/v2/posts?per_page=10",
+    "https://www.vechtdalleeft.nl/rss",
+    "https://www.vechtdalleeft.nl/rss.xml"
   ];
   for(const u of urls){
     try{
       const text=await fetchViaProxy(u,0,true);
       if(!text) continue;
-      // probeer JSON
       if(u.includes("wp-json")){
         try{
           const data=JSON.parse(text);
@@ -163,7 +184,6 @@ async function fetchRTVVechtdalNieuws(){
           }
         }catch{}
       }
-      // probeer RSS
       const xml=new DOMParser().parseFromString(text,"text/xml");
       if(!xml.querySelector("parsererror")){
         const items=Array.from(xml.getElementsByTagName("item")).slice(0,10).map(item=>{
@@ -174,7 +194,7 @@ async function fetchRTVVechtdalNieuws(){
         });
         if(items.length>0) return items;
       }
-    }catch(e){ /* try next */ }
+    }catch(e){ continue; }
   }
   return [];
 }
