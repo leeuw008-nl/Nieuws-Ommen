@@ -1,4 +1,4 @@
-// app.js v211 - FIX Gemeente Ommen parser - 10 artikelen ipv 1, geen Facebook rommel
+// app.js v212 - FIX Gemeente beschrijving weer terug
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -138,59 +138,64 @@ function parseRSSFull(xml, bronId){
     return {title, link, pubDate:pub?new Date(pub):new Date(), description:useDesc};
   }).filter(x=>x.link && x.title);
 }
-// === FIX GEMEENTE ===
 function parseGemeenteFull(html){
   const max = MAX_PER_BRON['Gemeente Ommen'];
-  // Strip scripts en styles - dat was de Facebook/Instagram rommel
   let clean = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<!--[\s\S]*?-->/g,' ');
-  const results = [];
-  const seen = new Set();
-  
-  // Methode 1: zoek article cards met h2/h3 en p
-  // Gemeente site heeft vaak <a href="/actueel/xxx"><h3>Titel</h3></a><p>excerpt</p> of alles in <article>
-  const articleRe = /<article[^>]*>[\s\S]*?<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>[\s\S]*?<h[23][^>]*>([\s\S]*?)<\/h[23]>[\s\S]*?<\/a>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/gi;
+  const results = []; const seen = new Set();
+
+  // Patroon 1: <h3><a href="/actueel/xxx">Titel</a></h3> <p>beschrijving</p>  (meest voorkomend bij gemeente)
+  const re1 = /<h[23][^>]*>\s*<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([\s\S]*?)<\/a>\s*<\/h[23]>[\s\S]{0,300}?<p[^>]*>([\s\S]*?)<\/p>/gi;
   let m;
-  while((m=articleRe.exec(clean))!==null && results.length < max){
+  while((m=re1.exec(clean))!==null && results.length<max){
     let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim(), desc=m[3].replace(/<[^>]*>/g,'').trim();
     if(title.length<8) continue;
-    if(desc.includes('Facebook') && desc.includes('prefetch')) continue;
-    if(desc.includes('wp-') && desc.includes('.php')) continue;
-    if(desc.length>200) desc=desc.slice(0,197)+'...';
+    if(desc.includes('prefetch') || desc.includes('wp-') || desc.includes('{')) desc='';
+    if(desc.length>220) desc=desc.slice(0,217)+'...';
     const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
-    if(seen.has(full)) continue;
-    seen.add(full);
-    results.push({title:title.slice(0,120), link:full, pubDate:new Date(), description:desc});
+    if(seen.has(full)) continue; seen.add(full);
+    results.push({title:title.slice(0,130), link:full, pubDate:new Date(), description:desc});
   }
-  
-  // Methode 2: losse links met h3 in buurt (fallback als methode 1 weinig oplevert)
+
+  // Patroon 2: <a href="/actueel/xxx"><h3>Titel</h3></a> <p>beschrijving</p>
   if(results.length < max){
-    const linkRe = /<a[^>]+href=["']([^"']*\/actueel\/([^"'?#/]+))["'][^>]*>(?:[^<]*<[^>]+>)*?\s*([^<]{10,120})\s*(?:<[^>]+>)*?\s*<\/a>/gi;
-    while((m=linkRe.exec(clean))!==null && results.length < max){
-      let href=m[1], slug=m[2], innerText=m[3].trim();
-      if(href.includes('/page/') || href.includes('/categorie/') || href.includes('#')) continue;
+    const re2 = /<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>\s*<h[23][^>]*>([\s\S]*?)<\/h[23]>[\s\S]*?<\/a>[\s\S]{0,300}?<p[^>]*>([\s\S]*?)<\/p>/gi;
+    while((m=re2.exec(clean))!==null && results.length<max){
+      let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim(), desc=m[3].replace(/<[^>]*>/g,'').trim();
+      if(title.length<8) continue;
+      if(desc.includes('prefetch') || desc.includes('wp-') || desc.includes('{')) desc='';
+      if(desc.length>220) desc=desc.slice(0,217)+'...';
       const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
-      if(seen.has(full)) continue;
-      if(innerText.length<8) continue;
-      // filter menu items
-      if(/^(Home|Actueel|Contact|Zoeken)$/i.test(innerText)) continue;
-      seen.add(full);
-      // Probeer beschrijving te vinden in 500 chars na link
-      const after = clean.substring(m.index, m.index+800);
-      const pMatch = after.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
-      let desc = pMatch ? pMatch[1].replace(/<[^>]*>/g,'').trim() : '';
-      if(desc.includes('Facebook') || desc.includes('prefetch') || desc.includes('wp-')) desc='';
-      if(desc.length>200) desc=desc.slice(0,197)+'...';
-      results.push({title:innerText.slice(0,120), link:full, pubDate:new Date(), description:desc});
+      if(seen.has(full)) continue; seen.add(full);
+      results.push({title:title.slice(0,130), link:full, pubDate:new Date(), description:desc});
     }
   }
 
-  // Methode 3: als nog steeds weinig, gewoon alle unieke /actueel/ links met slug als titel
+  // Patroon 3: alleen titel, beschrijving zoeken in 800 chars erna
+  if(results.length < max){
+    const re3 = /<a[^>]+href=["']([^"']*\/actueel\/([^"'?#/]+))["'][^>]*>([^<]{8,120})<\/a>/gi;
+    while((m=re3.exec(clean))!==null && results.length<max){
+      let href=m[1], slug=m[2], txt=m[3].trim();
+      if(href.includes('/page/') || href.includes('/categorie/')) continue;
+      const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
+      if(seen.has(full)) continue;
+      if(/^(Home|Actueel|Contact|Zoeken|Lees meer)$/i.test(txt)) continue;
+      // zoek p na deze link
+      const after = clean.substring(m.index, m.index+1000);
+      const pM = after.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+      let desc = pM ? pM[1].replace(/<[^>]*>/g,'').trim() : '';
+      if(desc.includes('Facebook') && desc.includes('Instagram')) desc='';
+      if(desc.includes('prefetch') || desc.includes('wp-') || desc.length<15) desc='';
+      if(desc.length>220) desc=desc.slice(0,217)+'...';
+      seen.add(full);
+      results.push({title:txt.slice(0,130), link:full, pubDate:new Date(), description:desc});
+    }
+  }
+
   if(results.length===0){
     const links=[...clean.matchAll(/href=["']([^"']*\/actueel\/[^"'?#\/]{4,}[^"'?#]*?)["']/gi)].map(x=>x[1]).filter(h=>!h.includes('/page') && !h.includes('/feed'));
     const uniq=[...new Set(links.map(h=>h.startsWith('http')?h:'https://www.ommen.nl'+h))].slice(0,max);
     return uniq.map(link=>({title:decodeURIComponent(link.split('/').filter(Boolean).pop().replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase()).slice(0,90)), link, pubDate:new Date(), description:''}));
   }
-  
   return results.slice(0,max);
 }
 function parseOostFull(html){
