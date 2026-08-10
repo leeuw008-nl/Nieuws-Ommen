@@ -1,4 +1,4 @@
-// news.js v200 - schone data laag, geen base64 meer
+// news.js v201 - FIX [ ] [...] bij RondOmmen + lichter groen behoud
 const PROXIES = [
   'https://ommen-push.leeuw008.workers.dev/proxy?url=',
   'https://corsproxy.io/?',
@@ -39,10 +39,22 @@ async function fetchViaProxy(targetUrl, attempt=0){
 function loadCache(){ try{ const raw=localStorage.getItem(CACHE_KEY); if(!raw) return null; const obj=JSON.parse(raw); if(Date.now()-obj.ts>CACHE_TTL) return null; return obj.articles; }catch{ return null; } }
 function saveCache(a){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ts:Date.now(), articles:a.slice(0,100)})); }catch{} }
 function stripFooters(html){ if(!html) return ""; return html.replace(/<p[^>]*>\s*(Het bericht|The post|De post)\s+.*?(verscheen eerst op|appeared first on).*?<\/p>/gis,""); }
+
+// === FIX: verwijder [ ] en [...] ===
 function sanitizeFinal(text){
-    if(!text) return " [...]"; let d=String(text).replace(/\[\s*\.\.\.\s*\]/g,' ').replace(/&hellip;/gi,' ').replace(/…/g,' ').replace(/\s*\.\.\.\s*/g,' ').trim();
-    if(!d.includes('[...]')) d+=' [...]'; return d;
+    if(!text) return " [...]";
+    let d = String(text)
+      .replace(/\[\s*\]/g,' ')
+      .replace(/\[\s*\.\.\.\s*\]/g,' ')
+      .replace(/&hellip;/gi,' ')
+      .replace(/…/g,' ')
+      .replace(/\s*\.\.\.\s*/g,' ')
+      .trim();
+    d = d.replace(/\s{2,}/g,' ').trim();
+    if(!d.includes('[...]')) d+=' [...]';
+    return d;
 }
+
 function cleanHTML(html, maxLength=MAX_DESC){
     if(!html) return ""; html=stripFooters(html);
     const ta=document.createElement("textarea"); ta.innerHTML=html; let dec=ta.value;
