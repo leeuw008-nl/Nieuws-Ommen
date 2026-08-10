@@ -1,4 +1,4 @@
-// app.js v206 - FIX beschrijving + bel scope voor GitHub Pages subpad
+// app.js v210 - CORRECTE aantallen: Stentor 25, RondOmmen 20, rest 10 - bel + datum onaangeroerd
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -10,6 +10,17 @@ const BRONNEN = [
   {id:'Vechtdal Centraal', name:'Vechtdal Centraal', sub:'112 & dorpsnieuws'},
   {id:'Natuurlijk Ommen', name:'Natuurlijk Ommen', sub:'evenementen & toerisme'},
 ];
+const MAX_PER_BRON = {
+  'De Stentor': 25,
+  'RondOmmen': 20,
+  'Ommen City': 10,
+  'OudOmmen': 10,
+  'Vechtdal Centraal': 10,
+  'Natuurlijk Ommen': 10,
+  'Gemeente Ommen': 10,
+  'RTV Oost': 10,
+  'RTV Vechtdal': 10,
+};
 const BRON_URLS = {
   'De Stentor': {url:'https://www.destentor.nl/ommen/rss.xml', homepage:'https://www.destentor.nl/ommen/'},
   'Gemeente Ommen': {url:'https://www.ommen.nl/actueel/', homepage:'https://www.ommen.nl/actueel/', type:'gemeente'},
@@ -109,8 +120,9 @@ async function fetchViaWorker(url){
   const t = await r.text();
   return t;
 }
-function parseRSSFull(xml){
-  const items = [...xml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)];
+function parseRSSFull(xml, bronId){
+  const max = MAX_PER_BRON[bronId] || 10;
+  const items = [...xml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)].slice(0,max);
   return items.map(m=>{
     const it=m[0];
     let title=(it.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i)||[])[1]||'';
@@ -127,7 +139,7 @@ function parseRSSFull(xml){
   }).filter(x=>x.link && x.title);
 }
 function parseGemeenteFull(html){
-  // Pak h2/h3 + eerste p erna als beschrijving
+  const max = MAX_PER_BRON['Gemeente Ommen'];
   const results=[];
   const re = /<a[^>]+href=["']([^"']*\/actueel\/[^"']+)["'][^>]*>[\s\S]*?<h[23][^>]*>([\s\S]*?)<\/h[23]>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/gi;
   let m;
@@ -137,16 +149,17 @@ function parseGemeenteFull(html){
     const fullHref = href.startsWith('http')?href:'https://www.ommen.nl'+href;
     if(desc.length>200) desc=desc.slice(0,197)+'...';
     results.push({title:title.slice(0,120), link:fullHref, pubDate:new Date(), description:desc});
-    if(results.length>=12) break;
+    if(results.length>=max) break;
   }
   if(results.length===0){
     const links=[...html.matchAll(/href=["']([^"']*\/actueel\/[^"'?#]+)["']/gi)].map(x=>x[1]);
-    const uniq=[...new Set(links.map(h=>h.startsWith('http')?h:'https://www.ommen.nl'+h))].slice(0,12);
+    const uniq=[...new Set(links.map(h=>h.startsWith('http')?h:'https://www.ommen.nl'+h))].slice(0,max);
     return uniq.map(link=>({title:decodeURIComponent(link.split('/').filter(Boolean).pop().replace(/-/g,' ').slice(0,90)), link, pubDate:new Date(), description:''}));
   }
   return results;
 }
 function parseOostFull(html){
+  const max = MAX_PER_BRON['RTV Oost'];
   const raw=[...html.matchAll(/<a[^>]+href=["'](\/nieuws\/ommen\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)];
   const uniqMap=new Map();
   for(const mm of raw){
@@ -154,8 +167,9 @@ function parseOostFull(html){
     if(text.length<10) continue;
     const full='https://www.oost.nl'+href;
     if(!uniqMap.has(full)) uniqMap.set(full, text.slice(0,120));
+    if(uniqMap.size>=max) break;
   }
-  return Array.from(uniqMap.entries()).slice(0,15).map(([link,title])=>({title, link, pubDate:new Date(), description:''}));
+  return Array.from(uniqMap.entries()).slice(0,max).map(([link,title])=>({title, link, pubDate:new Date(), description:''}));
 }
 async function loadOneSource(b){
   const cfg = BRON_URLS[b.id];
@@ -163,7 +177,7 @@ async function loadOneSource(b){
     let arts=[];
     if(cfg.type==='gemeente'){ const html=await fetchViaWorker(cfg.url); arts=parseGemeenteFull(html); }
     else if(cfg.type==='oost'){ const html=await fetchViaWorker(cfg.url); arts=parseOostFull(html); }
-    else { const xml=await fetchViaWorker(cfg.url); arts=parseRSSFull(xml); }
+    else { const xml=await fetchViaWorker(cfg.url); arts=parseRSSFull(xml, b.id); }
     if(arts.length===0) throw new Error('empty');
     return arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
   }catch(e){
@@ -171,11 +185,10 @@ async function loadOneSource(b){
   }
 }
 function formatDate(d){
-  if(d.getTime()===0) return 'offline';
-  const now=new Date();
-  const isToday = d.toDateString()===now.toDateString();
-  if(isToday) return 'vandaag '+d.toLocaleTimeString('nl-NL',{hour:'2-digit', minute:'2-digit'});
-  return d.toLocaleString('nl-NL',{day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+  if(!d || isNaN(d.getTime()) || d.getTime()===0) return '';
+  const dateStr = d.toLocaleDateString('nl-NL',{day:'numeric', month:'short'});
+  const timeStr = d.toLocaleTimeString('nl-NL',{hour:'2-digit', minute:'2-digit'});
+  return `${dateStr} ${timeStr}`;
 }
 function renderArticles(){
   const container=document.getElementById('news-container'); if(!container) return;
@@ -189,7 +202,7 @@ function renderArticles(){
   const html = filtered.map(a=>{
     const cleanTitle = a.title.replace(/^\[[^\]]+\]\s*/,'').trim() || a.title;
     if(a.isFallback){
-      return `<div class="article fallback" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${a.source}</a></h2><small>${a.source} - ${formatDate(a.pubDate)}</small><div style="margin-top:6px;color:#666;">${a.description}</div></div>`;
+      return `<div class="article fallback" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${a.source}</a></h2><small>${a.source}${a.pubDate.getTime()?` - ${formatDate(a.pubDate)}`:''}</small><div style="margin-top:6px;color:#666;">${a.description}</div></div>`;
     }
     return `<div class="article" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${cleanTitle}</a></h2><small>${a.source} - ${formatDate(a.pubDate)}</small>${a.description?`<div style="margin-top:6px;">${a.description}</div>`:''}</div>`;
   }).join('');
