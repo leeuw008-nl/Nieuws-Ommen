@@ -1,4 +1,4 @@
-/* push.js - DEFINITIEF + BEVESTIGINGS-MELDING bij aanzetten */
+/* push.js - DEFINITIEF met systeem-bevestiging + werkt ook als icon faalt */
 if (!window._ommenPushLoaded) {
 window._ommenPushLoaded = true;
 
@@ -49,8 +49,10 @@ async function togglePush(){
       await sub.unsubscribe(); 
       localStorage.removeItem('ommen_push_subscribed'); 
       await updatePushBell();
-      // BEVESTIGING UIT
-      try{ await reg.showNotification('🔕 Meldingen uit',{body:'Je ontvangt geen pushberichten meer', icon:'icons/icon-192x192.png', badge:'icons/badge-72.png'}); }catch(e){ alert('Meldingen uitgezet'); }
+      try{ 
+        // GEEN icon/badge hier -> kan niet falen met 526
+        await reg.showNotification('🔕 Meldingen uit',{body:'Je ontvangt geen pushberichten meer'}); 
+      }catch(e){ console.log('notif uit mislukt', e); }
       return;
     }
     const vapidKey=await getVapidPublicKey(); if(!vapidKey){ alert('VAPID key niet beschikbaar'); return; }
@@ -64,17 +66,15 @@ async function togglePush(){
     await fetch(PUSH_WORKER_URL+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint, keys:{p256dh, auth}, sources})});
     localStorage.setItem('ommen_push_subscribed','1'); await updatePushBell();
     
-    // *** NIEUW: DIRECT BEVESTIGINGSMELDING ***
+    // ECHTE FIX: zonder icon/badge, kan niet falen door 526
     try{
       await reg.showNotification('🔔 Meldingen aan!',{
-        body:'Je ontvangt nu nieuws uit Ommen. Test op je smartphone: je ziet deze melding ook daar als je daar net hebt aangemeld.',
-        icon:'https://leeuw008-nl.github.io/Nieuws-Ommen/icons/icon-192x192.png',
-        badge:'https://leeuw008-nl.github.io/Nieuws-Ommen/icons/badge-72.png',
-        vibrate:[100,50,100],
-        tag:'ommen-bevestiging'
+        body:'Je ontvangt nu nieuws uit Ommen'
       });
+      console.log('BEVESTIGING GETOOND');
     }catch(e){
-      alert('✅ Meldingen aan! Je ontvangt nu nieuws.');
+      console.error('BEVESTIGING FOUT', e);
+      alert('✅ Meldingen aan! (systeem-melding geblokkeerd door OS, maar je bent wel geabonneerd)');
     }
     
   }catch(e){ console.error(e); alert('Fout: '+e.message); }
