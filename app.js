@@ -1,4 +1,4 @@
-// app.js v216 - alleen app.js gewijzigd - Gemeente terug zoals v214b (werkend) + [...] + 3 bronnen fix
+// app.js v217 - FIX Gemeente datum/tijd + behoud [...] + bronnen fix
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -139,12 +139,51 @@ function parseRSSFull(xml, bronId){
     return {title, link, pubDate:pub?new Date(pub):new Date(), description:useDesc};
   }).filter(x=>x.link && x.title);
 }
+function parseDutchDate(str){
+  if(!str) return null;
+  const months = {januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11, jan:0,feb:1,mrt:2,apr:3,jun:5,jul:6,aug:7,sep:8,okt:9,nov:10,dec:11};
+  // 10 augustus 2026
+  let m = str.match(/(\d{1,2})\s+([a-z]+)\s+(\d{4})/i);
+  if(m){
+    const d=parseInt(m[1]), mon=months[m[2].toLowerCase()], y=parseInt(m[3]);
+    if(mon!==undefined) return new Date(y,mon,d);
+  }
+  // 10-08-2026 of 10/08/2026
+  m = str.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if(m) return new Date(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1]));
+  // ISO 2026-08-10
+  m = str.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return new Date(parseInt(m[1]), parseInt(m[2])-1, parseInt(m[3]));
+  return null;
+}
+function extractDateAfter(pos, clean){
+  const slice = clean.substring(pos, pos+2000);
+  // 1. <time datetime="2026-08-09T...">
+  let m = slice.match(/<time[^>]+datetime=["']([^"']+)["']/i);
+  if(m){
+    const d = new Date(m[1]);
+    if(!isNaN(d.getTime())) return d;
+  }
+  // 2. <span class="...date...">10 augustus 2026</span>
+  m = slice.match(/<[^>]*class=["'][^"']*date[^"']*["'][^>]*>([^<]{6,40})<\/[^>]+>/i);
+  if(m){
+    const d = parseDutchDate(m[1]);
+    if(d) return d;
+  }
+  // 3. losse datum in slice
+  m = slice.match(/(\d{1,2}\s+[a-z]+\s+\d{4})/i);
+  if(m){
+    const d = parseDutchDate(m[1]);
+    if(d) return d;
+  }
+  return new Date();
+}
 function extractDescAfter(pos, clean){
   const slice = clean.substring(pos, pos+1500);
   const re = /<(p|div)[^>]*>([\s\S]*?)<\/\1>/gi;
-  let m;
-  while((m=re.exec(slice))!==null){
-    let txt = m[2].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+  let mm;
+  while((mm=re.exec(slice))!==null){
+    let txt = mm[2].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
     if(txt.length<25) continue;
     if(txt.includes('Facebook') && txt.includes('Instagram')) continue;
     if(txt.includes('prefetch') || txt.includes('wp-admin') || txt.includes('{"source"')) continue;
@@ -167,7 +206,8 @@ function parseGemeenteFull(html){
     if(seen.has(full)) continue;
     seen.add(full);
     const desc = extractDescAfter(m.index, clean);
-    results.push({title:title.slice(0,130), link:full, pubDate:new Date(), description:desc});
+    const pub = extractDateAfter(m.index, clean);
+    results.push({title:title.slice(0,130), link:full, pubDate:pub, description:desc});
   }
   if(results.length < max){
     const re2 = /<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>\s*<h[23][^>]*>([\s\S]*?)<\/h[23]>/gi;
@@ -178,7 +218,8 @@ function parseGemeenteFull(html){
       if(seen.has(full)) continue;
       seen.add(full);
       const desc = extractDescAfter(m.index, clean);
-      results.push({title:title.slice(0,130), link:full, pubDate:new Date(), description:desc});
+      const pub = extractDateAfter(m.index, clean);
+      results.push({title:title.slice(0,130), link:full, pubDate:pub, description:desc});
     }
   }
   return results.slice(0,max);
