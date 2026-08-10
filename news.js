@@ -1,11 +1,11 @@
-// news.js v201 - FIX [ ] [...] bij RondOmmen + lichter groen behoud
+// news.js v203 - AGGRESSIVE FIX [ ] [...] bij RondOmmen/Ommen City
 const PROXIES = [
   'https://ommen-push.leeuw008.workers.dev/proxy?url=',
   'https://corsproxy.io/?',
   'https://api.allorigins.win/raw?url=',
   'https://api.codetabs.com/v1/proxy?quest='
 ];
-const CACHE_KEY = 'ommen_cache_v200';
+const CACHE_KEY = 'ommen_cache_v203';
 const CACHE_TTL = 10*60*1000;
 const MAX_DESC = 380;
 const PUSH_WORKER_URL = 'https://ommen-push.leeuw008.workers.dev';
@@ -40,18 +40,16 @@ function loadCache(){ try{ const raw=localStorage.getItem(CACHE_KEY); if(!raw) r
 function saveCache(a){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ts:Date.now(), articles:a.slice(0,100)})); }catch{} }
 function stripFooters(html){ if(!html) return ""; return html.replace(/<p[^>]*>\s*(Het bericht|The post|De post)\s+.*?(verscheen eerst op|appeared first on).*?<\/p>/gis,""); }
 
-// === FIX: verwijder [ ] en [...] ===
 function sanitizeFinal(text){
     if(!text) return " [...]";
-    let d = String(text)
-      .replace(/\[\s*\]/g,' ')
-      .replace(/\[\s*\.\.\.\s*\]/g,' ')
-      .replace(/&hellip;/gi,' ')
-      .replace(/…/g,' ')
-      .replace(/\s*\.\.\.\s*/g,' ')
-      .trim();
-    d = d.replace(/\s{2,}/g,' ').trim();
-    if(!d.includes('[...]')) d+=' [...]';
+    let d = String(text);
+    d = d.replace(/\[[^\]]*\]/g, ' ');
+    d = d.replace(/&hellip;/gi, ' ');
+    d = d.replace(/…/g, ' ');
+    d = d.replace(/\s*\.\.\.\s*/g, ' ');
+    d = d.trim();
+    d = d.replace(/\s{2,}/g, ' ').trim();
+    if(!d.endsWith('[...]')) d += ' [...]';
     return d;
 }
 
