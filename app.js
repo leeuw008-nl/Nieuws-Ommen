@@ -1,4 +1,4 @@
-// app.js v213 - FIX Gemeente beschrijving zoeken in p EN div, 1000 chars tolerant
+// app.js v214 - TERUG naar originele werkende Gemeente parser van weken geleden
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -10,17 +10,7 @@ const BRONNEN = [
   {id:'Vechtdal Centraal', name:'Vechtdal Centraal', sub:'112 & dorpsnieuws'},
   {id:'Natuurlijk Ommen', name:'Natuurlijk Ommen', sub:'evenementen & toerisme'},
 ];
-const MAX_PER_BRON = {
-  'De Stentor': 25,
-  'RondOmmen': 20,
-  'Ommen City': 10,
-  'OudOmmen': 10,
-  'Vechtdal Centraal': 10,
-  'Natuurlijk Ommen': 10,
-  'Gemeente Ommen': 10,
-  'RTV Oost': 10,
-  'RTV Vechtdal': 10,
-};
+const MAX_PER_BRON = {'De Stentor':25,'RondOmmen':20,'Ommen City':10,'OudOmmen':10,'Vechtdal Centraal':10,'Natuurlijk Ommen':10,'Gemeente Ommen':10,'RTV Oost':10,'RTV Vechtdal':10};
 const BRON_URLS = {
   'De Stentor': {url:'https://www.destentor.nl/ommen/rss.xml', homepage:'https://www.destentor.nl/ommen/'},
   'Gemeente Ommen': {url:'https://www.ommen.nl/actueel/', homepage:'https://www.ommen.nl/actueel/', type:'gemeente'},
@@ -138,56 +128,31 @@ function parseRSSFull(xml, bronId){
     return {title, link, pubDate:pub?new Date(pub):new Date(), description:useDesc};
   }).filter(x=>x.link && x.title);
 }
-function extractDescAfter(pos, clean){
-  const slice = clean.substring(pos, pos+1500);
-  // zoek eerste p of div met >20 chars die geen rommel is
-  const re = /<(p|div)[^>]*>([\s\S]*?)<\/\1>/gi;
-  let m;
-  while((m=re.exec(slice))!==null){
-    let txt = m[2].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
-    if(txt.length<25) continue;
-    if(txt.includes('Facebook') && txt.includes('Instagram')) continue;
-    if(txt.includes('prefetch') || txt.includes('wp-admin') || txt.includes('{"source"')) continue;
-    if(/^(Lees meer|Meer lezen|Home|Actueel)$/i.test(txt)) continue;
-    return txt.slice(0,220);
-  }
-  return '';
-}
+// ORIGINELE WERKENDE PARSER - alleen script strip toegevoegd
 function parseGemeenteFull(html){
   const max = MAX_PER_BRON['Gemeente Ommen'];
-  let clean = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<!--[\s\S]*?-->/g,' ');
-  const results = []; const seen = new Set();
-  // Verzamel alle h2/h3 met link naar /actueel/
-  const titleRe = /<h[23][^>]*>\s*<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([\s\S]*?)<\/a>\s*<\/h[23]>/gi;
+  // Alleen dit toegevoegd om Facebook rommel te voorkomen
+  const clean = html.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<!--[\s\S]*?-->/g,' ');
+  const results=[];
+  const re = /<a[^>]+href=["']([^"']*\/actueel\/[^"']+)["'][^>]*>[\s\S]*?<h[23][^>]*>([\s\S]*?)<\/h[23]>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/gi;
   let m;
-  while((m=titleRe.exec(clean))!==null && results.length<max){
-    let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim();
+  while((m=re.exec(clean))!==null){
+    const href=m[1]; let title=m[2].replace(/<[^>]*>/g,'').trim(); let desc=m[3].replace(/<[^>]*>/g,'').trim();
     if(title.length<8) continue;
-    const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
-    if(seen.has(full)) continue;
-    seen.add(full);
-    const desc = extractDescAfter(m.index, clean);
-    results.push({title:title.slice(0,130), link:full, pubDate:new Date(), description:desc});
-  }
-  // Tweede poging: a>h3
-  if(results.length < max){
-    const re2 = /<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>\s*<h[23][^>]*>([\s\S]*?)<\/h[23]>/gi;
-    while((m=re2.exec(clean))!==null && results.length<max){
-      let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim();
-      if(title.length<8) continue;
-      const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
-      if(seen.has(full)) continue;
-      seen.add(full);
-      const desc = extractDescAfter(m.index, clean);
-      results.push({title:title.slice(0,130), link:full, pubDate:new Date(), description:desc});
-    }
+    // filter alleen echte rommel
+    if(desc.includes('prefetch') && desc.includes('Facebook')) continue;
+    if(desc.includes('wp-') && desc.length<30) continue;
+    const fullHref = href.startsWith('http')?href:'https://www.ommen.nl'+href;
+    if(desc.length>200) desc=desc.slice(0,197)+'...';
+    results.push({title:title.slice(0,120), link:fullHref, pubDate:new Date(), description:desc});
+    if(results.length>=max) break;
   }
   if(results.length===0){
-    const links=[...clean.matchAll(/href=["']([^"']*\/actueel\/[^"'?#\/]{4,}[^"'?#]*?)["']/gi)].map(x=>x[1]).filter(h=>!h.includes('/page') && !h.includes('/feed'));
+    const links=[...clean.matchAll(/href=["']([^"']*\/actueel\/[^"'?#]+)["']/gi)].map(x=>x[1]);
     const uniq=[...new Set(links.map(h=>h.startsWith('http')?h:'https://www.ommen.nl'+h))].slice(0,max);
-    return uniq.map(link=>({title:decodeURIComponent(link.split('/').filter(Boolean).pop().replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase()).slice(0,90)), link, pubDate:new Date(), description:''}));
+    return uniq.map(link=>({title:decodeURIComponent(link.split('/').filter(Boolean).pop().replace(/-/g,' ').slice(0,90)), link, pubDate:new Date(), description:''}));
   }
-  return results.slice(0,max);
+  return results;
 }
 function parseOostFull(html){
   const max = MAX_PER_BRON['RTV Oost'];
