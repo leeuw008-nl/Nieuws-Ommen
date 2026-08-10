@@ -1,5 +1,5 @@
-/* service-worker.js v5 - FIX notificatie klik = terug naar app met omlijnd artikel + respect voor bronvoorkeur */
-const CACHE_NAME = 'nieuws-ommen-v5';
+/* service-worker.js v6 - FORCE cache clear + origineel klik-gedrag met focus */
+const CACHE_NAME = 'nieuws-ommen-v6-FORCE';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -9,7 +9,8 @@ self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
     await self.clients.claim();
     const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)));
+    await Promise.all(keys.map(k => caches.delete(k)));
+    console.log('SW v6: all caches cleared');
   })());
 });
 
@@ -18,7 +19,13 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (url.origin !== location.origin) return;
   if (url.pathname.includes('/api/') || url.pathname.includes('/proxy')) return;
-  
+  // Geen cache voor app.js - altijd vers
+  if (url.pathname.endsWith('app.js')) {
+    e.respondWith(fetch(e.request, {cache: 'no-store'}).then(r=>{
+      return r;
+    }).catch(()=>caches.match(e.request)));
+    return;
+  }
   e.respondWith(
     caches.open(CACHE_NAME).then(cache => 
       cache.match(e.request).then(cached => {
@@ -34,12 +41,7 @@ self.addEventListener('fetch', (e) => {
 
 self.addEventListener('push', (event) => {
   let data = { title: 'Nieuws Ommen', body: 'Nieuw artikel beschikbaar', url: '/', source: '' };
-  try {
-    if (event.data) {
-      const json = event.data.json();
-      data = { ...data, ...json };
-    }
-  } catch {}
+  try { if (event.data) { const json = event.data.json(); data = { ...data, ...json }; } } catch {}
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
@@ -55,12 +57,8 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const articleUrl = event.notification.data?.articleUrl || event.notification.data?.url || '/';
   const source = event.notification.data?.source || '';
-  
-  // NIET direct naar bron, maar naar app met focus parameter
-  // base URL = scope van deze SW (werkt voor /Nieuws-Ommen/)
   const baseUrl = self.registration.scope;
   const focusUrl = `${baseUrl}?focus=${encodeURIComponent(articleUrl)}&src=${encodeURIComponent(source)}`;
-  
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
       for (const c of list) {
