@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Dashboard - Ommen Nieuws</title>
+<style>
+body{font-family:system-ui;max-width:900px;margin:20px auto;padding:15px;background:#f5f5f5}
+h1{font-size:22px}
+.card{background:#fff;padding:15px;border-radius:10px;margin:10px 0;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+button{padding:10px 16px;border:0;border-radius:8px;background:#0a7; color:#fff;cursor:pointer;margin:5px}
+button.red{background:#d33} button.blue{background:#26d}
+pre{white-space:pre-wrap;background:#111;color:#0f0;padding:12px;border-radius:8px;overflow:auto;max-height:500px}
+.ok{color:green} .fail{color:red} .item{padding:6px 0;border-bottom:1px solid #eee}
+</style>
+</head>
+<body>
+<h1>🧪 Ommen Nieuws - Test Dashboard</h1>
+<p>Worker: <code>ommen-push-v2.leeuw008.workers.dev</code></p>
+
+<div class="card">
+<button class="blue" onclick="runCron()">▶️ Cron starten</button>
+<button onclick="runDebug()">📊 Debug / KV</button>
+<button class="red" onclick="sendTest()">🔔 Test Push sturen</button>
+<button onclick="clearLog()">🗑️ Clear</button>
+</div>
+
+<div class="card">
+<h3>Status 9 bronnen</h3>
+<div id="status">Klik Cron starten...</div>
+</div>
+
+<div class="card">
+<h3>Log</h3>
+<pre id="log">Klaar...\n</pre>
+</div>
+
+<script>
+const WORKER='https://ommen-push-v2.leeuw008.workers.dev';
+const logEl=document.getElementById('log');
+const statusEl=document.getElementById('status');
+function log(t){ logEl.textContent += new Date().toLocaleTimeString()+' - '+t+'\n'; logEl.scrollTop=logEl.scrollHeight; }
+function clearLog(){ logEl.textContent=''; statusEl.innerHTML=''; }
+
+async function runCron(){
+  log('Cron starten...');
+  statusEl.innerHTML='Bezig...';
+  try{
+    const r=await fetch(WORKER+'/cron'); const data=await r.json();
+    log('Cron resultaat: '+data.length+' bronnen');
+    let html=''; let okCount=0;
+    data.forEach(s=>{
+      const cls=s.status==='no-article'?'fail':'ok';
+      if(s.status!=='no-article') okCount++;
+      html+=`<div class="item"><span class="${cls}">● ${s.source}: ${s.status}</span><br><small>${s.link||''}</small></div>`;
+    });
+    html=`<b>${okCount}/9 OK</b><br>`+html;
+    if(okCount===9) html='<div style="background:#cfc;padding:10px;border-radius:8px;margin-bottom:10px">✅ 9/9 OK!</div>'+html;
+    else html='<div style="background:#fcc;padding:10px;border-radius:8px;margin-bottom:10px">❌ '+ (9-okCount) +' bron(nen) no-article</div>'+html;
+    statusEl.innerHTML=html;
+    log(JSON.stringify(data,null,2));
+  }catch(e){ log('FOUT: '+e.message); statusEl.innerHTML='<span class="fail">Fout: '+e.message+'</span>'; }
+}
+
+async function runDebug(){
+  log('Debug ophalen...');
+  try{
+    const r=await fetch(WORKER+'/debug'); const data=await r.json();
+    log('Debug: '+data.total+' abonnees\n'+JSON.stringify(data.lastSeen,null,2));
+    statusEl.innerHTML='<pre>'+JSON.stringify(data,null,2)+'</pre>';
+  }catch(e){ log('FOUT: '+e.message); }
+}
+
+async function sendTest(){
+  log('Test push sturen...');
+  try{
+    const r=await fetch(WORKER+'/send'); const data=await r.json();
+    log('Push verstuurd naar '+data.sent+' abonnees');
+  }catch(e){ log('FOUT: '+e.message); }
+}
+</script>
+</body>
+</html>
