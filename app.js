@@ -1,8 +1,4 @@
-// app.js v204 - HERSTEL alle 4 punten
-// 1) RTV Vechtdal / Gemeente / RTV Oost weer volledig
-// 2) volgorde + geen dubbele [Bron] meer
-// 3) bel fixed (geen blokkade)
-// 4) aantallen terug (9/9 + aantal artikelen)
+// app.js v205 - FIX beschrijving + tijd + aantal + geen dubbele bron
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -10,7 +6,7 @@ const BRONNEN = [
   {id:'OudOmmen', name:'OudOmmen', sub:'artikelen over historie'},
   {id:'RondOmmen', name:'RondOmmen', sub:'lokaal nieuws'},
   {id:'RTV Oost', name:'RTV Oost', sub:'regionaal Overijssel'},
-  {id:'RTV Vechtdal', name:'RTV Vechtdal', sub:'lokaal Vechtdal - via VechtdalLeeft'},
+  {id:'RTV Vechtdal', name:'RTV Vechtdal', sub:'lokaal Vechtdal'},
   {id:'Vechtdal Centraal', name:'Vechtdal Centraal', sub:'112 & dorpsnieuws'},
   {id:'Natuurlijk Ommen', name:'Natuurlijk Ommen', sub:'evenementen & toerisme'},
 ];
@@ -74,7 +70,6 @@ function updateHeaderCount(){
   const aan = Object.values(state).filter(s=>s.aan).length;
   const countEl = document.getElementById('header-count');
   if(countEl){
-    // PUNT 4 FIX: altijd 9/9 tonen, nooit leeg
     countEl.textContent = `${loadedSources.size || aan} v/d ${BRONNEN.length} bronnen`;
     if(loadedSources.size>=BRONNEN.length) countEl.textContent = `9 v/d 9 bronnen`;
   }
@@ -89,11 +84,10 @@ function updateHeaderCount(){
 function openPanel(){ document.getElementById('filter-header')?.classList.add('open'); document.getElementById('source-panel')?.classList.add('open'); document.body.classList.add('panel-open'); }
 function closePanel(){ document.getElementById('filter-header')?.classList.remove('open'); document.getElementById('source-panel')?.classList.remove('open'); document.body.classList.remove('panel-open'); }
 function resetFilters(){ BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); saveState(); renderFilters(); filterNews(); }
-// PUNT 3 FIX: bel nooit blokkeren
 function setupFilterHeader(){
   const fh = document.getElementById('filter-header'); if(!fh) return;
   fh.addEventListener('click', (e)=>{
-    if(e.target.closest('#bell-slot') || e.target.closest('#push-bell-btn')) return; // bel laten gaan
+    if(e.target.closest('#bell-slot') || e.target.closest('#push-bell-btn')) return;
     if(e.target.id==='btn-all' || e.target.closest('#btn-all')){
       e.stopPropagation();
       const allOn = Object.values(state).every(s=>s.aan);
@@ -115,7 +109,7 @@ async function fetchViaWorker(url){
   const t = await r.text();
   return t;
 }
-function parseRSS(xml){
+function parseRSSFull(xml){
   const items = [...xml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)];
   return items.map(m=>{
     const it=m[0];
@@ -125,30 +119,38 @@ function parseRSS(xml){
     link=link.replace(/<!\[CDATA\[/g,'').replace(/\]\]>/g,'').trim();
     if(!link.startsWith('http')){ const mm=it.match(/https?:\/\/[^\s<"\]]+/); if(mm) link=mm[0]; }
     let pub=(it.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i)||[])[1]||'';
+    // FIX: pak ook content:encoded voor beschrijving bij Vechtdal
     let desc=(it.match(/<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i)||[])[1]||'';
-    desc=desc.replace(/<[^>]*>/g,'').trim();
-    // maak kort maar behoud
-    if(desc.length>220) desc=desc.slice(0,217)+'...';
-    return {title, link, pubDate:pub?new Date(pub):new Date(), description:desc};
+    let content=(it.match(/<content:encoded[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/i)||[])[1]||'';
+    let useDesc = content || desc;
+    useDesc=useDesc.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+    if(useDesc.length>280) useDesc=useDesc.slice(0,277)+'...';
+    return {title, link, pubDate:pub?new Date(pub):new Date(), description:useDesc};
   }).filter(x=>x.link && x.title);
 }
-function parseGemeente(html){
-  // probeer eerst artikelen met titel + datum te pakken
-  const items = [...html.matchAll(/<a[^>]+href=["']([^"']*\/actueel\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)];
-  const uniqMap = new Map();
-  for(const m of items){
-    const href=m[1]; const text=m[2].replace(/<[^>]*>/g,'').trim();
-    if(text.length<8) continue;
-    if(text.toLowerCase().includes('lees meer')) continue;
+function parseGemeenteFull(html){
+  // FIX: gemeente heeft geen RSS, maar wel artikelen met datum in HTML
+  const items=[];
+  const re = /<a[^>]+href=["']([^"']*\/actueel\/[^"']+)["'][^>]*>[\s\S]*?<h[23][^>]*>([\s\S]*?)<\/h[23]>/gi;
+  let m;
+  while((m=re.exec(html))!==null){
+    const href=m[1]; const t=m[2].replace(/<[^>]*>/g,'').trim();
+    if(t.length<8) continue;
     const fullHref = href.startsWith('http')?href:'https://www.ommen.nl'+href;
-    if(!uniqMap.has(fullHref)) uniqMap.set(fullHref, text.slice(0,120));
+    // probeer datum erbij te vinden in buurt
+    const snippet = html.slice(m.index, m.index+800);
+    const dateMatch = snippet.match(/(\d{1,2}\s+\w+\s+\d{4}|\d{2}-\d{2}-\d{4})/);
+    items.push({title:t.slice(0,120), link:fullHref, pubDate: dateMatch?new Date(dateMatch[1]):new Date(), description:''});
   }
-  return Array.from(uniqMap.entries()).slice(0,15).map(([link,title])=>({
-    title: title, link, pubDate:new Date(), description:''
-  }));
+  // fallback oude methode als bovenstaande niks vindt
+  if(items.length===0){
+    const links=[...html.matchAll(/href=["']([^"']*\/actueel\/[^"'?#]+)["']/gi)].map(x=>x[1]);
+    const uniq=[...new Set(links.map(h=>h.startsWith('http')?h:'https://www.ommen.nl'+h))].slice(0,12);
+    return uniq.map(link=>({title:decodeURIComponent(link.split('/').filter(Boolean).pop().replace(/-/g,' ').slice(0,90)), link, pubDate:new Date(), description:''}));
+  }
+  return items.slice(0,15);
 }
-function parseOost(html){
-  // pak alleen echte nieuwsartikelen van RTV Oost Ommen pagina
+function parseOostFull(html){
   const raw=[...html.matchAll(/<a[^>]+href=["'](\/nieuws\/ommen\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)];
   const uniqMap=new Map();
   for(const m of raw){
@@ -156,11 +158,6 @@ function parseOost(html){
     if(text.length<10) continue;
     const full='https://www.oost.nl'+href;
     if(!uniqMap.has(full)) uniqMap.set(full, text.slice(0,120));
-  }
-  // fallback als /ommen geen resultaten geeft: pak algemene /nieuws met datum structuur
-  if(uniqMap.size<3){
-    const raw2=[...html.matchAll(/href=["'](\/nieuws\/\d{4}\/\d{2}\/\d{2}\/[^"']+)["']/gi)].map(m=>'https://www.oost.nl'+m[1]);
-    raw2.slice(0,15).forEach(l=>{ if(!uniqMap.has(l)) uniqMap.set(l, l.split('/').pop().replace(/-/g,' ').slice(0,100)); });
   }
   return Array.from(uniqMap.entries()).slice(0,15).map(([link,title])=>({
     title, link, pubDate:new Date(), description:''
@@ -170,14 +167,24 @@ async function loadOneSource(b){
   const cfg = BRON_URLS[b.id];
   try{
     let arts=[];
-    if(cfg.type==='gemeente'){ const html=await fetchViaWorker(cfg.url); arts=parseGemeente(html); }
-    else if(cfg.type==='oost'){ const html=await fetchViaWorker(cfg.url); arts=parseOost(html); }
-    else { const xml=await fetchViaWorker(cfg.url); arts=parseRSS(xml); }
+    if(cfg.type==='gemeente'){ const html=await fetchViaWorker(cfg.url); arts=parseGemeenteFull(html); }
+    else if(cfg.type==='oost'){ const html=await fetchViaWorker(cfg.url); arts=parseOostFull(html); }
+    else { const xml=await fetchViaWorker(cfg.url); arts=parseRSSFull(xml); }
     if(arts.length===0) throw new Error('empty');
     return arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
   }catch(e){
-    return [{title:b.name, link:cfg.homepage, pubDate:new Date(0), description:b.sub, source:b.name, id:b.id, isFallback:true}];
+    // als bron echt offline is, geef homepage met Offline label
+    return [{title:b.name+' (offline - homepage)', link:cfg.homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - klik voor homepage. Komt automatisch terug zodra server online is.', source:b.name, id:b.id, isFallback:true}];
   }
+}
+function formatDate(d){
+  if(d.getTime()===0) return 'offline';
+  const now=new Date();
+  const isToday = d.toDateString()===now.toDateString();
+  if(isToday){
+    return 'vandaag '+d.toLocaleTimeString('nl-NL',{hour:'2-digit', minute:'2-digit'});
+  }
+  return d.toLocaleString('nl-NL',{day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
 }
 function renderArticles(){
   const container=document.getElementById('news-container'); if(!container) return;
@@ -185,25 +192,20 @@ function renderArticles(){
   let filtered = allArticles.filter(a=>{ const s=state[a.id]; return s && s.aan; });
   if(search) filtered = filtered.filter(a=> (a.title+' '+a.description+' '+a.source).toLowerCase().includes(search));
   filtered = filtered.sort((a,b)=>b.pubDate - a.pubDate);
-
-  // PUNT 4: aantal artikelen tonen
-  const countHtml = `<div class="articles-count">${filtered.length} artikelen - ${loadedSources.size} v/d ${BRONNEN.length} bronnen geladen</div>`;
-
+  const realCount = filtered.filter(a=>!a.isFallback).length;
+  const fallbackCount = filtered.filter(a=>a.isFallback).length;
+  const countHtml = `<div class="articles-count">${realCount} artikelen${fallbackCount?` + ${fallbackCount} offline` : ''} - ${loadedSources.size} v/d ${BRONNEN.length} bronnen</div>`;
   if(filtered.length===0){
-    container.innerHTML = countHtml + '<div class="article">Geen artikelen (of filter staat uit)</div>';
+    container.innerHTML = countHtml + '<div class="article">Geen artikelen</div>';
     return;
   }
-  // PUNT 2 FIX: originele volgorde herstellen zoals jouw styles.css verwacht
-  // h2 (titel) -> small (bron + datum) -> div (beschrijving) -> geen dubbele [Bron]
   const html = filtered.map(a=>{
     const cleanTitle = a.title.replace(/^\[[^\]]+\]\s*/,'').replace(new RegExp('^'+a.source+'\\s*[:\\-]?\\s*','i'),'').trim() || a.title;
-    const dateStr = a.pubDate.getTime()===0 ? '' : a.pubDate.toLocaleDateString('nl-NL', {day:'numeric', month:'short'});
     if(a.isFallback){
-      return `<div class="article fallback" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${a.source}</a></h2><small>${a.source} - ${a.description}</small></div>`;
+      return `<div class="article fallback" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${a.source}</a></h2><small>${a.source} - ${formatDate(a.pubDate)}</small><div style="margin-top:6px;color:#666;">${a.description}</div></div>`;
     }
-    return `<div class="article" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${cleanTitle}</a></h2><small>${a.source}${dateStr?' - '+dateStr:''}</small>${a.description?`<div style="margin-top:6px;">${a.description}</div>`:''}</div>`;
+    return `<div class="article" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${cleanTitle}</a></h2><small>${a.source} - ${formatDate(a.pubDate)}</small>${a.description?`<div style="margin-top:6px;">${a.description}</div>`:''}</div>`;
   }).join('');
-
   container.innerHTML = countHtml + html;
   window.getAllArticles = ()=> filtered;
 }
