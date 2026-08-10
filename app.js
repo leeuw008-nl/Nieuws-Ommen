@@ -1,4 +1,4 @@
-// app.js v212 - FIX Gemeente beschrijving weer terug
+// app.js v213 - FIX Gemeente beschrijving zoeken in p EN div, 1000 chars tolerant
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -138,59 +138,50 @@ function parseRSSFull(xml, bronId){
     return {title, link, pubDate:pub?new Date(pub):new Date(), description:useDesc};
   }).filter(x=>x.link && x.title);
 }
+function extractDescAfter(pos, clean){
+  const slice = clean.substring(pos, pos+1500);
+  // zoek eerste p of div met >20 chars die geen rommel is
+  const re = /<(p|div)[^>]*>([\s\S]*?)<\/\1>/gi;
+  let m;
+  while((m=re.exec(slice))!==null){
+    let txt = m[2].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+    if(txt.length<25) continue;
+    if(txt.includes('Facebook') && txt.includes('Instagram')) continue;
+    if(txt.includes('prefetch') || txt.includes('wp-admin') || txt.includes('{"source"')) continue;
+    if(/^(Lees meer|Meer lezen|Home|Actueel)$/i.test(txt)) continue;
+    return txt.slice(0,220);
+  }
+  return '';
+}
 function parseGemeenteFull(html){
   const max = MAX_PER_BRON['Gemeente Ommen'];
   let clean = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<!--[\s\S]*?-->/g,' ');
   const results = []; const seen = new Set();
-
-  // Patroon 1: <h3><a href="/actueel/xxx">Titel</a></h3> <p>beschrijving</p>  (meest voorkomend bij gemeente)
-  const re1 = /<h[23][^>]*>\s*<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([\s\S]*?)<\/a>\s*<\/h[23]>[\s\S]{0,300}?<p[^>]*>([\s\S]*?)<\/p>/gi;
+  // Verzamel alle h2/h3 met link naar /actueel/
+  const titleRe = /<h[23][^>]*>\s*<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([\s\S]*?)<\/a>\s*<\/h[23]>/gi;
   let m;
-  while((m=re1.exec(clean))!==null && results.length<max){
-    let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim(), desc=m[3].replace(/<[^>]*>/g,'').trim();
+  while((m=titleRe.exec(clean))!==null && results.length<max){
+    let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim();
     if(title.length<8) continue;
-    if(desc.includes('prefetch') || desc.includes('wp-') || desc.includes('{')) desc='';
-    if(desc.length>220) desc=desc.slice(0,217)+'...';
     const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
-    if(seen.has(full)) continue; seen.add(full);
+    if(seen.has(full)) continue;
+    seen.add(full);
+    const desc = extractDescAfter(m.index, clean);
     results.push({title:title.slice(0,130), link:full, pubDate:new Date(), description:desc});
   }
-
-  // Patroon 2: <a href="/actueel/xxx"><h3>Titel</h3></a> <p>beschrijving</p>
+  // Tweede poging: a>h3
   if(results.length < max){
-    const re2 = /<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>\s*<h[23][^>]*>([\s\S]*?)<\/h[23]>[\s\S]*?<\/a>[\s\S]{0,300}?<p[^>]*>([\s\S]*?)<\/p>/gi;
+    const re2 = /<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>\s*<h[23][^>]*>([\s\S]*?)<\/h[23]>/gi;
     while((m=re2.exec(clean))!==null && results.length<max){
-      let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim(), desc=m[3].replace(/<[^>]*>/g,'').trim();
+      let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim();
       if(title.length<8) continue;
-      if(desc.includes('prefetch') || desc.includes('wp-') || desc.includes('{')) desc='';
-      if(desc.length>220) desc=desc.slice(0,217)+'...';
       const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
-      if(seen.has(full)) continue; seen.add(full);
+      if(seen.has(full)) continue;
+      seen.add(full);
+      const desc = extractDescAfter(m.index, clean);
       results.push({title:title.slice(0,130), link:full, pubDate:new Date(), description:desc});
     }
   }
-
-  // Patroon 3: alleen titel, beschrijving zoeken in 800 chars erna
-  if(results.length < max){
-    const re3 = /<a[^>]+href=["']([^"']*\/actueel\/([^"'?#/]+))["'][^>]*>([^<]{8,120})<\/a>/gi;
-    while((m=re3.exec(clean))!==null && results.length<max){
-      let href=m[1], slug=m[2], txt=m[3].trim();
-      if(href.includes('/page/') || href.includes('/categorie/')) continue;
-      const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
-      if(seen.has(full)) continue;
-      if(/^(Home|Actueel|Contact|Zoeken|Lees meer)$/i.test(txt)) continue;
-      // zoek p na deze link
-      const after = clean.substring(m.index, m.index+1000);
-      const pM = after.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
-      let desc = pM ? pM[1].replace(/<[^>]*>/g,'').trim() : '';
-      if(desc.includes('Facebook') && desc.includes('Instagram')) desc='';
-      if(desc.includes('prefetch') || desc.includes('wp-') || desc.length<15) desc='';
-      if(desc.length>220) desc=desc.slice(0,217)+'...';
-      seen.add(full);
-      results.push({title:txt.slice(0,130), link:full, pubDate:new Date(), description:desc});
-    }
-  }
-
   if(results.length===0){
     const links=[...clean.matchAll(/href=["']([^"']*\/actueel\/[^"'?#\/]{4,}[^"'?#]*?)["']/gi)].map(x=>x[1]).filter(h=>!h.includes('/page') && !h.includes('/feed'));
     const uniq=[...new Set(links.map(h=>h.startsWith('http')?h:'https://www.ommen.nl'+h))].slice(0,max);
