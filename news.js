@@ -12,7 +12,7 @@ const PROXIES_ALT = [
   'https://corsproxy.io/?',
   'https://ommen-push.leeuw008.workers.dev/proxy?url='
 ];
-const CACHE_KEY = 'ommen_cache_v210';
+const CACHE_KEY = 'ommen_cache_v211';
 const CACHE_TTL = 10*60*1000;
 const MAX_DESC = 380;
 
@@ -26,7 +26,7 @@ const feeds = [
     { name: 'Natuurlijk Ommen', url: 'https://www.natuurlijkommen.nl/feed/', limit: 10 }
 ];
 
-async function fetchWithTimeout(url, ms=12000){
+async function fetchWithTimeout(url, ms=6000){
   const c=new AbortController();
   const t=setTimeout(()=>c.abort(),ms);
   try{ const r=await fetch(url,{signal:c.signal}); clearTimeout(t); return r; }
@@ -140,40 +140,33 @@ async function fetchGemeenteGegevens(url){
   }catch{ return {datum:"",tekst:""}; }
 }
 async function fetchRTVVechtdalNieuws(){
-  // 1. probeer via rss2json omweg (om Cloudflare te omzeilen)
-  const rss2jsonUrls = [
-    "https://api.rss2json.com/v1/api.json?rss_url=https://www.vechtdalleeft.nl/feed/",
-    "https://api.rss2json.com/v1/api.json?rss_url=https://www.vechtdalleeft.nl/wp-json/wp/v2/posts?per_page=10"
-  ];
-  for(const u of rss2jsonUrls){
+  const controller = new AbortController();
+  const timeout = setTimeout(()=>controller.abort(), 6000); // max 6 sec voor deze bron
+  
+  const tryFetch = async (url, isJsonApi=false) => {
     try{
-      const text=await fetchViaProxy(u,0,true);
-      const data=JSON.parse(text);
-      if(data && data.items && data.items.length>0){
-        return data.items.slice(0,10).map(it=>({
-          title:(it.title||"").replace(/<[^>]*>/g,"").trim(),
-          link:it.link,
-          description:cleanHTML(it.description||it.content||"",MAX_DESC),
-          timestamp:Date.parse(it.pubDate)||Date.now()
-        }));
-      }
-    }catch{}
-  }
-  // 2. probeer direct via onze proxies
-  const urls = [
-    "https://www.vechtdalleeft.nl/wp-json/wp/v2/posts?per_page=10&_embed",
-    "https://www.vechtdalleeft.nl/feed/",
-    "https://www.vechtdalleeft.nl/wp-json/wp/v2/posts?per_page=10",
-    "https://www.vechtdalleeft.nl/rss",
-    "https://www.vechtdalleeft.nl/rss.xml"
-  ];
-  for(const u of urls){
-    try{
-      const text=await fetchViaProxy(u,0,true);
-      if(!text) continue;
-      if(u.includes("wp-json")){
-        try{
-          const data=JSON.parse(text);
+      // voor rss2json direct fetchen zonder proxy wrapper (sneller)
+      let text;
+      if(url.includes("rss2json")){
+        const r = await fetch(url, {signal: controller.signal});
+        if(!r.ok) throw new Error("rss2json fail");
+        text = await r.text();
+        const data = JSON.parse(text);
+        if(data && data.items && data.items.length>0){
+          return data.items.slice(0,10).map(it=>({
+            title:(it.title||"").replace(/<[^>]*>/g,"").trim(),
+            link:it.link,
+            description:cleanHTML(it.description||it.content||"",MAX_DESC),
+            timestamp:Date.parse(it.pubDate)||Date.now()
+          }));
+        }
+        throw new Error("no items");
+      } else {
+        // via proxy maar met korte timeout
+        text = await fetchViaProxy(url,0,true);
+        if(!text) throw new Error("empty");
+        if(isJsonApi){
+          const data = JSON.parse(text);
           if(Array.isArray(data) && data.length>0){
             return data.slice(0,10).map(item=>({
               title:(item.title?.rendered||"").replace(/<[^>]*>/g,"").trim(),
@@ -182,21 +175,38 @@ async function fetchRTVVechtdalNieuws(){
               timestamp:Date.parse(item.date)||Date.now()
             }));
           }
-        }catch{}
+        } else {
+          const xml=new DOMParser().parseFromString(text,"text/xml");
+          if(!xml.querySelector("parsererror")){
+            const items=Array.from(xml.getElementsByTagName("item")).slice(0,10).map(item=>{
+              let link=""; const le=item.querySelector("link"); if(le) link=le.getAttribute("href")||le.textContent||"";
+              const date=item.querySelector("pubDate")?.textContent?.trim()||""; const ts=Date.parse(date);
+              const rawDesc=item.querySelector("description")?.textContent||"";
+              return { title:item.querySelector("title")?.textContent?.trim()||"Geen titel", description:cleanHTML(rawDesc,MAX_DESC), link:link.trim(), timestamp:isNaN(ts)?0:ts };
+            });
+            if(items.length>0) return items;
+          }
+        }
+        throw new Error("no items");
       }
-      const xml=new DOMParser().parseFromString(text,"text/xml");
-      if(!xml.querySelector("parsererror")){
-        const items=Array.from(xml.getElementsByTagName("item")).slice(0,10).map(item=>{
-          let link=""; const le=item.querySelector("link"); if(le) link=le.getAttribute("href")||le.textContent||"";
-          const date=item.querySelector("pubDate")?.textContent?.trim()||""; const ts=Date.parse(date);
-          const rawDesc=item.querySelector("description")?.textContent||"";
-          return { title:item.querySelector("title")?.textContent?.trim()||"Geen titel", description:cleanHTML(rawDesc,MAX_DESC), link:link.trim(), timestamp:isNaN(ts)?0:ts };
-        });
-        if(items.length>0) return items;
-      }
-    }catch(e){ continue; }
+    }catch(e){ throw e; }
+  };
+
+  const urls = [
+    {url:"https://api.rss2json.com/v1/api.json?rss_url=https://www.vechtdalleeft.nl/feed/", json:false},
+    {url:"https://www.vechtdalleeft.nl/feed/", json:false},
+    {url:"https://www.vechtdalleeft.nl/wp-json/wp/v2/posts?per_page=10&_embed", json:true}
+  ];
+
+  try{
+    // race: wie het eerst lukt wint
+    const result = await Promise.any(urls.map(u=>tryFetch(u.url, u.json)));
+    clearTimeout(timeout);
+    return result;
+  }catch{
+    clearTimeout(timeout);
+    return []; // als alles faalt, geef leeg terug maar blokkeer niet
   }
-  return [];
 }
 async function fetchOostNieuws(){
   const candidates = [
