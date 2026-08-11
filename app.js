@@ -231,25 +231,42 @@ async function fetchViaWorker(url){
   }catch(e1){
     clearTimeout(to);
     console.log('worker proxy fail, probeer fallback', url, e1.message);
-    const isHard = url.includes('rtvoost.nl') || url.includes('oost.nl') || url.includes('vechtdalcentraal.nl');
-    if(isHard){
-      try{
-        const fallbackUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&t=${Date.now()}`;
-        const r2 = await fetch(fallbackUrl, {cache:'no-store'});
-        if(r2.ok){
-          const t2 = await r2.text();
-          if(t2.length>500) return t2;
+    // Fallback voor geblokkeerde domeinen
+    try{
+      // 1. allorigins /get geeft JSON met CORS headers (raw geeft geen CORS!)
+      const fallbackUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&t=${Date.now()}`;
+      const r2 = await fetch(fallbackUrl, {cache:'no-store'});
+      if(r2.ok){
+        const j = await r2.json();
+        if(j.contents && j.contents.length>500) {
+          console.log('fallback allorigins /get OK voor', url);
+          return j.contents;
         }
-      }catch(e2){ console.log('allorigins fail', e2.message); }
-      try{
-        const fallbackUrl2 = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-        const r3 = await fetch(fallbackUrl2, {cache:'no-store'});
-        if(r3.ok){
-          const t3 = await r3.text();
-          if(t3.length>500) return t3;
+      }
+    }catch(e2){ console.log('allorigins /get fail', e2.message); }
+    try{
+      const fallbackUrl2 = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+      const r3 = await fetch(fallbackUrl2, {cache:'no-store'});
+      if(r3.ok){
+        const t3 = await r3.text();
+        if(t3.length>500) {
+          console.log('fallback corsproxy.io OK voor', url);
+          return t3;
         }
-      }catch(e3){ console.log('corsproxy fail', e3.message); }
-    }
+      }
+    }catch(e3){ console.log('corsproxy fail', e3.message); }
+    try{
+      const fallbackUrl3 = `https://thingproxy.freeboard.io/fetch/${url}`;
+      const r4 = await fetch(fallbackUrl3, {cache:'no-store'});
+      if(r4.ok){
+        const t4 = await r4.text();
+        if(t4.length>500) {
+          console.log('fallback thingproxy OK voor', url);
+          return t4;
+        }
+      }
+    }catch(e4){ console.log('thingproxy fail', e4.message); }
+    
     throw e1;
   }
 }
