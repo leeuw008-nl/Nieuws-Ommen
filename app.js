@@ -20,7 +20,7 @@ const BRON_URLS = {
   'RondOmmen': {url:'https://www.rondommen.nl/feed/', homepage:'https://www.rondommen.nl/'},
   'RTV Oost': {url:'https://www.rtvoost.nl/nieuws/ommen', homepage:'https://www.rtvoost.nl/nieuws/ommen', type:'oost'},
   'RTV Vechtdal': {url:'https://rtvvechtdal.nl/feed/', homepage:'https://rtvvechtdal.nl/'},
-  'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/', fallback:'https://www.vechtdalcentraal.nl/'},
+  'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/', homepage:'https://www.vechtdalcentraal.nl/', fallback:'https://www.vechtdalcentraal.nl/feed/', type:'vechtdalcentraal'},
 };
 // PLAATSEN FILTER - HERSTELD: alle kernen en buurtschappen gemeente Ommen
 const GEMEENTE_PLAATSEN = [
@@ -120,19 +120,41 @@ function setupFilterHeader(){
 }
 const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
 async function fetchViaWorker(url){
+  // 1e poging: eigen worker v19
   const controller = new AbortController();
-  const to = setTimeout(()=>controller.abort(), 8000);
+  const to = setTimeout(()=>controller.abort(), 9000);
   try{
     const r = await fetch(`${WORKER}/proxy?url=${encodeURIComponent(url)}&t=${Date.now()}`, {cache:'no-store', signal:controller.signal});
     clearTimeout(to);
     if(!r.ok) throw new Error('proxy fail '+r.status);
     const t = await r.text();
-    if(t.length<100) throw new Error('proxy empty len '+t.length);
+    if(t.length<150) throw new Error('proxy empty len '+t.length);
     if(t.includes('Proxy blocked')||t.includes('Proxy error')||t.startsWith('Proxy err')) throw new Error(t.slice(0,200));
+    if(t.includes('<title>Just a moment</title>')||t.includes('Attention Required')) throw new Error('cf challenge');
     return t;
   }catch(e1){
     clearTimeout(to);
-    console.log('proxy fail', url, e1.message);
+    console.log('worker proxy fail, probeer fallback', url, e1.message);
+    // 2e poging: codetabs / allorigins voor RTV Oost en Vechtdal Centraal die Cloudflare workers blokkeren
+    const isHard = url.includes('rtvoost.nl') || url.includes('oost.nl') || url.includes('vechtdalcentraal.nl');
+    if(isHard){
+      try{
+        const fallbackUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&t=${Date.now()}`;
+        const r2 = await fetch(fallbackUrl, {cache:'no-store'});
+        if(r2.ok){
+          const t2 = await r2.text();
+          if(t2.length>500) return t2;
+        }
+      }catch(e2){ console.log('allorigins fail', e2.message); }
+      try{
+        const fallbackUrl2 = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+        const r3 = await fetch(fallbackUrl2, {cache:'no-store'});
+        if(r3.ok){
+          const t3 = await r3.text();
+          if(t3.length>500) return t3;
+        }
+      }catch(e3){ console.log('corsproxy fail', e3.message); }
+    }
     throw e1;
   }
 }
@@ -275,24 +297,56 @@ async function enrichGemeenteWithDetail(arts){
 
 // ===== v232 DEFINITIEF - ECHTE HTML PARSERS (getest op Tjeerd's HTML) =====
 function parseVechtdalCentraalECHT(html){
-  const items=[];
-  const re=/<h3 class="entry-title[^>]*>\s*<a href="([^"]+)"[^>]*>([^<]+)<\/a>/gi;
-  let m;
-  while((m=re.exec(html))!==null && items.length<20){
+  const items=[]; const seen=new Set();
+  // 1) Newspaper theme entry-title
+  let re=/<h3 class="entry-title[^>]*>\s*<a href="([^"]+)"[^>]*>([^<]+)<\/a>/gi; let m;
+  while((m=re.exec(html))!==null && items.length<25){
     let link=m[1]; if(link.startsWith('/')) link='https://www.vechtdalcentraal.nl'+link;
-    const title=m[2].replace(/&#8217;/g,"'").replace(/&amp;/g,"&").trim();
+    if(seen.has(link)) continue; seen.add(link);
+    const title=m[2].replace(/&#8217;/g,"'").replace(/&#8220;/g,'"').replace(/&#8221;/g,'"').replace(/&amp;/g,"&").trim();
     if(title.length>4) items.push({title, link, pubDate:new Date(), description:title+' [...]'});
+  }
+  // 2) td_module flex - extra
+  if(items.length===0){
+    re=/<a href="([^"]+)"[^>]*class="[^"]*td-image-wrap[^"]*"[^>]*>[\s\S]*?<a[^>]*class="[^"]*entry-title[^"]*"[^>]*>([^<]+)</gi;
+    while((m=re.exec(html))!==null && items.length<20){
+      let link=m[1]; if(link.startsWith('/')) link='https://www.vechtdalcentraal.nl'+link;
+      if(seen.has(link)) continue; seen.add(link);
+      items.push({title:m[2].trim(), link, pubDate:new Date(), description:m[2].trim()+' [...]'});
+    }
+  }
+  // 3) any link to vechtdalcentraal.nl/2026/ or /2025/ with h3
+  if(items.length===0){
+    re=/<a href="(https:\/\/www\.vechtdalcentraal\.nl\/[^"]+)"[^>]*>\s*([^<]{10,120})\s*<\/a>/gi;
+    while((m=re.exec(html))!==null && items.length<20){
+      const link=m[1]; const title=m[2].trim();
+      if(seen.has(link)) continue; if(link.includes('/category/')||link.includes('/tag/')) continue;
+      seen.add(link);
+      items.push({title, link, pubDate:new Date(), description:title+' [...]'});
+    }
   }
   return items;
 }
 function parseRTVVechtdalECHT(html){
   const items=[];
-  const re=/<div class="allmode_date">([^<]+)<\/div>[\s\S]{0,500}?<h3 class="allmode_title"><a href="([^"]+)">([^<]+)<\/a>/gi;
+  // Probeer met introtext: <div class="allmode_date">11-08-2026</div> ... <h3>...<a>Title</a> ... <div class="allmode_intro">tekst</div> of allmode_text
+  const reFull=/<div class="allmode_date">([^<]+)<\/div>[\s\S]{0,600}?<h3 class="allmode_title"><a href="([^"]+)">([^<]+)<\/a>[\s\S]{0,800}?<div class="allmode_(?:intro|text|introtext)[^>]*>([\s\S]*?)<\/div>/gi;
   let m;
-  while((m=re.exec(html))!==null && items.length<15){
-    const dparts=m[1].split('-'); let pd=new Date(); if(dparts.length===3) pd=new Date(dparts[2],dparts[1]-1,dparts[0],12,0,0);
+  while((m=reFull.exec(html))!==null && items.length<20){
+    const dparts=m[1].split('-'); let pd=new Date(); if(dparts.length===3) pd=new Date(dparts[2],dparts[1]-1,dparts[0],0,0,0);
     let link=m[2].replace(/&amp;/g,'&'); if(!link.startsWith('http')) link='https://www.rtvvechtdal.nl'+link;
-    items.push({title:m[3].trim(), link, pubDate:pd, description:m[3].trim()+' [...]'});
+    let intro=m[4].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+    if(intro.length>200) intro=intro.slice(0,200)+' [...]'; else if(intro) intro=intro+' [...]'; else intro=m[3].trim()+' [...]';
+    items.push({title:m[3].trim(), link, pubDate:pd, description:intro});
+  }
+  // Fallback zonder intro (oude manier)
+  if(items.length===0){
+    const re=/<div class="allmode_date">([^<]+)<\/div>[\s\S]{0,500}?<h3 class="allmode_title"><a href="([^"]+)">([^<]+)<\/a>/gi;
+    while((m=re.exec(html))!==null && items.length<15){
+      const dparts=m[1].split('-'); let pd=new Date(); if(dparts.length===3) pd=new Date(dparts[2],dparts[1]-1,dparts[0],0,0,0);
+      let link=m[2].replace(/&amp;/g,'&'); if(!link.startsWith('http')) link='https://www.rtvvechtdal.nl'+link;
+      items.push({title:m[3].trim(), link, pubDate:pd, description:m[3].trim()+' [...]'});
+    }
   }
   return items;
 }
@@ -407,12 +461,25 @@ function isSameDay(d1,d2){
   if(!d1 || !d2 || isNaN(d1.getTime()) || isNaN(d2.getTime())) return false;
   return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate();
 }
-function formatDate(d){
+function formatDate(d, sourceId){
   if(!d || isNaN(d.getTime()) || d.getTime()===0) return '';
   const dateStr = d.toLocaleDateString('nl-NL',{day:'numeric', month:'short'});
+  // RTV Vechtdal heeft alleen datum, geen tijd -> toon alleen datum
+  if(sourceId==='RTV Vechtdal' && d.getHours()===0 && d.getMinutes()===0){
+    return dateStr;
+  }
+  // Als tijd middernacht is, toon alleen datum (voorkomt 00:00 en 12:00 nep-tijden)
+  if(d.getHours()===0 && d.getMinutes()===0){
+    return dateStr;
+  }
   const timeStr = d.toLocaleTimeString('nl-NL',{hour:'2-digit', minute:'2-digit'});
   return `${dateStr} ${timeStr}`;
 }
+function formatDateWrapper(d, src){ return formatDate(d, src); }
+function formatDateOld(d){ if(!d || isNaN(d.getTime()) || d.getTime()===0) return ''; const dateStr = d.toLocaleDateString('nl-NL',{day:'numeric', month:'short'}); const timeStr = d.toLocaleTimeString('nl-NL',{hour:'2-digit', minute:'2-digit'}); return `${dateStr} ${timeStr}`; }
+}
+function formatDateWrapper(d, src){ return formatDate(d, src); }
+
 function renderArticles(){
   const container=document.getElementById('news-container'); if(!container) return;
   const search = (document.getElementById('search-input')?.value||'').toLowerCase();
@@ -448,9 +515,9 @@ function renderArticles(){
   const html = filtered.map(a=>{
     const cleanTitle = a.title.replace(/^\[[^\]]+\]\s*/,'').trim() || a.title;
     if(a.isFallback){
-      return `<div class="article fallback" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${a.source}</a></h2><small>${a.source}${a.pubDate.getTime()?` - ${formatDate(a.pubDate)}`:''}</small><div style="margin-top:6px;color:#666;">${a.description}</div></div>`;
+      return `<div class="article fallback" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${a.source}</a></h2><small>${a.source}${a.pubDate.getTime()?` - ${formatDate(a.pubDate, a.id)}`:''}</small><div style="margin-top:6px;color:#666;">${a.description}</div></div>`;
     }
-    return `<div class="article" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${cleanTitle}</a></h2><small>${a.source} - ${formatDate(a.pubDate)}</small>${a.description?`<div style="margin-top:6px;color:#555;">${a.description}</div>`:''}</div>`;
+    return `<div class="article" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${cleanTitle}</a></h2><small>${a.source} - ${formatDate(a.pubDate, a.id)}</small>${a.description?`<div style="margin-top:6px;color:#555;">${a.description}</div>`:''}</div>`;
   }).join('');
   container.innerHTML = countHtml + html;
   window.getAllArticles = ()=> filtered;
