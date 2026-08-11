@@ -220,7 +220,6 @@ function getGemeenteCache(){
 function setGemeenteCache(cache){
   localStorage.setItem('ommen_gemeente_cache', JSON.stringify(cache));
 }
-async 
 function parseOostFull(html){
   const echt = parseRTVOostECHT(html);
   if(echt.length>0) return echt;
@@ -235,7 +234,7 @@ function parseRTVVechtdalFull(html){
   return parseRTVVechtdalECHT(html);
 }
 
-function enrichGemeenteWithDetail(arts){
+async function enrichGemeenteWithDetail(arts){
   const cache=getGemeenteCache();
   const now=Date.now();
   const CACHE_TTL=1000*60*60*2;
