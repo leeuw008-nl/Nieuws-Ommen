@@ -57,6 +57,45 @@ function parseRTVVechtdalECHT(html){
   }
   return items;
 }
+
+async function enrichVechtdalWithDetail(arts){
+  const cache = getGemeenteCache(); // reuse same cache
+  const now = Date.now();
+  const results=[];
+  for(let a of arts){
+    const cached = cache[a.link+'_vd'];
+    if(cached && (now - cached.ts) < 1000*60*60*6 && cached.iso){
+      const d=new Date(cached.iso); if(!isNaN(d.getTime())){ a.pubDate=d; results.push(a); continue; }
+    }
+    try{
+      await new Promise(r=>setTimeout(r, 350));
+      const html = await fetchViaWorker(a.link);
+      // probeer tijd te vinden: <meta property="article:published_time" content="2026-08-11T14:23:00+02:00">
+      let m = html.match(/property="article:published_time" content="([^"]+)"/i) || html.match(/property="og:.*published.*?" content="([^"]+)"/i) || html.match(/"datePublished"\s*:\s*"([^"]+)"/i) || html.match(/<time[^>]+datetime="([^"]+)"/i) || html.match(/(\d{2}-\d{2}-\d{4})\s+(\d{1,2}:\d{2})/);
+      let realDate=null;
+      if(m){
+        if(m[2]){ // dd-mm-yyyy hh:mm
+          const dparts=m[1].split('-'); const tparts=m[2].split(':');
+          realDate=new Date(dparts[2], dparts[1]-1, dparts[0], parseInt(tparts[0]), parseInt(tparts[1]));
+        }else{
+          realDate=new Date(m[1]);
+        }
+      }
+      if(realDate && !isNaN(realDate.getTime())){
+        a.pubDate=realDate;
+        cache[a.link+'_vd']={iso:realDate.toISOString(), ts:now};
+      }
+    }catch(e){}
+    results.push(a);
+    if(results.length % 2 ===0){
+      allArticles = allArticles.filter(x=>x.id!=='RTV Vechtdal').concat(results.map(r=>({...r, source:'RTV Vechtdal', id:'RTV Vechtdal', isFallback:false})));
+      renderArticles();
+    }
+  }
+  setGemeenteCache(cache);
+  return results;
+}
+
 function parseRTVOostECHT(html){
   const items=[]; let m;
   const re=/publishedAt="([^"]+)"[\s\S]{0,900}?href="(\/nieuws\/[^"]+)"[\s\S]{0,900}?<h3[^>]*>([^<]+)<\/h3>/gi;
@@ -217,6 +256,33 @@ function setupFilterHeader(){
 }
 const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
 async function fetchViaWorker(url){
+  // Voor Vechtdal Centraal en RTV Oost: probeer eerst rss2json (heeft CORS + omzeilt Cloudflare block)
+  const isVC = url.includes('vechtdalcentraal.nl');
+  const isOost = url.includes('rtvoost.nl') || url.includes('oost.nl');
+  if(isVC || isOost){
+    try{
+      const rssUrl = isVC ? 'https://www.vechtdalcentraal.nl/feed/' : 'https://www.rtvoost.nl/nieuws/ommen';
+      // rss2json werkt alleen met echte RSS, dus voor VC gebruiken we feed, voor Oost proberen we homepage via rss2json alternatief
+      if(isVC){
+        const rss2jsonUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&t=${Date.now()}`;
+        const rRss = await fetch(rss2jsonUrl, {cache:'no-store'});
+        if(rRss.ok){
+          const j = await rRss.json();
+          if(j.status==='ok' && j.items && j.items.length>0){
+            console.log('rss2json OK voor', url, j.items.length);
+            // Bouw RSS XML na zodat parseRSSFull het snapt
+            let xml = '<rss><channel>';
+            j.items.slice(0,20).forEach(it=>{
+              xml += `<item><title><![CDATA[${it.title}]]></title><link>${it.link}</link><pubDate>${it.pubDate}</pubDate><description><![CDATA[${it.description}]]></description></item>`;
+            });
+            xml += '</channel></rss>';
+            return xml;
+          }
+        }
+      }
+    }catch(eRss){ console.log('rss2json fail', eRss.message); }
+  }
+
   const controller = new AbortController();
   const to = setTimeout(()=>controller.abort(), 9000);
   try{
@@ -233,7 +299,6 @@ async function fetchViaWorker(url){
     console.log('worker proxy fail, probeer fallback', url, e1.message);
     // Fallback voor geblokkeerde domeinen
     try{
-      // 1. allorigins /get geeft JSON met CORS headers (raw geeft geen CORS!)
       const fallbackUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&t=${Date.now()}`;
       const r2 = await fetch(fallbackUrl, {cache:'no-store'});
       if(r2.ok){
@@ -445,8 +510,18 @@ async function loadOneSource(b){
     else if(b.id==='RTV Vechtdal'){ 
       try{
         const html=await fetchViaWorker(cfg.homepage || 'https://www.rtvvechtdal.nl/');
-        arts=parseRTVVechtdalFull(html); 
-      }catch(e){}
+        let overview=parseRTVVechtdalFull(html); 
+        if(overview.length>0){
+          // toon meteen met datum
+          const tempArts=overview.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
+          allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts);
+          loadedSources.add(b.id); updateHeaderCount(); renderArticles();
+          // verrijk daarna met echte tijden
+          arts = await enrichVechtdalWithDetail(overview);
+        } else {
+          arts = overview;
+        }
+      }catch(e){ console.log('vd load fail', e.message); }
       if(arts.length===0){ 
         try{ const xml=await fetchViaWorker(cfg.url); arts=parseRSSFull(xml,b.id); }catch(e){}
       }
@@ -496,10 +571,8 @@ function isSameDay(d1,d2){
 function formatDate(d, sourceId){
   if(!d || isNaN(d.getTime()) || d.getTime()===0) return '';
   const dateStr = d.toLocaleDateString('nl-NL',{day:'numeric', month:'short'});
-  if(sourceId==='RTV Vechtdal' && d.getHours()===0 && d.getMinutes()===0){
-    return dateStr;
-  }
-  if(d.getHours()===0 && d.getMinutes()===0){
+  // Als tijd 00:00 is, was het een datum-only (zoals RTV Vechtdal overzicht) -> toon alleen datum tot detail is opgehaald
+  if(d.getHours()===0 && d.getMinutes()===0 && d.getSeconds()===0){
     return dateStr;
   }
   const timeStr = d.toLocaleTimeString('nl-NL',{hour:'2-digit', minute:'2-digit'});
