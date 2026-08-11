@@ -337,7 +337,7 @@ function getGemeenteCache(){
 function setGemeenteCache(cache){
   localStorage.setItem('ommen_gemeente_cache', JSON.stringify(cache));
 }
-async async function enrichGemeenteWithDetail(arts){
+async function enrichGemeenteWithDetail(arts){
   const cache=getGemeenteCache();
   const now=Date.now();
   const CACHE_TTL=1000*60*60*2;
