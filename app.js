@@ -119,19 +119,20 @@ function setupFilterHeader(){
   });
 }
 const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
-async async function fetchViaWorker(url){
-  // retry 1: primary worker
+async function fetchViaWorker(url){
+  const controller = new AbortController();
+  const to = setTimeout(()=>controller.abort(), 8000);
   try{
-    const r = await fetch(`${WORKER}/proxy?url=${encodeURIComponent(url)}&t=${Date.now()}`, {cache:'no-store'});
+    const r = await fetch(`${WORKER}/proxy?url=${encodeURIComponent(url)}&t=${Date.now()}`, {cache:'no-store', signal:controller.signal});
+    clearTimeout(to);
     if(!r.ok) throw new Error('proxy fail '+r.status);
     const t = await r.text();
-    if(t.length<200) throw new Error('proxy empty');
-    if(t.includes('Proxy blocked')||t.includes('Proxy error')) throw new Error(t.slice(0,200));
+    if(t.length<100) throw new Error('proxy empty len '+t.length);
+    if(t.includes('Proxy blocked')||t.includes('Proxy error')||t.startsWith('Proxy err')) throw new Error(t.slice(0,200));
     return t;
   }catch(e1){
-    console.log('proxy retry fallback for', url, e1.message);
-    // retry 2: direct homepage via allorigins als backup (voor testen lokaal)
-    // In productie: worker v18 moet gedeployed zijn!
+    clearTimeout(to);
+    console.log('proxy fail', url, e1.message);
     throw e1;
   }
 }
@@ -437,16 +438,36 @@ function renderArticles(){
 }
 function filterNews(){ renderArticles(); }
 async function refreshNews(){
-  const c=document.getElementById('news-container'); if(c) c.innerHTML='<div class="article">Bezig met laden...</div>';
+  const c=document.getElementById('news-container'); 
+  if(c) c.innerHTML='<div class="article">Bezig met laden... (9 bronnen)</div>';
   allArticles=[]; loadedSources=new Set(); updateHeaderCount();
-  BRONNEN.forEach(async (b)=>{
-    const arts=await loadOneSource(b);
-    allArticles = allArticles.filter(x=>x.id!==b.id).concat(arts);
-    loadedSources.add(b.id);
-    updateHeaderCount();
-    renderArticles();
+  
+  // FIX: forEach async blijft hangen, gebruik Promise.allSettled met timeout
+  const loadWithTimeout = async (b) => {
+    try {
+      const timeout = new Promise((_,rej)=> setTimeout(()=>rej(new Error('timeout '+b.id)), 12000));
+      const arts = await Promise.race([loadOneSource(b), timeout]);
+      return {b, arts};
+    } catch(e){
+      console.log('load timeout/fail', b.id, e.message);
+      // geef fallback zodat UI niet hangt
+      return {b, arts:[{title:b.name, link:BRON_URLS[b.id].homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - '+e.message.slice(0,80)+' [...]', source:b.name, id:b.id, isFallback:true}]};
+    }
+  };
+
+  const results = await Promise.allSettled(BRONNEN.map(b=>loadWithTimeout(b)));
+  results.forEach(r=>{
+    if(r.status==='fulfilled'){
+      const {b, arts}=r.value;
+      allArticles = allArticles.filter(x=>x.id!==b.id).concat(arts);
+      loadedSources.add(b.id);
+    }
   });
+  updateHeaderCount();
+  renderArticles();
+  console.log('refreshNews klaar,', allArticles.length, 'artikelen');
 }
+
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); closePanel(); setupFilterHeader();
   document.getElementById('search-input')?.addEventListener('input', filterNews);
