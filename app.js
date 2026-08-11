@@ -18,7 +18,7 @@ const BRON_URLS = {
   'Ommen City': {url:'https://ommencity.nl/feed/', homepage:'https://ommencity.nl/'},
   'OudOmmen': {url:'https://weblog.oudommen.nl/feed/', homepage:'https://weblog.oudommen.nl/'},
   'RondOmmen': {url:'https://www.rondommen.nl/feed/', homepage:'https://www.rondommen.nl/'},
-  'RTV Oost': {url:'https://www.oost.nl/nieuws/ommen', homepage:'https://www.oost.nl/nieuws/ommen', type:'oost'},
+  'RTV Oost': {url:'https://www.rtvoost.nl/nieuws/ommen', homepage:'https://www.rtvoost.nl/nieuws/ommen', type:'oost'},
   'RTV Vechtdal': {url:'https://rtvvechtdal.nl/feed/', homepage:'https://rtvvechtdal.nl/'},
   'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/', fallback:'https://www.vechtdalcentraal.nl/'},
 };
@@ -325,7 +325,7 @@ function parseOostFull_OLD(html){
     while((mm=re.exec(html))!==null && uniqMap.size<max){
       const href=mm[1]; let text=mm[2].replace(/<[^>]*>/g,'').trim();
       if(text.length<10 || text.length>200) continue;
-      const full=href.startsWith('http')?href:'https://www.oost.nl'+href;
+      const full=href.startsWith('http')?href:'https://www.rtvoost.nl'+href;
       if(!uniqMap.has(full)) uniqMap.set(full, text);
     }
   }
@@ -360,7 +360,27 @@ async function loadOneSource(b){
       arts = await enrichGemeenteWithDetail(overview);
     }
     else if(cfg.type==='oost'){ const html=await fetchViaWorker(cfg.url); arts=parseOostFull(html); }
-    else if(b.id==='RTV Vechtdal'){ const html=await fetchViaWorker(cfg.homepage || cfg.url); arts=parseRTVVechtdalFull(html); if(arts.length===0){ const xml=await fetchViaWorker(cfg.url); arts=parseRSSFull(xml,b.id); } }
+    else if(b.id==='RTV Vechtdal'){ 
+      try{
+        const html=await fetchViaWorker(cfg.homepage || 'https://www.rtvvechtdal.nl/');
+        arts=parseRTVVechtdalFull(html); 
+      }catch(e){}
+      if(arts.length===0){ 
+        try{ const xml=await fetchViaWorker(cfg.url); arts=parseRSSFull(xml,b.id); }catch(e){}
+      }
+    }
+    else if(b.id==='Vechtdal Centraal'){
+      try{
+        const xml=await fetchViaWorker(cfg.url);
+        arts=parseRSSFull(xml,b.id);
+      }catch(e){ console.log('vc feed fail', e.message); }
+      if(arts.length===0){
+        try{
+          const html=await fetchViaWorker(cfg.fallback || cfg.homepage);
+          arts=parseVechtdalCentraalFallback(html);
+        }catch(e){ console.log('vc html fail', e.message); }
+      }
+    }
     else {
       try{
         const xml=await fetchViaWorker(cfg.url);
