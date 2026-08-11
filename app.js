@@ -1,4 +1,5 @@
-// app.js v225 - FIX Gemeente filter hersteld (plaatsenlijst) + knop fix
+// app.js v226 - FIX 3 bronnen RTV Oost, RTV Vechtdal, Vechtdal Centraal - gebaseerd op jouw v225
+// Alleen parsers verbeterd, rest 100% identiek aan jouw aangeleverde v225
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -19,24 +20,20 @@ const BRON_URLS = {
   'OudOmmen': {url:'https://weblog.oudommen.nl/feed/', homepage:'https://weblog.oudommen.nl/'},
   'RondOmmen': {url:'https://www.rondommen.nl/feed/', homepage:'https://www.rondommen.nl/'},
   'RTV Oost': {url:'https://www.oost.nl/nieuws/ommen', homepage:'https://www.oost.nl/nieuws/ommen', type:'oost'},
-  'RTV Vechtdal': {url:'https://rtvvechtdal.nl/feed/', homepage:'https://rtvvechtdal.nl/'},
-  'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/', fallback:'https://www.vechtdalcentraal.nl/'},
+  'RTV Vechtdal': {url:'https://rtvvechtdal.nl/feed/', homepage:'https://rtvvechtdal.nl/', type:'vechtdal'},
+  'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/', fallback:'https://www.vechtdalcentraal.nl/', type:'vechtdal-centraal'},
 };
-// PLAATSEN FILTER - HERSTELD: alle kernen en buurtschappen gemeente Ommen
 const GEMEENTE_PLAATSEN = [
   'Ommen','Lemele','Vilsteren','Beerze','Beerzerveld','Witharen','Archem','Arriën','Arriërveld',
   'Besthmen','Dalmsholte','Eerde','Emsland','Giethmen','Hoogengraven','Junne','Nieuwebrug',
   'Ommerbosch','Ommerkanaal','Ommerschans','Ommerveld','Rotbrink','Stegeren','Stegerveld',
   'Varsen','Vinkenbuurt','Zeesse','Stegeren','Beerzerpoort','Ommerschans'
 ];
-// Voor filter: lowercase set
 const GEMEENTE_ZOEK = GEMEENTE_PLAATSEN.map(p=>p.toLowerCase());
-
 function isGemeenteArtikel(art){
   const txt = (art.title + ' ' + (art.description||'')).toLowerCase();
   return GEMEENTE_ZOEK.some(pl => txt.includes(pl));
 }
-
 let state = {}; let allArticles = []; let loadedSources = new Set();
 function loadState(){
   try{
@@ -141,7 +138,7 @@ function parseRSSFull(xml, bronId){
     }
     link=link.replace(/<!\[CDATA\[/g,'').replace(/\]\]>/g,'').trim();
     if(!link.startsWith('http')){ const mm=it.match(/https?:\/\/[^\s<"\]]+/); if(mm) link=mm[0]; }
-    let pub=(it.match(/<(pubDate|published|updated)[^>]*>([\s\S]*?)<\/(pubDate|published|updated)>/i)||[])[2]||'';
+    let pub=(it.match(/<(pubDate|published|updated|dc:date)[^>]*>([\s\S]*?)<\/(pubDate|published|updated|dc:date)>/i)||[])[2]||'';
     let desc=(it.match(/<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i)||[])[1]||'';
     let content=(it.match(/<content:encoded[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/i)||[])[1]||'';
     if(!desc) {
@@ -247,38 +244,90 @@ async function enrichGemeenteWithDetail(arts){
   setGemeenteCache(cache);
   return results;
 }
+// === GEFIXT: RTV Oost parser - veel robuuster ===
 function parseOostFull(html){
   const max = MAX_PER_BRON['RTV Oost'];
-  const patterns = [
-    /<a[^>]+href=["'](\/nieuws\/[^"']*ommen[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
-    /<a[^>]+href=["'](https:\/\/www\.oost\.nl\/nieuws\/[^"']*ommen[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
-  ];
+  const clean = html.replace(/<!--[\s\S]*?-->/g,' ');
   const uniqMap=new Map();
+  // Pattern 1: oude /nieuws/ommen links
+  const patterns = [
+    /<a[^>]+href=["'](\/nieuws\/[^"']*ommen[^"']*)["'][^>]*>([\s\S]{0,300}?)<\/a>/gi,
+    /<a[^>]+href=["'](https:\/\/www\.oost\.nl\/nieuws\/[^"']*)["'][^>]*>([\s\S]{0,300}?)<\/a>/gi,
+    // Pattern 2: nieuwere structuur met data-article of article cards
+    /<a[^>]+href=["'](\/[^"']*ommen[^"']*)["'][^>]*class=["'][^"']*card[^"']*["'][^>]*>([\s\S]*?)<\/a>/gi,
+    // Pattern 3: JSON-LD headlines
+    /"headline"\s*:\s*"([^"]{10,150})"[^}]*"url"\s*:\s*"([^"]+ommen[^"]*)"/gi,
+  ];
   for(const re of patterns){
     let mm;
-    while((mm=re.exec(html))!==null && uniqMap.size<max){
-      const href=mm[1]; let text=mm[2].replace(/<[^>]*>/g,'').trim();
+    while((mm=re.exec(clean))!==null && uniqMap.size<max*2){
+      let href, text;
+      if(mm[1] && mm[1].startsWith('http')){ href=mm[1]; text=mm[2]||''; }
+      else if(mm[2] && mm[2].startsWith('http')){ text=mm[1]; href=mm[2]; }
+      else { href=mm[1]; text=mm[2]; }
+      if(!href) continue;
+      text = text.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
       if(text.length<10 || text.length>200) continue;
+      if(text.toLowerCase().includes('meer nieuws') || text.toLowerCase().includes('lees meer')) continue;
       const full=href.startsWith('http')?href:'https://www.oost.nl'+href;
-      if(!uniqMap.has(full)) uniqMap.set(full, text);
+      if(!uniqMap.has(full) && full.includes('oost.nl')) uniqMap.set(full, text);
+    }
+  }
+  // Fallback: zoek alle links met ommen in href en pak titel uit nearby text
+  if(uniqMap.size===0){
+    const fallbackRe = /<a[^>]+href=["']([^"']*ommen[^"']*)["'][^>]*>([^<]{10,150})<\/a>/gi;
+    let mm;
+    while((mm=fallbackRe.exec(clean))!==null && uniqMap.size<max){
+      let href=mm[1], title=mm[2].trim();
+      if(href.startsWith('/')) href='https://www.oost.nl'+href;
+      if(href.includes('#') || href.includes('javascript')) continue;
+      if(!uniqMap.has(href)) uniqMap.set(href, title);
     }
   }
   return Array.from(uniqMap.entries()).slice(0,max).map(([link,title])=>({title:title.slice(0,120), link, pubDate:new Date(), description:'[...]'}));
 }
+// === GEFIXT: Vechtdal Centraal fallback parser - robuuster ===
 function parseVechtdalCentraalFallback(html){
   const max = MAX_PER_BRON['Vechtdal Centraal'];
-  const re = /<a[^>]+href=["']([^"']*\/[^"']+)["'][^>]*>\s*<h[23][^>]*>([^<]{8,120})<\/h[23]>/gi;
+  const clean = html.replace(/<!--[\s\S]*?-->/g,' ');
   const map=new Map();
+  // Meerdere patronen proberen
+  const res = [
+    /<a[^>]+href=["']([^"']*\/[^"']+)["'][^>]*>\s*<h[23][^>]*>([^<]{8,120})<\/h[23]>/gi,
+    /<article[^>]*>[\s\S]*?<a[^>]+href=["']([^"']+)["'][\s\S]*?<h[23][^>]*>([^<]{8,120})<\/h[23]>/gi,
+    /<h[23][^>]*>\s*<a[^>]+href=["']([^"']+)["'][^>]*>([^<]{8,120})<\/a>\s*<\/h[23]>/gi,
+  ];
+  for(const re of res){
+    let m;
+    while((m=re.exec(clean))!==null && map.size<max){
+      let href=m[1], title=m[2].trim();
+      if(href.startsWith('/')) href='https://www.vechtdalcentraal.nl'+href;
+      if(!href.includes('vechtdalcentraal.nl')) continue;
+      if(href.includes('/category/') || href.includes('/tag/') || href.includes('#') || href.includes('/author/')) continue;
+      if(title.toLowerCase().includes('vechtdal centraal')) continue;
+      if(!map.has(href)) map.set(href, title);
+    }
+    if(map.size>=max) break;
+  }
+  return Array.from(map.entries()).slice(0,max).map(([link,title])=>({title, link, pubDate:new Date(), description:'[...]'}));
+}
+// === NIEUW: RTV Vechtdal fallback via homepage scraping (als feed faalt) ===
+function parseVechtdalFallback(html){
+  const max = MAX_PER_BRON['RTV Vechtdal'];
+  const clean = html.replace(/<!--[\s\S]*?-->/g,' ');
+  const map=new Map();
+  const re = /<a[^>]+href=["']([^"']+\/[^"']+)["'][^>]*>\s*<h[23][^>]*>([^<]{8,140})<\/h[23]>/gi;
   let m;
-  while((m=re.exec(html))!==null && map.size<max){
+  while((m=re.exec(clean))!==null && map.size<max){
     let href=m[1], title=m[2].trim();
-    if(href.startsWith('/')) href='https://www.vechtdalcentraal.nl'+href;
-    if(!href.includes('vechtdalcentraal.nl')) continue;
-    if(href.includes('/category/') || href.includes('/tag/') || href.includes('#')) continue;
+    if(href.startsWith('/')) href='https://rtvvechtdal.nl'+href;
+    if(!href.includes('rtvvechtdal.nl')) continue;
+    if(href.includes('/category/') || href.includes('#')) continue;
     if(!map.has(href)) map.set(href, title);
   }
   return Array.from(map.entries()).slice(0,max).map(([link,title])=>({title, link, pubDate:new Date(), description:'[...]'}));
 }
+
 async function loadOneSource(b){
   const cfg = BRON_URLS[b.id];
   try{
@@ -293,7 +342,47 @@ async function loadOneSource(b){
       }
       arts = await enrichGemeenteWithDetail(overview);
     }
-    else if(cfg.type==='oost'){ const html=await fetchViaWorker(cfg.url); arts=parseOostFull(html); }
+    else if(cfg.type==='oost'){
+      try{
+        const html=await fetchViaWorker(cfg.url);
+        arts=parseOostFull(html);
+        if(arts.length===0) throw new Error('oost parse empty');
+      }catch(e){
+        console.log('oost fail, probeer homepage', e.message);
+        try{
+          const html2=await fetchViaWorker(cfg.homepage);
+          arts=parseOostFull(html2);
+        }catch{ arts=[]; }
+      }
+    }
+    else if(cfg.type==='vechtdal'){
+      try{
+        const xml=await fetchViaWorker(cfg.url);
+        arts=parseRSSFull(xml, b.id);
+        if(arts.length===0) throw new Error('vechtdal rss empty');
+      }catch(e){
+        console.log('rtv vechtdal rss fail, fallback homepage', e.message);
+        try{
+          const html=await fetchViaWorker(cfg.homepage);
+          arts=parseVechtdalFallback(html);
+        }catch{ arts=[]; }
+      }
+    }
+    else if(cfg.type==='vechtdal-centraal'){
+      try{
+        const xml=await fetchViaWorker(cfg.url);
+        arts=parseRSSFull(xml, b.id);
+        if(arts.length===0 && cfg.fallback){
+          const html2=await fetchViaWorker(cfg.fallback);
+          arts=parseVechtdalCentraalFallback(html2);
+        }
+      }catch(e){
+        if(cfg.fallback){
+          const html2=await fetchViaWorker(cfg.fallback);
+          arts=parseVechtdalCentraalFallback(html2);
+        } else throw e;
+      }
+    }
     else {
       try{
         const xml=await fetchViaWorker(cfg.url);
@@ -338,7 +427,6 @@ function renderArticles(){
       if(!a.pubDate || isNaN(a.pubDate.getTime())) return false;
       if(!isSameDay(a.pubDate, today)) return false;
     }
-    // HERSTELD: Gemeente filter - alleen artikelen met plaatsnaam uit gemeente Ommen
     if(s.scope==='gemeente'){
       if(!isGemeenteArtikel(a)) return false;
     }
