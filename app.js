@@ -1,14 +1,14 @@
-// app.js v222 - FIX VANDAAG filter + datum/tijd via detailpagina
+// app.js v223 - FIX push overbelasting + VANDAAG filter + cache gemeente tijden
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
-  {id:'Natuurlijk Ommen', name:'Natuurlijk Ommen', sub:'evenementen & toerisme'},
   {id:'Ommen City', name:'Ommen City', sub:'lokaal nieuws Ommen'},
   {id:'OudOmmen', name:'OudOmmen', sub:'artikelen over historie'},
   {id:'RondOmmen', name:'RondOmmen', sub:'lokaal nieuws'},
   {id:'RTV Oost', name:'RTV Oost', sub:'regionaal Overijssel'},
   {id:'RTV Vechtdal', name:'RTV Vechtdal', sub:'lokaal Vechtdal'},
   {id:'Vechtdal Centraal', name:'Vechtdal Centraal', sub:'112 & dorpsnieuws'},
+  {id:'Natuurlijk Ommen', name:'Natuurlijk Ommen', sub:'evenementen & toerisme'},
 ];
 const MAX_PER_BRON = {'De Stentor':25,'RondOmmen':20,'Ommen City':10,'OudOmmen':10,'Vechtdal Centraal':10,'Natuurlijk Ommen':10,'Gemeente Ommen':10,'RTV Oost':10,'RTV Vechtdal':10};
 const BRON_URLS = {
@@ -30,7 +30,11 @@ function loadState(){
     else { BRONNEN.forEach(b=> state[b.id] = {aan:true, vandaag:false, scope:'gemeente'}); }
   }catch(e){ BRONNEN.forEach(b=> state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); }
 }
-function saveState(){ localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state)); updateHiddenCompat(); updateHeaderCount(); }
+function saveState(){
+  localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
+  updateHiddenCompat(); updateHeaderCount();
+  if(window.updatePushBell) window.updatePushBell();
+}
 function updateHiddenCompat(){
   const cont = document.getElementById('compat-sources'); if(!cont) return;
   cont.innerHTML='';
@@ -99,14 +103,10 @@ function setupFilterHeader(){
     if(p.classList.contains('open')) closePanel(); else openPanel();
   });
 }
-function moveOldBell(){
-  const slot = document.getElementById('bell-slot'); if(!slot) return;
-  const btn = document.getElementById('push-bell-btn');
-  if(btn && !slot.contains(btn)) slot.appendChild(btn);
-}
 const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
 async function fetchViaWorker(url){
   const r = await fetch(`${WORKER}/proxy?url=${encodeURIComponent(url)}`, {cache:'no-store'});
+  if(!r.ok) throw new Error('proxy fail '+r.status);
   const t = await r.text();
   return t;
 }
@@ -150,11 +150,6 @@ function extractGemeenteDate(html){
     const d=new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
   }
-  m = html.match(/"date(?:Published|Modified)"\s*:\s*"([^"]+)"/i);
-  if(m){
-    const d=new Date(m[1]);
-    if(!isNaN(d.getTime())) return d;
-  }
   return null;
 }
 function extractDescAfter(pos, clean){
@@ -187,38 +182,57 @@ function parseGemeenteOverview(html){
     if(seen.has(full)) continue;
     seen.add(full);
     const desc = extractDescAfter(m.index, clean);
-    let tempDate = extractGemeenteDate(clean.substring(Math.max(0,m.index-500), m.index+2500)) || new Date();
+    const block = clean.substring(Math.max(0,m.index-500), m.index+2500);
+    let tempDate = extractGemeenteDate(block);
     results.push({title:title.slice(0,130), link:full, pubDate:tempDate, description:desc});
-  }
-  if(results.length < max){
-    const re2 = /<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>\s*<h[23][^>]*>([\s\S]*?)<\/h[23]>/gi;
-    while((m=re2.exec(clean))!==null && results.length<max){
-      let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim();
-      if(title.length<8) continue;
-      const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
-      if(seen.has(full)) continue;
-      seen.add(full);
-      const desc = extractDescAfter(m.index, clean);
-      let tempDate = extractGemeenteDate(clean.substring(Math.max(0,m.index-500), m.index+2500)) || new Date();
-      results.push({title:title.slice(0,130), link:full, pubDate:tempDate, description:desc});
-    }
   }
   return results.slice(0,max);
 }
+function getGemeenteCache(){
+  try{ return JSON.parse(localStorage.getItem('ommen_gemeente_cache')||'{}'); }catch{ return {}; }
+}
+function setGemeenteCache(cache){
+  localStorage.setItem('ommen_gemeente_cache', JSON.stringify(cache));
+}
 async function enrichGemeenteWithDetail(arts){
-  const promises = arts.map(async (a)=>{
+  const cache=getGemeenteCache();
+  const now=Date.now();
+  const CACHE_TTL=1000*60*60*2; // 2 uur cache
+  const results=[];
+  for(let a of arts){
+    const cached=cache[a.link];
+    if(cached && (now - cached.ts) < CACHE_TTL && cached.iso){
+      const d=new Date(cached.iso);
+      if(!isNaN(d.getTime())){ a.pubDate=d; results.push(a); continue; }
+    }
+    // als overview al datum met tijd had, gebruik die en cache hem
+    if(a.pubDate && !isNaN(a.pubDate.getTime()) && a.pubDate.getHours()!==0){
+      cache[a.link]={iso:a.pubDate.toISOString(), ts:now};
+      results.push(a);
+      continue;
+    }
+    // alleen als echt geen tijd, dan 1 detail fetch
     try{
+      await new Promise(r=>setTimeout(r, 400)); // rustig aan voor worker
       const html = await fetchViaWorker(a.link);
       const realDate = extractGemeenteDate(html);
-      if(realDate) a.pubDate = realDate;
-    }catch(e){}
-    return a;
-  });
-  const results=[];
-  for(let i=0;i<promises.length;i+=3){
-    const chunk = await Promise.all(promises.slice(i,i+3));
-    results.push(...chunk);
+      if(realDate){
+        a.pubDate=realDate;
+        cache[a.link]={iso:realDate.toISOString(), ts:now};
+      } else if(!a.pubDate || isNaN(a.pubDate.getTime())){
+        a.pubDate=new Date(); // fallback nu
+      }
+    }catch(e){
+      if(!a.pubDate || isNaN(a.pubDate.getTime())) a.pubDate=new Date();
+    }
+    results.push(a);
+    // tussendoor renderen zodat gebruiker al wat ziet
+    if(results.length % 2 ===0){
+      allArticles = allArticles.filter(x=>x.id!=='Gemeente Ommen').concat(results.map(r=>({...r, source:'Gemeente Ommen', id:'Gemeente Ommen', isFallback:false})));
+      renderArticles();
+    }
   }
+  setGemeenteCache(cache);
   return results;
 }
 function parseOostFull(html){
@@ -226,7 +240,6 @@ function parseOostFull(html){
   const patterns = [
     /<a[^>]+href=["'](\/nieuws\/[^"']*ommen[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
     /<a[^>]+href=["'](https:\/\/www\.oost\.nl\/nieuws\/[^"']*ommen[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
-    /<a[^>]+href=["'](\/nieuws\/ommen\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi
   ];
   const uniqMap=new Map();
   for(const re of patterns){
@@ -236,15 +249,6 @@ function parseOostFull(html){
       if(text.length<10 || text.length>200) continue;
       const full=href.startsWith('http')?href:'https://www.oost.nl'+href;
       if(!uniqMap.has(full)) uniqMap.set(full, text);
-    }
-  }
-  if(uniqMap.size===0){
-    const fallback = [...html.matchAll(/<a[^>]+href=["']([^"']*\/nieuws\/[^"']+)["'][^>]*>([^<]{10,120})<\/a>/gi)];
-    for(const f of fallback){
-      if(uniqMap.size>=max) break;
-      const href=f[1], txt=f[2].trim();
-      const full=href.startsWith('http')?href:'https://www.oost.nl'+href;
-      if(!uniqMap.has(full)) uniqMap.set(full, txt);
     }
   }
   return Array.from(uniqMap.entries()).slice(0,max).map(([link,title])=>({title:title.slice(0,120), link, pubDate:new Date(), description:'[...]'}));
@@ -270,6 +274,12 @@ async function loadOneSource(b){
     if(cfg.type==='gemeente'){
       const html=await fetchViaWorker(cfg.url);
       let overview = parseGemeenteOverview(html);
+      // toon meteen overview (met datum uit overzicht), verrijk daarna met echte tijden
+      if(overview.length){
+        const tempArts=overview.map(a=>({...a, source:b.name, id:b.id, isFallback:false, pubDate:a.pubDate||new Date()}));
+        allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts);
+        loadedSources.add(b.id); updateHeaderCount(); renderArticles();
+      }
       arts = await enrichGemeenteWithDetail(overview);
     }
     else if(cfg.type==='oost'){ const html=await fetchViaWorker(cfg.url); arts=parseOostFull(html); }
@@ -291,11 +301,12 @@ async function loadOneSource(b){
     if(arts.length===0) throw new Error('empty');
     return arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
   }catch(e){
+    console.log('load fail', b.id, e.message);
     return [{title:b.name, link:cfg.homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - homepage [...]', source:b.name, id:b.id, isFallback:true}];
   }
 }
 function isSameDay(d1,d2){
-  if(!d1 || !d2) return false;
+  if(!d1 || !d2 || isNaN(d1.getTime()) || isNaN(d2.getTime())) return false;
   return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate();
 }
 function formatDate(d){
@@ -311,12 +322,11 @@ function renderArticles(){
   let filtered = allArticles.filter(a=>{
     const s=state[a.id];
     if(!s || !s.aan) return false;
-    // VANDAAG filter per bron
     if(s.vandaag){
       if(a.isFallback) return false;
+      if(!a.pubDate || isNaN(a.pubDate.getTime())) return false;
       if(!isSameDay(a.pubDate, today)) return false;
     }
-    // GEMEENTE vs REGIO - voor nu alleen visual, maar je kan hier later extra filter doen
     return true;
   });
   if(search) filtered = filtered.filter(a=> (a.title+' '+a.description+' '+a.source).toLowerCase().includes(search));
@@ -353,7 +363,6 @@ async function refreshNews(){
 }
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); closePanel(); setupFilterHeader();
-  moveOldBell(); setTimeout(moveOldBell,300); setTimeout(moveOldBell,1000);
   document.getElementById('search-input')?.addEventListener('input', filterNews);
   setTimeout(()=>refreshNews(), 200);
 });
