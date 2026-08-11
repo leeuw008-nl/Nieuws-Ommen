@@ -1,4 +1,4 @@
-// app.js v224 - ALLEEN FIX Gemeente<->Regio knop - verder identiek aan v223
+// app.js v225 - FIX Gemeente filter hersteld (plaatsenlijst) + knop fix
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -22,6 +22,21 @@ const BRON_URLS = {
   'RTV Vechtdal': {url:'https://rtvvechtdal.nl/feed/', homepage:'https://rtvvechtdal.nl/'},
   'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/', fallback:'https://www.vechtdalcentraal.nl/'},
 };
+// PLAATSEN FILTER - HERSTELD: alle kernen en buurtschappen gemeente Ommen
+const GEMEENTE_PLAATSEN = [
+  'Ommen','Lemele','Vilsteren','Beerze','Beerzerveld','Witharen','Archem','Arriën','Arriërveld',
+  'Besthmen','Dalmsholte','Eerde','Emsland','Giethmen','Hoogengraven','Junne','Nieuwebrug',
+  'Ommerbosch','Ommerkanaal','Ommerschans','Ommerveld','Rotbrink','Stegeren','Stegerveld',
+  'Varsen','Vinkenbuurt','Zeesse','Stegeren','Beerzerpoort','Ommerschans'
+];
+// Voor filter: lowercase set
+const GEMEENTE_ZOEK = GEMEENTE_PLAATSEN.map(p=>p.toLowerCase());
+
+function isGemeenteArtikel(art){
+  const txt = (art.title + ' ' + (art.description||'')).toLowerCase();
+  return GEMEENTE_ZOEK.some(pl => txt.includes(pl));
+}
+
 let state = {}; let allArticles = []; let loadedSources = new Set();
 function loadState(){
   try{
@@ -52,7 +67,6 @@ function renderFilters(){
     const row = document.createElement('div');
     row.className='source-row'+(s.aan?'':' off');
     const scopeIsGemeente = s.scope==='gemeente';
-    // FIX: scope toggle - checked class en background nu correct
     row.innerHTML = `<div class="source-meta"><div class="source-name">${b.name}</div><div class="source-sub">${b.sub}</div></div>
       <div class="toggles">
         <div class="toggle-col"><label class="mini-switch vandaag ${s.vandaag?'checked':''}"><input type="checkbox" ${s.vandaag?'checked':''} data-type="vandaag" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${s.vandaag?'VANDAAG':'MEER'}</span></div>
@@ -324,15 +338,23 @@ function renderArticles(){
       if(!a.pubDate || isNaN(a.pubDate.getTime())) return false;
       if(!isSameDay(a.pubDate, today)) return false;
     }
+    // HERSTELD: Gemeente filter - alleen artikelen met plaatsnaam uit gemeente Ommen
+    if(s.scope==='gemeente'){
+      if(!isGemeenteArtikel(a)) return false;
+    }
     return true;
   });
   if(search) filtered = filtered.filter(a=> (a.title+' '+a.description+' '+a.source).toLowerCase().includes(search));
   filtered = filtered.sort((a,b)=>b.pubDate - a.pubDate);
   const realCount = filtered.filter(a=>!a.isFallback).length;
   const vandaagActive = Object.values(state).some(s=>s.aan && s.vandaag);
-  const countHtml = `<div class="articles-count">${realCount} artikelen${vandaagActive?' (alleen vandaag)':''} - ${loadedSources.size} v/d ${BRONNEN.length} bronnen geladen</div>`;
+  const gemeenteActive = Object.values(state).some(s=>s.aan && s.scope==='gemeente');
+  let filterLabel = '';
+  if(vandaagActive) filterLabel += ' (alleen vandaag)';
+  if(gemeenteActive) filterLabel += vandaagActive ? ' + gemeente' : ' (alleen gemeente Ommen)';
+  const countHtml = `<div class="articles-count">${realCount} artikelen${filterLabel} - ${loadedSources.size} v/d ${BRONNEN.length} bronnen geladen</div>`;
   if(filtered.length===0){
-    if(vandaagActive) container.innerHTML = countHtml + '<div class="article" style="color:#666;padding:20px;text-align:center;">Geen artikelen van vandaag gevonden.<br>Zet op MEER om oudere artikelen te zien.</div>';
+    if(vandaagActive || gemeenteActive) container.innerHTML = countHtml + '<div class="article" style="color:#666;padding:20px;text-align:center;">Geen artikelen gevonden met dit filter.<br>Zet op REGIO of MEER om meer te zien.</div>';
     else container.innerHTML = countHtml + '<div class="article">Geen artikelen</div>';
     return;
   }
