@@ -216,7 +216,7 @@ function setupFilterHeader(){
   });
 }
 const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
-async async function fetchViaWorker(url){
+async function fetchViaWorker(url){
   const controller = new AbortController();
   const to = setTimeout(()=>controller.abort(), 9000);
   try{
