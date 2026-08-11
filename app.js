@@ -1,4 +1,4 @@
-// app.js v223 - FIX push overbelasting + VANDAAG filter + cache gemeente tijden
+// app.js v224 - ALLEEN FIX Gemeente<->Regio knop - verder identiek aan v223
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -52,10 +52,11 @@ function renderFilters(){
     const row = document.createElement('div');
     row.className='source-row'+(s.aan?'':' off');
     const scopeIsGemeente = s.scope==='gemeente';
+    // FIX: scope toggle - checked class en background nu correct
     row.innerHTML = `<div class="source-meta"><div class="source-name">${b.name}</div><div class="source-sub">${b.sub}</div></div>
       <div class="toggles">
         <div class="toggle-col"><label class="mini-switch vandaag ${s.vandaag?'checked':''}"><input type="checkbox" ${s.vandaag?'checked':''} data-type="vandaag" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${s.vandaag?'VANDAAG':'MEER'}</span></div>
-        <div class="toggle-col"><label class="mini-switch ${scopeIsGemeente?'checked scope-gemeente':'checked scope-regio'}" style="background:${scopeIsGemeente?'#0b5bd3':'#7c3aed'}"><input type="checkbox" ${scopeIsGemeente?'checked':''} data-type="scope" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${scopeIsGemeente?'GEMEENTE':'REGIO'}</span></div>
+        <div class="toggle-col"><label class="mini-switch ${scopeIsGemeente?'checked':''} ${scopeIsGemeente?'scope-gemeente':'scope-regio'}" style="background:${scopeIsGemeente?'#0b5bd3':'#7c3aed'}"><input type="checkbox" ${scopeIsGemeente?'checked':''} data-type="scope" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${scopeIsGemeente?'GEMEENTE':'REGIO'}</span></div>
         <div class="toggle-col"><label class="mini-switch aan ${s.aan?'checked':''}"><input type="checkbox" ${s.aan?'checked':''} data-type="aan" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${s.aan?'AAN':'UIT'}</span></div>
       </div>`;
     list.appendChild(row);
@@ -197,7 +198,7 @@ function setGemeenteCache(cache){
 async function enrichGemeenteWithDetail(arts){
   const cache=getGemeenteCache();
   const now=Date.now();
-  const CACHE_TTL=1000*60*60*2; // 2 uur cache
+  const CACHE_TTL=1000*60*60*2;
   const results=[];
   for(let a of arts){
     const cached=cache[a.link];
@@ -205,28 +206,25 @@ async function enrichGemeenteWithDetail(arts){
       const d=new Date(cached.iso);
       if(!isNaN(d.getTime())){ a.pubDate=d; results.push(a); continue; }
     }
-    // als overview al datum met tijd had, gebruik die en cache hem
     if(a.pubDate && !isNaN(a.pubDate.getTime()) && a.pubDate.getHours()!==0){
       cache[a.link]={iso:a.pubDate.toISOString(), ts:now};
       results.push(a);
       continue;
     }
-    // alleen als echt geen tijd, dan 1 detail fetch
     try{
-      await new Promise(r=>setTimeout(r, 400)); // rustig aan voor worker
+      await new Promise(r=>setTimeout(r, 400));
       const html = await fetchViaWorker(a.link);
       const realDate = extractGemeenteDate(html);
       if(realDate){
         a.pubDate=realDate;
         cache[a.link]={iso:realDate.toISOString(), ts:now};
       } else if(!a.pubDate || isNaN(a.pubDate.getTime())){
-        a.pubDate=new Date(); // fallback nu
+        a.pubDate=new Date();
       }
     }catch(e){
       if(!a.pubDate || isNaN(a.pubDate.getTime())) a.pubDate=new Date();
     }
     results.push(a);
-    // tussendoor renderen zodat gebruiker al wat ziet
     if(results.length % 2 ===0){
       allArticles = allArticles.filter(x=>x.id!=='Gemeente Ommen').concat(results.map(r=>({...r, source:'Gemeente Ommen', id:'Gemeente Ommen', isFallback:false})));
       renderArticles();
@@ -274,7 +272,6 @@ async function loadOneSource(b){
     if(cfg.type==='gemeente'){
       const html=await fetchViaWorker(cfg.url);
       let overview = parseGemeenteOverview(html);
-      // toon meteen overview (met datum uit overzicht), verrijk daarna met echte tijden
       if(overview.length){
         const tempArts=overview.map(a=>({...a, source:b.name, id:b.id, isFallback:false, pubDate:a.pubDate||new Date()}));
         allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts);
