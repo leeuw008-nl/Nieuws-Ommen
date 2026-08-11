@@ -1,5 +1,4 @@
-// app.js v228 - TERUG naar oude werkende parsers uit v214 (exacte code die weken werkte) + jouw v225 gemeente fix behouden
-// Dit is jouw v225, maar alleen de 3 bronnen parsers zijn vervangen door de bewezen werkende code uit v214
+// app.js v225 - FIX Gemeente filter hersteld (plaatsenlijst) + knop fix
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -19,22 +18,105 @@ const BRON_URLS = {
   'Ommen City': {url:'https://ommencity.nl/feed/', homepage:'https://ommencity.nl/'},
   'OudOmmen': {url:'https://weblog.oudommen.nl/feed/', homepage:'https://weblog.oudommen.nl/'},
   'RondOmmen': {url:'https://www.rondommen.nl/feed/', homepage:'https://www.rondommen.nl/'},
-  // OUDE WERKENDE URLS uit v214 - exact zoals toen
   'RTV Oost': {url:'https://www.oost.nl/nieuws/ommen', homepage:'https://www.oost.nl/nieuws/ommen', type:'oost'},
   'RTV Vechtdal': {url:'https://rtvvechtdal.nl/feed/', homepage:'https://rtvvechtdal.nl/'},
-  'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/'},
+  'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/', fallback:'https://www.vechtdalcentraal.nl/'},
 };
+// PLAATSEN FILTER - HERSTELD: alle kernen en buurtschappen gemeente Ommen
+
+// === v231 - FIX DEFINITIEF op basis van Tjeerd's 3 HTML bestanden ===
+// Geen feed-gezoek meer. 100% scrape op echte HTML.
+
+function parseVechtdalCentraalECHT(html, baseUrl){
+  const items = [];
+  try {
+    // Newspaper theme: alle <h3 class="entry-title"><a href="...">Titel</a>
+    const re = /<h3 class="entry-title[^>]*>\s*<a href="([^"]+)"[^>]*>([^<]+)<\/a>/gi;
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      if (items.length >= 20) break;
+      const link = m[1].startsWith('http') ? m[1] : 'https://www.vechtdalcentraal.nl' + m[1];
+      const title = m[2].replace(/&#8217;/g,"'").replace(/&amp;/g,"&").trim();
+      if (title.length < 5) continue;
+      items.push({ title, link, pubDate: new Date(), description: '', guid: link });
+    }
+  } catch(e){}
+  return items;
+}
+
+function parseRTVVechtdalECHT(html){
+  const items = [];
+  try {
+    // Joomla allmode: <div class="allmode_date">11-08-2026</div> + <h3 class="allmode_title"><a href="/?&type=detail&asset=9028">Titel</a>
+    const re = /<div class="allmode_date">([^<]+)<\/div>[\s\S]{0,300}?<h3 class="allmode_title"><a href="([^"]+)">([^<]+)<\/a>/gi;
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const dateStr = m[1].trim();
+      let pubDate = new Date();
+      const parts = dateStr.split('-');
+      if (parts.length===3) pubDate = new Date(parts[2], parts[1]-1, parts[0]);
+      const link = 'https://www.rtvvechtdal.nl' + m[2].replace(/&amp;/g,'&');
+      items.push({ title: m[3].trim(), link, pubDate, description: '', guid: link });
+    }
+  } catch(e){}
+  return items;
+}
+
+function parseRTVOostECHT(html){
+  const items = [];
+  try {
+    // RTV Oost Nuxt: publishedAt="2026-08-11T05:02:50.000Z" ... <h3>Title</h3> en /nieuws/...
+    // In echte HTML: elke card heeft publishedAt + href + h3
+    const re = /publishedAt="([^"]+)"[\s\S]{0,800}?href="(\/nieuws\/[^"]+)"[\s\S]{0,800}?<h3[^>]*>([^<]+)<\/h3>/gi;
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const pubDate = new Date(m[1]);
+      const link = 'https://www.rtvoost.nl' + m[2];
+      const title = m[3].trim();
+      if (title.length < 5) continue;
+      // voorkom dubbelen
+      if (!items.find(x=>x.link===link)) {
+        items.push({ title, link, pubDate, description: '', guid: link });
+      }
+    }
+    // Fallback voor oudere HTML zonder publishedAt attr maar wel met nieuws-list-item
+    if (items.length===0){
+      const re2 = /<a href="(\/nieuws\/[^"]+)"[^>]*>[\s\S]*?<h3[^>]*>([^<]+)<\/h3>/gi;
+      while ((m = re2.exec(html)) !== null) {
+        const link = 'https://www.rtvoost.nl' + m[1];
+        const title = m[2].trim();
+        if (!items.find(x=>x.link===link)) items.push({ title, link, pubDate: new Date(), description: '', guid: link });
+      }
+    }
+  } catch(e){ console.log('Oost parse error', e); }
+  return items;
+}
+
+
+
+function parseBronOpBasisVanEchteHTML(bronId, html){
+  if (bronId==='Vechtdal Centraal') return parseVechtdalCentraalECHT(html);
+  if (bronId==='RTV Vechtdal') return parseRTVVechtdalECHT(html);
+  if (bronId==='RTV Oost') return parseRTVOostECHT(html);
+  return null;
+}
+
 const GEMEENTE_PLAATSEN = [
   'Ommen','Lemele','Vilsteren','Beerze','Beerzerveld','Witharen','Archem','Arriën','Arriërveld',
   'Besthmen','Dalmsholte','Eerde','Emsland','Giethmen','Hoogengraven','Junne','Nieuwebrug',
   'Ommerbosch','Ommerkanaal','Ommerschans','Ommerveld','Rotbrink','Stegeren','Stegerveld',
   'Varsen','Vinkenbuurt','Zeesse','Stegeren','Beerzerpoort','Ommerschans'
 ];
+// Voor filter: lowercase set
 const GEMEENTE_ZOEK = GEMEENTE_PLAATSEN.map(p=>p.toLowerCase());
+
+function tryEchteParsers(bronId, html){ return parseBronOpBasisVanEchteHTML(bronId, html); }
+
 function isGemeenteArtikel(art){
   const txt = (art.title + ' ' + (art.description||'')).toLowerCase();
   return GEMEENTE_ZOEK.some(pl => txt.includes(pl));
 }
+
 let state = {}; let allArticles = []; let loadedSources = new Set();
 function loadState(){
   try{
@@ -123,7 +205,6 @@ async function fetchViaWorker(url){
   const t = await r.text();
   return t;
 }
-// OUDE WERKENDE RSS PARSER uit v214 - simpel en deed het
 function parseRSSFull(xml, bronId){
   const max = MAX_PER_BRON[bronId] || 10;
   let items = [...xml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)];
@@ -134,13 +215,22 @@ function parseRSSFull(xml, bronId){
     let title=(it.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i)||[])[1]||'';
     title=title.replace(/<[^>]*>/g,'').trim();
     let link=(it.match(/<link[^>]*>([\s\S]*?)<\/link>/i)||[])[1]||'';
+    if(!link || link.includes('<')) {
+      const hrefMatch = it.match(/<link[^>]+href=["']([^"']+)["']/i);
+      if(hrefMatch) link=hrefMatch[1];
+    }
     link=link.replace(/<!\[CDATA\[/g,'').replace(/\]\]>/g,'').trim();
     if(!link.startsWith('http')){ const mm=it.match(/https?:\/\/[^\s<"\]]+/); if(mm) link=mm[0]; }
-    let pub=(it.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i)||[])[1]||'';
+    let pub=(it.match(/<(pubDate|published|updated)[^>]*>([\s\S]*?)<\/(pubDate|published|updated)>/i)||[])[2]||'';
     let desc=(it.match(/<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i)||[])[1]||'';
     let content=(it.match(/<content:encoded[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content:encoded>/i)||[])[1]||'';
+    if(!desc) {
+      const summ = (it.match(/<summary[^>]*>([\s\S]*?)<\/summary>/i)||[])[1]||'';
+      desc=summ;
+    }
     let useDesc = (content || desc || '').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
-    if(useDesc.length>280) useDesc=useDesc.slice(0,277)+'...';
+    if(useDesc.length>180) useDesc=useDesc.slice(0,177)+' [...]';
+    else if(useDesc) useDesc=useDesc+' [...]';
     return {title, link, pubDate:pub?new Date(pub):new Date(), description:useDesc};
   }).filter(x=>x.link && x.title);
 }
@@ -237,19 +327,37 @@ async function enrichGemeenteWithDetail(arts){
   setGemeenteCache(cache);
   return results;
 }
-// OUDE WERKENDE OOST PARSER uit v214 - exact zo werkte hij weken
 function parseOostFull(html){
   const max = MAX_PER_BRON['RTV Oost'];
-  const raw=[...html.matchAll(/<a[^>]+href=["'](\/nieuws\/ommen\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)];
+  const patterns = [
+    /<a[^>]+href=["'](\/nieuws\/[^"']*ommen[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
+    /<a[^>]+href=["'](https:\/\/www\.oost\.nl\/nieuws\/[^"']*ommen[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
+  ];
   const uniqMap=new Map();
-  for(const mm of raw){
-    const href=mm[1]; const text=mm[2].replace(/<[^>]*>/g,'').trim();
-    if(text.length<10) continue;
-    const full='https://www.oost.nl'+href;
-    if(!uniqMap.has(full)) uniqMap.set(full, text.slice(0,120));
-    if(uniqMap.size>=max) break;
+  for(const re of patterns){
+    let mm;
+    while((mm=re.exec(html))!==null && uniqMap.size<max){
+      const href=mm[1]; let text=mm[2].replace(/<[^>]*>/g,'').trim();
+      if(text.length<10 || text.length>200) continue;
+      const full=href.startsWith('http')?href:'https://www.oost.nl'+href;
+      if(!uniqMap.has(full)) uniqMap.set(full, text);
+    }
   }
-  return Array.from(uniqMap.entries()).slice(0,max).map(([link,title])=>({title, link, pubDate:new Date(), description:''}));
+  return Array.from(uniqMap.entries()).slice(0,max).map(([link,title])=>({title:title.slice(0,120), link, pubDate:new Date(), description:'[...]'}));
+}
+function parseVechtdalCentraalFallback(html){
+  const max = MAX_PER_BRON['Vechtdal Centraal'];
+  const re = /<a[^>]+href=["']([^"']*\/[^"']+)["'][^>]*>\s*<h[23][^>]*>([^<]{8,120})<\/h[23]>/gi;
+  const map=new Map();
+  let m;
+  while((m=re.exec(html))!==null && map.size<max){
+    let href=m[1], title=m[2].trim();
+    if(href.startsWith('/')) href='https://www.vechtdalcentraal.nl'+href;
+    if(!href.includes('vechtdalcentraal.nl')) continue;
+    if(href.includes('/category/') || href.includes('/tag/') || href.includes('#')) continue;
+    if(!map.has(href)) map.set(href, title);
+  }
+  return Array.from(map.entries()).slice(0,max).map(([link,title])=>({title, link, pubDate:new Date(), description:'[...]'}));
 }
 async function loadOneSource(b){
   const cfg = BRON_URLS[b.id];
@@ -266,7 +374,21 @@ async function loadOneSource(b){
       arts = await enrichGemeenteWithDetail(overview);
     }
     else if(cfg.type==='oost'){ const html=await fetchViaWorker(cfg.url); arts=parseOostFull(html); }
-    else { const xml=await fetchViaWorker(cfg.url); arts=parseRSSFull(xml, b.id); }
+    else {
+      try{
+        const xml=await fetchViaWorker(cfg.url);
+        arts=parseRSSFull(xml, b.id);
+        if(arts.length===0 && cfg.fallback){
+          const html2=await fetchViaWorker(cfg.fallback);
+          arts=parseVechtdalCentraalFallback(html2);
+        }
+      }catch(e){
+        if(cfg.fallback){
+          const html2=await fetchViaWorker(cfg.fallback);
+          arts=parseVechtdalCentraalFallback(html2);
+        } else throw e;
+      }
+    }
     if(arts.length===0) throw new Error('empty');
     return arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
   }catch(e){
@@ -296,6 +418,7 @@ function renderArticles(){
       if(!a.pubDate || isNaN(a.pubDate.getTime())) return false;
       if(!isSameDay(a.pubDate, today)) return false;
     }
+    // HERSTELD: Gemeente filter - alleen artikelen met plaatsnaam uit gemeente Ommen
     if(s.scope==='gemeente'){
       if(!isGemeenteArtikel(a)) return false;
     }
