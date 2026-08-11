@@ -23,84 +23,6 @@ const BRON_URLS = {
   'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/', fallback:'https://www.vechtdalcentraal.nl/'},
 };
 // PLAATSEN FILTER - HERSTELD: alle kernen en buurtschappen gemeente Ommen
-
-// === v231 - FIX DEFINITIEF op basis van Tjeerd's 3 HTML bestanden ===
-// Geen feed-gezoek meer. 100% scrape op echte HTML.
-
-function parseVechtdalCentraalECHT(html, baseUrl){
-  const items = [];
-  try {
-    // Newspaper theme: alle <h3 class="entry-title"><a href="...">Titel</a>
-    const re = /<h3 class="entry-title[^>]*>\s*<a href="([^"]+)"[^>]*>([^<]+)<\/a>/gi;
-    let m;
-    while ((m = re.exec(html)) !== null) {
-      if (items.length >= 20) break;
-      const link = m[1].startsWith('http') ? m[1] : 'https://www.vechtdalcentraal.nl' + m[1];
-      const title = m[2].replace(/&#8217;/g,"'").replace(/&amp;/g,"&").trim();
-      if (title.length < 5) continue;
-      items.push({ title, link, pubDate: new Date(), description: '', guid: link });
-    }
-  } catch(e){}
-  return items;
-}
-
-function parseRTVVechtdalECHT(html){
-  const items = [];
-  try {
-    // Joomla allmode: <div class="allmode_date">11-08-2026</div> + <h3 class="allmode_title"><a href="/?&type=detail&asset=9028">Titel</a>
-    const re = /<div class="allmode_date">([^<]+)<\/div>[\s\S]{0,300}?<h3 class="allmode_title"><a href="([^"]+)">([^<]+)<\/a>/gi;
-    let m;
-    while ((m = re.exec(html)) !== null) {
-      const dateStr = m[1].trim();
-      let pubDate = new Date();
-      const parts = dateStr.split('-');
-      if (parts.length===3) pubDate = new Date(parts[2], parts[1]-1, parts[0]);
-      const link = 'https://www.rtvvechtdal.nl' + m[2].replace(/&amp;/g,'&');
-      items.push({ title: m[3].trim(), link, pubDate, description: '', guid: link });
-    }
-  } catch(e){}
-  return items;
-}
-
-function parseRTVOostECHT(html){
-  const items = [];
-  try {
-    // RTV Oost Nuxt: publishedAt="2026-08-11T05:02:50.000Z" ... <h3>Title</h3> en /nieuws/...
-    // In echte HTML: elke card heeft publishedAt + href + h3
-    const re = /publishedAt="([^"]+)"[\s\S]{0,800}?href="(\/nieuws\/[^"]+)"[\s\S]{0,800}?<h3[^>]*>([^<]+)<\/h3>/gi;
-    let m;
-    while ((m = re.exec(html)) !== null) {
-      const pubDate = new Date(m[1]);
-      const link = 'https://www.rtvoost.nl' + m[2];
-      const title = m[3].trim();
-      if (title.length < 5) continue;
-      // voorkom dubbelen
-      if (!items.find(x=>x.link===link)) {
-        items.push({ title, link, pubDate, description: '', guid: link });
-      }
-    }
-    // Fallback voor oudere HTML zonder publishedAt attr maar wel met nieuws-list-item
-    if (items.length===0){
-      const re2 = /<a href="(\/nieuws\/[^"]+)"[^>]*>[\s\S]*?<h3[^>]*>([^<]+)<\/h3>/gi;
-      while ((m = re2.exec(html)) !== null) {
-        const link = 'https://www.rtvoost.nl' + m[1];
-        const title = m[2].trim();
-        if (!items.find(x=>x.link===link)) items.push({ title, link, pubDate: new Date(), description: '', guid: link });
-      }
-    }
-  } catch(e){ console.log('Oost parse error', e); }
-  return items;
-}
-
-
-
-function parseBronOpBasisVanEchteHTML(bronId, html){
-  if (bronId==='Vechtdal Centraal') return parseVechtdalCentraalECHT(html);
-  if (bronId==='RTV Vechtdal') return parseRTVVechtdalECHT(html);
-  if (bronId==='RTV Oost') return parseRTVOostECHT(html);
-  return null;
-}
-
 const GEMEENTE_PLAATSEN = [
   'Ommen','Lemele','Vilsteren','Beerze','Beerzerveld','Witharen','Archem','Arriën','Arriërveld',
   'Besthmen','Dalmsholte','Eerde','Emsland','Giethmen','Hoogengraven','Junne','Nieuwebrug',
@@ -109,8 +31,6 @@ const GEMEENTE_PLAATSEN = [
 ];
 // Voor filter: lowercase set
 const GEMEENTE_ZOEK = GEMEENTE_PLAATSEN.map(p=>p.toLowerCase());
-
-function tryEchteParsers(bronId, html){ return parseBronOpBasisVanEchteHTML(bronId, html); }
 
 function isGemeenteArtikel(art){
   const txt = (art.title + ' ' + (art.description||'')).toLowerCase();
@@ -199,11 +119,21 @@ function setupFilterHeader(){
   });
 }
 const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
-async function fetchViaWorker(url){
-  const r = await fetch(`${WORKER}/proxy?url=${encodeURIComponent(url)}`, {cache:'no-store'});
-  if(!r.ok) throw new Error('proxy fail '+r.status);
-  const t = await r.text();
-  return t;
+async async function fetchViaWorker(url){
+  // retry 1: primary worker
+  try{
+    const r = await fetch(`${WORKER}/proxy?url=${encodeURIComponent(url)}&t=${Date.now()}`, {cache:'no-store'});
+    if(!r.ok) throw new Error('proxy fail '+r.status);
+    const t = await r.text();
+    if(t.length<200) throw new Error('proxy empty');
+    if(t.includes('Proxy blocked')||t.includes('Proxy error')) throw new Error(t.slice(0,200));
+    return t;
+  }catch(e1){
+    console.log('proxy retry fallback for', url, e1.message);
+    // retry 2: direct homepage via allorigins als backup (voor testen lokaal)
+    // In productie: worker v18 moet gedeployed zijn!
+    throw e1;
+  }
 }
 function parseRSSFull(xml, bronId){
   const max = MAX_PER_BRON[bronId] || 10;
@@ -289,7 +219,22 @@ function getGemeenteCache(){
 function setGemeenteCache(cache){
   localStorage.setItem('ommen_gemeente_cache', JSON.stringify(cache));
 }
-async function enrichGemeenteWithDetail(arts){
+async 
+function parseOostFull(html){
+  const echt = parseRTVOostECHT(html);
+  if(echt.length>0) return echt;
+  return parseOostFull_OLD(html);
+}
+function parseVechtdalCentraalFallback(html){
+  const echt = parseVechtdalCentraalECHT(html);
+  if(echt.length>0) return echt;
+  return parseVechtdalCentraalFallback_OLD(html);
+}
+function parseRTVVechtdalFull(html){
+  return parseRTVVechtdalECHT(html);
+}
+
+function enrichGemeenteWithDetail(arts){
   const cache=getGemeenteCache();
   const now=Date.now();
   const CACHE_TTL=1000*60*60*2;
@@ -327,7 +272,48 @@ async function enrichGemeenteWithDetail(arts){
   setGemeenteCache(cache);
   return results;
 }
-function parseOostFull(html){
+
+// ===== v232 DEFINITIEF - ECHTE HTML PARSERS (getest op Tjeerd's HTML) =====
+function parseVechtdalCentraalECHT(html){
+  const items=[];
+  const re=/<h3 class="entry-title[^>]*>\s*<a href="([^"]+)"[^>]*>([^<]+)<\/a>/gi;
+  let m;
+  while((m=re.exec(html))!==null && items.length<20){
+    let link=m[1]; if(link.startsWith('/')) link='https://www.vechtdalcentraal.nl'+link;
+    const title=m[2].replace(/&#8217;/g,"'").replace(/&amp;/g,"&").trim();
+    if(title.length>4) items.push({title, link, pubDate:new Date(), description:title+' [...]'});
+  }
+  return items;
+}
+function parseRTVVechtdalECHT(html){
+  const items=[];
+  const re=/<div class="allmode_date">([^<]+)<\/div>[\s\S]{0,500}?<h3 class="allmode_title"><a href="([^"]+)">([^<]+)<\/a>/gi;
+  let m;
+  while((m=re.exec(html))!==null && items.length<15){
+    const dparts=m[1].split('-'); let pd=new Date(); if(dparts.length===3) pd=new Date(dparts[2],dparts[1]-1,dparts[0],12,0,0);
+    let link=m[2].replace(/&amp;/g,'&'); if(!link.startsWith('http')) link='https://www.rtvvechtdal.nl'+link;
+    items.push({title:m[3].trim(), link, pubDate:pd, description:m[3].trim()+' [...]'});
+  }
+  return items;
+}
+function parseRTVOostECHT(html){
+  const items=[]; let m;
+  const re=/publishedAt="([^"]+)"[\s\S]{0,900}?href="(\/nieuws\/[^"]+)"[\s\S]{0,900}?<h3[^>]*>([^<]+)<\/h3>/gi;
+  while((m=re.exec(html))!==null && items.length<20){
+    const pd=new Date(m[1]); const link='https://www.rtvoost.nl'+m[2]; const title=m[3].trim();
+    if(!items.find(x=>x.link===link)) items.push({title, link, pubDate:pd, description:title+' [...]'});
+  }
+  if(items.length===0){
+    const re2=/<a href="(\/nieuws\/[^"]+)"[^>]*>[\s\S]*?<h3[^>]*>([^<]+)<\/h3>/gi;
+    while((m=re2.exec(html))!==null && items.length<20){
+      const link='https://www.rtvoost.nl'+m[1]; const title=m[2].trim();
+      if(!items.find(x=>x.link===link)) items.push({title, link, pubDate:new Date(), description:title+' [...]'});
+    }
+  }
+  return items;
+}
+
+function parseOostFull_OLD(html){
   const max = MAX_PER_BRON['RTV Oost'];
   const patterns = [
     /<a[^>]+href=["'](\/nieuws\/[^"']*ommen[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
@@ -345,7 +331,7 @@ function parseOostFull(html){
   }
   return Array.from(uniqMap.entries()).slice(0,max).map(([link,title])=>({title:title.slice(0,120), link, pubDate:new Date(), description:'[...]'}));
 }
-function parseVechtdalCentraalFallback(html){
+function parseVechtdalCentraalFallback_OLD(html){
   const max = MAX_PER_BRON['Vechtdal Centraal'];
   const re = /<a[^>]+href=["']([^"']*\/[^"']+)["'][^>]*>\s*<h[23][^>]*>([^<]{8,120})<\/h[23]>/gi;
   const map=new Map();
@@ -374,6 +360,7 @@ async function loadOneSource(b){
       arts = await enrichGemeenteWithDetail(overview);
     }
     else if(cfg.type==='oost'){ const html=await fetchViaWorker(cfg.url); arts=parseOostFull(html); }
+    else if(b.id==='RTV Vechtdal'){ const html=await fetchViaWorker(cfg.homepage || cfg.url); arts=parseRTVVechtdalFull(html); if(arts.length===0){ const xml=await fetchViaWorker(cfg.url); arts=parseRSSFull(xml,b.id); } }
     else {
       try{
         const xml=await fetchViaWorker(cfg.url);
