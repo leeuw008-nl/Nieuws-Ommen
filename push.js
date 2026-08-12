@@ -1,4 +1,3 @@
-
 // push.js v16 ULTRA DEBUG - PC geen melding + telefoon geen bel - 13-08-2026
 const WORKER_URL = 'https://ommen-push-v2.leeuw008.workers.dev';
 let swReg=null; let vapidKey=null;
@@ -28,153 +27,96 @@ function getSelectedSources(){
   return ["De Stentor","Gemeente Ommen","Ommen City","OudOmmen","RondOmmen","RTV Oost","RTV Vechtdal","Vechtdal Centraal","Natuurlijk Ommen"];
 }
 async function testLocalNotification(reason){
-  const results = [];
-  results.push('--- TEST LOCAL NOTIF: '+reason+' ---');
-  results.push('Notification in window: '+('Notification' in window));
-  results.push('permission: '+Notification.permission);
-  results.push('swReg: '+(swReg?'ok':'null'));
-  results.push('swReg.showNotification: '+(swReg && swReg.showNotification?'yes':'no'));
   try{
-    if(Notification.permission!=='granted'){ results.push('FAIL: permission niet granted'); return results.join('\n'); }
+    if(Notification.permission!=='granted') return;
     if(swReg && swReg.showNotification){
-      try{
-        await swReg.showNotification('🔔 Test '+reason, {body:'Dit is een testmelding ('+reason+') - als je dit ziet werkt het!', icon:'./icons/icon-192x192.png', badge:'./icons/icon-192x192.png', tag:'debug-'+Date.now()});
-        results.push('OK: swReg.showNotification gelukt');
-      }catch(e){
-        results.push('FAIL swReg.showNotification: '+e.message+' | '+e.name);
-        try{ new Notification('🔔 Test '+reason, {body:'Fallback new Notification - '+e.message}); results.push('OK: fallback new Notification gelukt'); }
-        catch(e2){ results.push('FAIL fallback new Notification: '+e2.message); }
-      }
+      await swReg.showNotification('🔔 '+reason, {body:'Meldingen zijn '+reason.toLowerCase(), icon:'./icons/icon-192x192.png', badge:'./icons/icon-192x192.png', tag:'test-'+Date.now()});
     } else {
-      try{ new Notification('🔔 Test '+reason, {body:'Direct new Notification test'}); results.push('OK: direct new Notification gelukt'); }
-      catch(e){ results.push('FAIL direct new Notification: '+e.message); }
+      new Notification('🔔 '+reason, {body:'Meldingen zijn '+reason.toLowerCase()});
     }
-  }catch(e){ results.push('EXCEPTION: '+e.message); }
-  return results.join('\n');
+  }catch{}
 }
 async function initPush(){
-  console.log('BEL v16 ULTRA init');
   const bell=ensureBellButton(); if(!bell) return;
   bell.style.pointerEvents='auto'; bell.style.opacity='1'; bell.style.cursor='pointer';
   const newBell=bell.cloneNode(true); bell.parentNode.replaceChild(newBell, bell); const b=newBell;
 
   b.onclick=async(e)=>{
     e.preventDefault(); e.stopPropagation();
-    console.log('BEL KLIK v16');
-    let debugLog = '';
     try{
-      debugLog += 'Step 0: check support\n';
-      if(!('Notification' in window)){ alert('❌ Browser ondersteunt geen Notification API'); return; }
-      if(!('serviceWorker' in navigator)){ alert('❌ Geen ServiceWorker support'); return; }
-      if(!('PushManager' in window)){ alert('❌ Geen PushManager support'); return; }
-
-      debugLog += 'Step 1: get SW\n';
+      if(!('Notification' in window)){ alert('Browser ondersteunt geen meldingen'); return; }
+      if(!('serviceWorker' in navigator)){ alert('Service Worker niet ondersteund'); return; }
+      if(!('PushManager' in window)){ alert('Push meldingen niet ondersteund'); return; }
       if(!swReg){
-        try{ swReg=await navigator.serviceWorker.ready; debugLog+='ready ok\n'; }catch(err){ debugLog+='ready fail '+err.message+'\n'; }
+        try{ swReg=await navigator.serviceWorker.ready; }catch{}
         if(!swReg){
-          debugLog+='registreer SW\n';
           swReg=await navigator.serviceWorker.register('./service-worker.js',{scope:'./'});
-          debugLog+='SW geregistreerd '+swReg.scope+'\n';
-          // wacht tot active
           await new Promise(r=>setTimeout(r,800));
         }
       }
-      debugLog+='SW: '+(swReg?swReg.scope:'null')+'\n';
-
-      debugLog+='Step 2: permission '+Notification.permission+'\n';
       if(Notification.permission==='denied'){
-        alert('❌ Meldingen GEBLOKKEERD in browser\n\nOplossing:\nPC: klik slotje in adresbalk -> Meldingen -> Toestaan\nTelefoon: Chrome -> Instellingen -> Meldingen -> Site-instellingen -> Toestaan');
+        alert('Meldingen geblokkeerd - sta toe via slotje in adresbalk');
         return;
       }
-
-      debugLog+='Step 3: VAPID key\n';
       if(!vapidKey){
         const r=await fetch(WORKER_URL+'/vapidPublicKey',{cache:'no-store'});
         if(!r.ok) throw new Error('VAPID ophalen mislukt '+r.status);
         vapidKey=(await r.text()).trim();
-        debugLog+='VAPID len '+vapidKey.length+'\n';
       }
-
-      debugLog+='Step 4: check bestaande sub\n';
       let existing=null;
-      try{ existing=await swReg.pushManager.getSubscription(); debugLog+='existing: '+(existing?'YES '+existing.endpoint.slice(-20):'NO')+'\n'; }catch(err){ debugLog+='getSubscription fail '+err.message+'\n'; }
+      try{ existing=await swReg.pushManager.getSubscription(); }catch{}
 
       if(existing){
-        debugLog+='Step 5: UNSUBSCRIBE\n';
         try{
           await fetch(WORKER_URL+'/unsubscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:existing.endpoint})}).catch(()=>{});
           await existing.unsubscribe();
           b.textContent='🔕'; b.classList.remove('active','enabled');
           localStorage.removeItem('ommen_push_subscribed');
-          const testRes = await testLocalNotification('UIT gezet');
-          alert('Meldingen UIT op dit apparaat\n\nDebug:\n'+debugLog+'\n\n'+testRes);
+          await testLocalNotification('uitgeschakeld');
+          alert('Meldingen uitgeschakeld');
         }catch(err){
-          debugLog+='unsub fail '+err.message+'\n';
-          // force clear
           try{ await existing.unsubscribe(); }catch{}
           b.textContent='🔕'; b.classList.remove('active','enabled');
           localStorage.removeItem('ommen_push_subscribed');
-          alert('Meldingen uit (met fout, maar wel uit): '+err.message+'\n\n'+debugLog);
+          alert('Meldingen uitgeschakeld');
         }
       }else{
-        debugLog+='Step 5: REQUEST PERMISSION\n';
         const perm=await Notification.requestPermission();
-        debugLog+='perm result: '+perm+'\n';
-        if(perm!=='granted'){ alert('Geen toestemming: '+perm+'\n\n'+debugLog); return; }
-
-        debugLog+='Step 6: SUBSCRIBE\n';
+        if(perm!=='granted'){ alert('Geen toestemming gegeven'); return; }
         let sub;
         try{
           sub=await swReg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(vapidKey)});
-          debugLog+='sub ok endpoint ...'+sub.endpoint.slice(-30)+'\n';
         }catch(subErr){
-          debugLog+='SUBSCRIBE FAIL: '+subErr.message+' | name='+subErr.name+'\n';
-          // Veel voorkomende oorzaak: oude sub in andere scope
           if(subErr.message.includes('already') || subErr.name==='InvalidStateError'){
-            debugLog+='Probeer cleanup en opnieuw\n';
             try{
               const old=await swReg.pushManager.getSubscription();
               if(old) await old.unsubscribe();
               sub=await swReg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(vapidKey)});
-              debugLog+='retry ok\n';
-            }catch(e2){ throw new Error('Subscribe blijft falen na cleanup: '+e2.message+' ('+subErr.message+')'); }
+            }catch(e2){ throw new Error('Inschrijven mislukt: '+e2.message); }
           } else {
             throw subErr;
           }
         }
-
-        debugLog+='Step 7: stuur naar worker\n';
         const p256dh=btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
         const auth=btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
         const sources=getSelectedSources();
         const resp=await fetch(WORKER_URL+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint,keys:{p256dh,auth},sources})});
-        const respText=await resp.text();
-        debugLog+='worker resp '+resp.status+' '+respText.slice(0,200)+'\n';
-        if(!resp.ok) throw new Error('Worker subscribe fail '+resp.status+' '+respText);
-
+        if(!resp.ok){ const t=await resp.text(); throw new Error('Opslaan mislukt '+resp.status); }
         b.textContent='🔔'; b.classList.add('active','enabled');
         localStorage.setItem('ommen_push_subscribed','1');
-
-        debugLog+='Step 8: LOCAL TEST\n';
-        const testRes = await testLocalNotification('AAN gezet - dit apparaat');
-        alert('✅ Meldingen AAN op DIT apparaat!\n\nAls je GEEN melding bovenin ziet, staat je OS meldingen uit!\n\nDebug:\n'+debugLog+'\n\nTest result:\n'+testRes);
+        await testLocalNotification('ingeschakeld');
+        alert('Meldingen ingeschakeld');
       }
     }catch(err){
-      console.error('BEL ERROR v16', err);
-      alert('❌ Bel fout: '+err.message+'\nNaam: '+err.name+'\n\nDebug log:\n'+debugLog+'\n\nOplossing: Wis sitegegevens en probeer opnieuw.');
+      alert('Fout bij in-/uitschakelen: '+err.message);
     }
   };
-
-  // extra knop voor testen zonder bel aan/uit
-  window.testNotif = async()=>{ const r=await testLocalNotification('handmatige test'); alert(r); };
-
   try{
     swReg=await navigator.serviceWorker.ready;
     const sub=await swReg.pushManager.getSubscription();
     b.textContent=sub?'🔔':'🔕';
     if(sub){ b.classList.add('active','enabled'); }
-    console.log('BEL v16 status', sub?'AAN':'UIT');
-  }catch(e){ console.log('status fail', e); }
+  }catch(e){}
 }
 window.updatePushBell=async()=>{
   try{
