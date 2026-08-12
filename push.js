@@ -1,139 +1,189 @@
 
-// push.js v15 - NO BROADCAST + MOBILE FIX + DEBUG - 13-08-2026
+// push.js v16 ULTRA DEBUG - PC geen melding + telefoon geen bel - 13-08-2026
 const WORKER_URL = 'https://ommen-push-v2.leeuw008.workers.dev';
 let swReg=null; let vapidKey=null;
 
 function urlBase64ToUint8Array(base64String){
-  try{
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/-/g,'+').replace(/_/g,'/');
-    const rawData = atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-    for(let i=0;i<rawData.length;++i){ outputArray[i]=rawData.charCodeAt(i); }
-    return outputArray;
-  }catch(e){ console.error('b64 decode fail', e); throw e; }
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g,'+').replace(/_/g,'/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for(let i=0;i<rawData.length;++i){ outputArray[i]=rawData.charCodeAt(i); }
+  return outputArray;
 }
 function getBell(){ return document.getElementById('push-bell-btn') || document.querySelector('#bell-slot button'); }
 function ensureBellButton(){
-  const slot=document.getElementById('bell-slot'); if(!slot){ console.log('BEL: #bell-slot niet gevonden'); return null; }
+  const slot=document.getElementById('bell-slot'); if(!slot) return null;
   let btn=getBell();
   if(!btn){
     btn=document.createElement('button'); btn.type='button'; btn.id='push-bell-btn';
-    btn.textContent='\uD83D\uDD15'; // 🔕 as unicode to avoid encoding issues
-    btn.title='Meldingen aan/uit';
-    btn.style.cssText='background:none;border:none;font-size:22px;cursor:pointer;line-height:1;';
+    btn.textContent='🔕'; btn.title='Meldingen';
+    btn.style.cssText='background:none;border:none;font-size:22px;cursor:pointer;';
     slot.appendChild(btn);
-    console.log('BEL: knop aangemaakt');
   }
   return btn;
 }
 function getSelectedSources(){
-  try{
-    const v=JSON.parse(localStorage.getItem('nieuwsommen_bronnen_v2')||'{}');
-    const aan=Object.keys(v).filter(id=>v[id]?.aan);
-    if(aan.length) return aan;
-  }catch{}
+  try{ const v=JSON.parse(localStorage.getItem('nieuwsommen_bronnen_v2')||'{}'); const aan=Object.keys(v).filter(id=>v[id]?.aan); if(aan.length) return aan; }catch{}
   return ["De Stentor","Gemeente Ommen","Ommen City","OudOmmen","RondOmmen","RTV Oost","RTV Vechtdal","Vechtdal Centraal","Natuurlijk Ommen"];
 }
-function showLocalTest(){
+async function testLocalNotification(reason){
+  const results = [];
+  results.push('--- TEST LOCAL NOTIF: '+reason+' ---');
+  results.push('Notification in window: '+('Notification' in window));
+  results.push('permission: '+Notification.permission);
+  results.push('swReg: '+(swReg?'ok':'null'));
+  results.push('swReg.showNotification: '+(swReg && swReg.showNotification?'yes':'no'));
   try{
-    if(Notification.permission!=='granted'){ console.log('BEL: geen permission voor local test'); return; }
+    if(Notification.permission!=='granted'){ results.push('FAIL: permission niet granted'); return results.join('\n'); }
     if(swReg && swReg.showNotification){
-      swReg.showNotification('\uD83D\uDD14 Bel werkt!', {body:'Testmelding: dit apparaat ontvangt weer alerts (alleen dit apparaat).', icon:'./icons/icon-192x192.png', badge:'./icons/icon-192x192.png', vibrate:[200,100,200], tag:'bel-test'});
+      try{
+        await swReg.showNotification('🔔 Test '+reason, {body:'Dit is een testmelding ('+reason+') - als je dit ziet werkt het!', icon:'./icons/icon-192x192.png', badge:'./icons/icon-192x192.png', tag:'debug-'+Date.now()});
+        results.push('OK: swReg.showNotification gelukt');
+      }catch(e){
+        results.push('FAIL swReg.showNotification: '+e.message+' | '+e.name);
+        try{ new Notification('🔔 Test '+reason, {body:'Fallback new Notification - '+e.message}); results.push('OK: fallback new Notification gelukt'); }
+        catch(e2){ results.push('FAIL fallback new Notification: '+e2.message); }
+      }
     } else {
-      new Notification('\uD83D\uDD14 Bel werkt!', {body:'Testmelding: dit apparaat ontvangt weer alerts.'});
+      try{ new Notification('🔔 Test '+reason, {body:'Direct new Notification test'}); results.push('OK: direct new Notification gelukt'); }
+      catch(e){ results.push('FAIL direct new Notification: '+e.message); }
     }
-  }catch(e){ console.log('local notif fail', e); try{ new Notification('Bel werkt!', {body:'Test OK'});}catch(e2){ console.log('fallback notif fail', e2); } }
+  }catch(e){ results.push('EXCEPTION: '+e.message); }
+  return results.join('\n');
 }
 async function initPush(){
-  console.log('BEL v15 init start');
-  const bell=ensureBellButton(); if(!bell){ console.log('BEL: geen bell, stop'); return; }
+  console.log('BEL v16 ULTRA init');
+  const bell=ensureBellButton(); if(!bell) return;
   bell.style.pointerEvents='auto'; bell.style.opacity='1'; bell.style.cursor='pointer';
-  // vervang om dubbele handlers te voorkomen
   const newBell=bell.cloneNode(true); bell.parentNode.replaceChild(newBell, bell); const b=newBell;
 
   b.onclick=async(e)=>{
     e.preventDefault(); e.stopPropagation();
-    console.log('BEL KLIK v15');
+    console.log('BEL KLIK v16');
+    let debugLog = '';
     try{
-      if(!('Notification' in window)){ alert('Deze browser ondersteunt geen meldingen'); return; }
-      if(Notification.permission==='denied'){ alert('Meldingen geblokkeerd - ga naar instellingen van je browser (slotje in adresbalk) -> Meldingen -> Toestaan'); return; }
-      if(!('serviceWorker' in navigator)){ alert('Service Worker niet ondersteund'); return; }
+      debugLog += 'Step 0: check support\n';
+      if(!('Notification' in window)){ alert('❌ Browser ondersteunt geen Notification API'); return; }
+      if(!('serviceWorker' in navigator)){ alert('❌ Geen ServiceWorker support'); return; }
+      if(!('PushManager' in window)){ alert('❌ Geen PushManager support'); return; }
+
+      debugLog += 'Step 1: get SW\n';
       if(!swReg){
-        try{ swReg=await navigator.serviceWorker.ready; }catch{}
+        try{ swReg=await navigator.serviceWorker.ready; debugLog+='ready ok\n'; }catch(err){ debugLog+='ready fail '+err.message+'\n'; }
         if(!swReg){
-          console.log('BEL: registreer SW ./service-worker.js');
+          debugLog+='registreer SW\n';
           swReg=await navigator.serviceWorker.register('./service-worker.js',{scope:'./'});
+          debugLog+='SW geregistreerd '+swReg.scope+'\n';
+          // wacht tot active
+          await new Promise(r=>setTimeout(r,800));
         }
       }
-      if(!vapidKey){
-        console.log('BEL: haal VAPID key op');
-        const r=await fetch(WORKER_URL+'/vapidPublicKey',{cache:'no-store'});
-        if(!r.ok) throw new Error('VAPID key ophalen mislukt: '+r.status);
-        vapidKey=(await r.text()).trim();
-        console.log('BEL: VAPID ok len', vapidKey.length);
+      debugLog+='SW: '+(swReg?swReg.scope:'null')+'\n';
+
+      debugLog+='Step 2: permission '+Notification.permission+'\n';
+      if(Notification.permission==='denied'){
+        alert('❌ Meldingen GEBLOKKEERD in browser\n\nOplossing:\nPC: klik slotje in adresbalk -> Meldingen -> Toestaan\nTelefoon: Chrome -> Instellingen -> Meldingen -> Site-instellingen -> Toestaan');
+        return;
       }
-      const existing=await swReg.pushManager.getSubscription();
-      console.log('BEL: existing sub?', !!existing);
+
+      debugLog+='Step 3: VAPID key\n';
+      if(!vapidKey){
+        const r=await fetch(WORKER_URL+'/vapidPublicKey',{cache:'no-store'});
+        if(!r.ok) throw new Error('VAPID ophalen mislukt '+r.status);
+        vapidKey=(await r.text()).trim();
+        debugLog+='VAPID len '+vapidKey.length+'\n';
+      }
+
+      debugLog+='Step 4: check bestaande sub\n';
+      let existing=null;
+      try{ existing=await swReg.pushManager.getSubscription(); debugLog+='existing: '+(existing?'YES '+existing.endpoint.slice(-20):'NO')+'\n'; }catch(err){ debugLog+='getSubscription fail '+err.message+'\n'; }
+
       if(existing){
-        console.log('BEL: unsubscribe start');
-        try{ await fetch(WORKER_URL+'/unsubscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:existing.endpoint})}); }catch(err){ console.log('unsub worker fail', err); }
-        await existing.unsubscribe();
-        b.textContent='\uD83D\uDD15'; b.classList.remove('active','enabled');
-        localStorage.removeItem('ommen_push_subscribed');
-        try{ if(swReg.showNotification){ swReg.showNotification('\uD83D\uDD15 Meldingen uit op dit apparaat', {body:'Dit apparaat ontvangt geen alerts meer.', tag:'bel-off'}); } }catch{}
-        alert('Meldingen uitgeschakeld op DIT apparaat');
+        debugLog+='Step 5: UNSUBSCRIBE\n';
+        try{
+          await fetch(WORKER_URL+'/unsubscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:existing.endpoint})}).catch(()=>{});
+          await existing.unsubscribe();
+          b.textContent='🔕'; b.classList.remove('active','enabled');
+          localStorage.removeItem('ommen_push_subscribed');
+          const testRes = await testLocalNotification('UIT gezet');
+          alert('Meldingen UIT op dit apparaat\n\nDebug:\n'+debugLog+'\n\n'+testRes);
+        }catch(err){
+          debugLog+='unsub fail '+err.message+'\n';
+          // force clear
+          try{ await existing.unsubscribe(); }catch{}
+          b.textContent='🔕'; b.classList.remove('active','enabled');
+          localStorage.removeItem('ommen_push_subscribed');
+          alert('Meldingen uit (met fout, maar wel uit): '+err.message+'\n\n'+debugLog);
+        }
       }else{
-        console.log('BEL: subscribe start');
+        debugLog+='Step 5: REQUEST PERMISSION\n';
         const perm=await Notification.requestPermission();
-        console.log('BEL: permission', perm);
-        if(perm!=='granted'){ alert('Geen toestemming gegeven ('+perm+')'); return; }
-        console.log('BEL: pushManager.subscribe...');
+        debugLog+='perm result: '+perm+'\n';
+        if(perm!=='granted'){ alert('Geen toestemming: '+perm+'\n\n'+debugLog); return; }
+
+        debugLog+='Step 6: SUBSCRIBE\n';
         let sub;
         try{
           sub=await swReg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(vapidKey)});
+          debugLog+='sub ok endpoint ...'+sub.endpoint.slice(-30)+'\n';
         }catch(subErr){
-          console.error('BEL subscribe error', subErr);
-          // Vaak: gcm_sender_id of VAPID mismatch -> toon details
-          alert('Subscribe mislukt: '+subErr.message+'\n\nTip: verwijder site-gegevens (Instellingen -> Privacy -> Sitegegevens wissen) en probeer opnieuw.\n\nConsole: '+subErr.name);
-          return;
+          debugLog+='SUBSCRIBE FAIL: '+subErr.message+' | name='+subErr.name+'\n';
+          // Veel voorkomende oorzaak: oude sub in andere scope
+          if(subErr.message.includes('already') || subErr.name==='InvalidStateError'){
+            debugLog+='Probeer cleanup en opnieuw\n';
+            try{
+              const old=await swReg.pushManager.getSubscription();
+              if(old) await old.unsubscribe();
+              sub=await swReg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(vapidKey)});
+              debugLog+='retry ok\n';
+            }catch(e2){ throw new Error('Subscribe blijft falen na cleanup: '+e2.message+' ('+subErr.message+')'); }
+          } else {
+            throw subErr;
+          }
         }
-        console.log('BEL: sub OK', sub.endpoint.slice(-20));
+
+        debugLog+='Step 7: stuur naar worker\n';
         const p256dh=btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
         const auth=btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
         const sources=getSelectedSources();
-        console.log('BEL: stuur sub naar worker', sources.length);
         const resp=await fetch(WORKER_URL+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint,keys:{p256dh,auth},sources})});
         const respText=await resp.text();
-        console.log('BEL: subscribe response', resp.status, respText.slice(0,200));
-        if(!resp.ok) throw new Error('Subscribe naar worker mislukt: '+resp.status+' '+respText.slice(0,300));
-        b.textContent='\uD83D\uDD14'; b.classList.add('active','enabled');
+        debugLog+='worker resp '+resp.status+' '+respText.slice(0,200)+'\n';
+        if(!resp.ok) throw new Error('Worker subscribe fail '+resp.status+' '+respText);
+
+        b.textContent='🔔'; b.classList.add('active','enabled');
         localStorage.setItem('ommen_push_subscribed','1');
-        showLocalTest();
-        alert('Meldingen ingeschakeld op DIT apparaat!\n\nJe zou nu direct een melding moeten zien. Andere apparaten krijgen GEEN melding.');
+
+        debugLog+='Step 8: LOCAL TEST\n';
+        const testRes = await testLocalNotification('AAN gezet - dit apparaat');
+        alert('✅ Meldingen AAN op DIT apparaat!\n\nAls je GEEN melding bovenin ziet, staat je OS meldingen uit!\n\nDebug:\n'+debugLog+'\n\nTest result:\n'+testRes);
       }
     }catch(err){
-      console.error('BEL ERROR v15', err);
-      alert('Bel fout: '+err.message+'\n\nOpen console (op PC F12) voor details.\nNaam: '+err.name);
+      console.error('BEL ERROR v16', err);
+      alert('❌ Bel fout: '+err.message+'\nNaam: '+err.name+'\n\nDebug log:\n'+debugLog+'\n\nOplossing: Wis sitegegevens en probeer opnieuw.');
     }
   };
+
+  // extra knop voor testen zonder bel aan/uit
+  window.testNotif = async()=>{ const r=await testLocalNotification('handmatige test'); alert(r); };
+
   try{
     swReg=await navigator.serviceWorker.ready;
     const sub=await swReg.pushManager.getSubscription();
-    b.textContent=sub?'\uD83D\uDD14':'\uD83D\uDD15';
-    if(sub){ b.classList.add('active','enabled'); b.title='Meldingen aan - klik om uit te zetten'; } else { b.classList.remove('active','enabled'); b.title='Meldingen uit - klik om aan te zetten'; }
-    console.log('BEL status bij laden', sub?'AAN':'UIT');
-  }catch(e){ console.log('bell status fail', e); }
+    b.textContent=sub?'🔔':'🔕';
+    if(sub){ b.classList.add('active','enabled'); }
+    console.log('BEL v16 status', sub?'AAN':'UIT');
+  }catch(e){ console.log('status fail', e); }
 }
 window.updatePushBell=async()=>{
   try{
-    const bell=getBell(); if(!bell) return;
     const reg=await navigator.serviceWorker.ready;
     const sub=await reg.pushManager.getSubscription();
     if(!sub) return;
-    const sources=getSelectedSources();
-    await fetch(WORKER_URL+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint,keys:{p256dh:'',auth:'',update:true},sources})}).catch(()=>{});
-    console.log('BEL sources update', sources.length);
+    const v=JSON.parse(localStorage.getItem('nieuwsommen_bronnen_v2')||'{}');
+    const aan=Object.keys(v).filter(id=>v[id]?.aan);
+    await fetch(WORKER_URL+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint,keys:{p256dh:'',auth:'',update:true},sources:aan})}).catch(()=>{});
   }catch{}
 };
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initPush);}else{initPush();}
