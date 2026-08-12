@@ -60,7 +60,7 @@ async function initPush(){
         b.textContent='🔕'; b.classList.remove('active','enabled');
         localStorage.removeItem('ommen_push_subscribed');
         // lokale bevestiging
-        try{ swReg.showNotification('🔕 Meldingen uit', {body:'Je ontvangt geen alerts meer.'}); }catch{}
+        try{ swReg.showNotification('🔕 Meldingen uit op dit apparaat', {body:'Dit apparaat ontvangt geen alerts meer.'}); }catch{}
         alert('Meldingen uitgeschakeld');
       }else{
         console.log('BEL: aanzetten');
@@ -75,11 +75,9 @@ async function initPush(){
         if(!resp.ok){ const t=await resp.text(); throw new Error('Subscribe failed '+resp.status+' '+t.slice(0,200)); }
         b.textContent='🔔'; b.classList.add('active','enabled');
         localStorage.setItem('ommen_push_subscribed','1');
-        // 1) DIRECT lokale testmelding (werkt altijd, ook als worker /send faalt)
+        // 1) Alleen LOKALE testmelding op DIT apparaat (nooit broadcast naar iedereen)
         showLocalTest();
-        alert('✅ Meldingen ingeschakeld! Je zou nu direct een testmelding moeten zien.\n\nAls je geen melding ziet: check je telefoon instellingen -> Meldingen -> Browser toestaan.');
-        // 2) Daarna ook push via worker (voor als app dicht is)
-        setTimeout(()=>{ fetch(WORKER_URL+'/send?title='+encodeURIComponent('🔔 Bel werkt!')+'&body='+encodeURIComponent('Bevestiging: je ontvangt weer alerts van Ommen Nieuws')).catch(()=>{}); },1500);
+        alert('✅ Meldingen ingeschakeld op DIT apparaat! Je zou nu direct een testmelding moeten zien.\n\nAndere apparaten krijgen hier GEEN melding van.');
       }
     }catch(err){
       console.error('BEL ERROR', err);
