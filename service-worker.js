@@ -1,6 +1,5 @@
 /* service-worker.js v7 - FIX notification icon + badge */
-const CACHE_NAME = 'nieuws-ommen-v7-FIX-ICON';
-
+const CACHE_NAME = 'nieuws-ommen-v8-SIMPLE-BADGE';
 self.addEventListener('install', (e) => {
   self.skipWaiting();
 });
