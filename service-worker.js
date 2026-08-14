@@ -1,5 +1,5 @@
-/* service-worker.js v6 - FORCE cache clear + origineel klik-gedrag met focus */
-const CACHE_NAME = 'nieuws-ommen-v6-FORCE';
+/* service-worker.js v7 - FIX notification icon + badge */
+const CACHE_NAME = 'nieuws-ommen-v7-FIX-ICON';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -10,7 +10,7 @@ self.addEventListener('activate', (e) => {
     await self.clients.claim();
     const keys = await caches.keys();
     await Promise.all(keys.map(k => caches.delete(k)));
-    console.log('SW v6: all caches cleared');
+    console.log('SW v7: all caches cleared');
   })());
 });
 
@@ -19,7 +19,6 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (url.origin !== location.origin) return;
   if (url.pathname.includes('/api/') || url.pathname.includes('/proxy')) return;
-  // Geen cache voor app.js - altijd vers
   if (url.pathname.endsWith('app.js')) {
     e.respondWith(fetch(e.request, {cache: 'no-store'}).then(r=>{
       return r;
@@ -45,8 +44,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: 'icons/icon-192x192.png',
-      badge: 'icons/badge-72.png',
+      icon: 'icons/notification-icon-solid-192.png',
+      badge: 'icons/badge-lion-96x96.png',
       data: { url: data.url || '/', source: data.source || '', articleUrl: data.url || '/' },
       vibrate: [100, 50, 100]
     })
