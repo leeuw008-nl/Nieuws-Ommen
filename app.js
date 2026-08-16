@@ -656,6 +656,7 @@ window.closePanel=closePanel; window.resetFilters=resetFilters; window.BRONNEN=B
 window.filterNews=filterNews; window.refreshNews=refreshNews;
 
 
+
 // ===== v226.2 LIVE SYNC + NOTIFICATIE "Filters gesynchroniseerd" =====
 (function(){
   const SYNC_ENABLED = true;
