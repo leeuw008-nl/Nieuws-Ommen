@@ -655,11 +655,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
 window.closePanel=closePanel; window.resetFilters=resetFilters; window.BRONNEN=BRONNEN; window.getAppState=()=>state;
 window.filterNews=filterNews; window.refreshNews=refreshNews;
 
-// ===== v226 SYNC + LOGIN - SAFE VERSION (geen < token fout) =====
+// ===== v226.1 LIVE SYNC - SAFE VERSION =====
 (function(){
   const SYNC_ENABLED = true;
+  const SYNC_INTERVAL_MS = 30000; // 30 sec live check
   let currentUser = null;
   let authToken = localStorage.getItem('ommen_auth_token') || null;
+  let lastRemoteUpdated = parseInt(localStorage.getItem('ommen_last_sync')||'0', 10);
+  let isSyncing = false;
 
   function getAuthHeaders(){
     return authToken ? {'Authorization': 'Bearer '+authToken, 'Content-Type':'application/json'} : {'Content-Type':'application/json'};
@@ -683,8 +686,9 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     authToken = j.token;
     localStorage.setItem('ommen_auth_token', authToken);
     currentUser = {id:j.id, email:j.email};
-    await loadFromCloud();
+    await loadFromCloud(true);
     updateAuthUI();
+    startLiveSync();
     return j;
   };
 
@@ -697,6 +701,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     currentUser = {id:j.id, email:j.email};
     await saveToCloud();
     updateAuthUI();
+    startLiveSync();
     return j;
   };
 
@@ -705,31 +710,80 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     authToken = null;
     currentUser = null;
     localStorage.removeItem('ommen_auth_token');
+    localStorage.removeItem('ommen_last_sync');
+    lastRemoteUpdated = 0;
+    stopLiveSync();
     updateAuthUI();
   };
 
   async function saveToCloud(){
-    if(!authToken || !SYNC_ENABLED) return;
+    if(!authToken || !SYNC_ENABLED || isSyncing) return;
     try{
-      await fetch(WORKER+'/sync/save', {method:'POST', headers: getAuthHeaders(), body: JSON.stringify({state})});
-      console.log('Sync: opgeslagen');
+      isSyncing = true;
+      const r = await fetch(WORKER+'/sync/save', {method:'POST', headers: getAuthHeaders(), body: JSON.stringify({state})});
+      const j = await r.json().catch(()=>({}));
+      if(j.updated){
+        lastRemoteUpdated = j.updated;
+        localStorage.setItem('ommen_last_sync', String(j.updated));
+      } else {
+        const now = Date.now();
+        lastRemoteUpdated = now;
+        localStorage.setItem('ommen_last_sync', String(now));
+      }
+      console.log('Sync: opgeslagen live');
     }catch(e){ console.log('Sync save fail', e.message); }
+    finally{ isSyncing = false; }
   }
 
-  async function loadFromCloud(){
-    if(!authToken) return;
+  async function loadFromCloud(force=false){
+    if(!authToken || isSyncing) return;
     try{
+      isSyncing = true;
       const r = await fetch(WORKER+'/sync/load', {headers: getAuthHeaders()});
       if(!r.ok) return;
       const data = await r.json();
-      if(data.state && Object.keys(data.state).length>0){
-        state = data.state;
-        localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
-        console.log('Sync: geladen uit cloud');
-        if(typeof renderFilters==='function'){ renderFilters(); }
-        if(typeof filterNews==='function'){ filterNews(); }
+      if(!data.state) return;
+      const remoteUpdated = data.updated || 0;
+      // Alleen overschrijven als remote nieuwer is dan wat wij kennen, of force (bij login)
+      if(!force && remoteUpdated && remoteUpdated <= lastRemoteUpdated){
+        return;
+      }
+      // Check of state echt anders is dan lokaal
+      const localStr = JSON.stringify(state);
+      const remoteStr = JSON.stringify(data.state);
+      if(localStr === remoteStr){
+        if(remoteUpdated) { lastRemoteUpdated = remoteUpdated; localStorage.setItem('ommen_last_sync', String(remoteUpdated)); }
+        return;
+      }
+      console.log('Sync: nieuwe versie gevonden, toepassen', new Date(remoteUpdated).toLocaleTimeString());
+      state = data.state;
+      localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
+      lastRemoteUpdated = remoteUpdated || Date.now();
+      localStorage.setItem('ommen_last_sync', String(lastRemoteUpdated));
+      if(typeof renderFilters==='function'){ renderFilters(); }
+      if(typeof filterNews==='function'){ filterNews(); }
+      updateAuthUI();
+      // Kleine visuele feedback
+      const slot = document.getElementById('auth-slot');
+      if(slot && !force){
+        const old = slot.style.background;
+        slot.style.background='#d1fae5';
+        slot.title='Automatisch gesynchroniseerd om '+new Date().toLocaleTimeString();
+        setTimeout(()=>{ slot.style.background=old||'#f9fbff'; }, 1500);
       }
     }catch(e){ console.log('Sync load fail', e.message); }
+    finally{ isSyncing = false; }
+  }
+
+  let liveInterval = null;
+  function startLiveSync(){
+    stopLiveSync();
+    if(!authToken) return;
+    liveInterval = setInterval(()=>{ loadFromCloud(false); }, SYNC_INTERVAL_MS);
+    console.log('Live sync gestart: elke 30s check');
+  }
+  function stopLiveSync(){
+    if(liveInterval){ clearInterval(liveInterval); liveInterval=null; }
   }
 
   function updateAuthUI(){
@@ -737,9 +791,15 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     if(!slot) return;
     slot.innerHTML = '';
     if(currentUser){
+      const wrap = document.createElement('div');
+      wrap.style.cssText='display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center';
       const emailSpan = document.createElement('span');
-      emailSpan.textContent = currentUser.email + ' ';
-      emailSpan.style.fontSize='12px';
+      emailSpan.textContent = currentUser.email;
+      emailSpan.style.fontSize='11px'; emailSpan.style.color='#374151';
+      const liveDot = document.createElement('span');
+      liveDot.textContent='● live';
+      liveDot.style.fontSize='10px'; liveDot.style.color='#059669'; liveDot.style.fontWeight='700';
+      liveDot.title='Live sync elke 30 sec';
       const btnOut = document.createElement('button');
       btnOut.textContent='Uitloggen';
       btnOut.className='btn-mini';
@@ -747,11 +807,10 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       const btnSync = document.createElement('button');
       btnSync.textContent='Sync nu';
       btnSync.className='btn-mini primary';
-      btnSync.style.marginLeft='6px';
-      btnSync.onclick=function(){ saveToCloud(); alert('Instellingen gesynchroniseerd!'); };
-      slot.appendChild(emailSpan);
-      slot.appendChild(btnOut);
-      slot.appendChild(btnSync);
+      btnSync.style.marginLeft='4px';
+      btnSync.onclick=function(){ saveToCloud(); loadFromCloud(true); };
+      wrap.appendChild(emailSpan); wrap.appendChild(liveDot); wrap.appendChild(btnOut); wrap.appendChild(btnSync);
+      slot.appendChild(wrap);
     } else {
       const btn = document.createElement('button');
       btn.textContent='Inloggen / Sync';
@@ -768,8 +827,8 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
     const box = document.createElement('div');
     box.style.cssText='background:white;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.2)';
-    const h3 = document.createElement('h3'); h3.textContent='Inloggen voor sync'; h3.style.margin='0 0 8px'; h3.style.fontSize='18px';
-    const p = document.createElement('p'); p.textContent='Je filterinstellingen worden dan op al je apparaten gelijk.'; p.style.cssText='margin:0 0 16px;color:#666;font-size:13px';
+    const h3 = document.createElement('h3'); h3.textContent='Inloggen voor live sync'; h3.style.margin='0 0 8px'; h3.style.fontSize='18px';
+    const p = document.createElement('p'); p.textContent='Je filters worden live gesynchroniseerd op al je apparaten (elke 30 sec).'; p.style.cssText='margin:0 0 16px;color:#666;font-size:13px';
     const inpEmail = document.createElement('input'); inpEmail.type='email'; inpEmail.placeholder='Email'; inpEmail.id='auth-email'; inpEmail.style.cssText='width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;box-sizing:border-box';
     const inpPass = document.createElement('input'); inpPass.type='password'; inpPass.placeholder='Wachtwoord (min 6 tekens)'; inpPass.id='auth-pass'; inpPass.style.cssText='width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:16px;box-sizing:border-box';
     const row = document.createElement('div'); row.style.cssText='display:flex;gap:8px';
@@ -786,7 +845,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     btnReg.onclick=async function(){
       const email=inpEmail.value.trim(); const pass=inpPass.value;
       errDiv.textContent='Bezig...';
-      try{ await window.registerOmmen(email, pass); overlay.remove(); alert('Account aangemaakt en ingelogd!'); }catch(e){ errDiv.textContent=e.message; }
+      try{ await window.registerOmmen(email, pass); overlay.remove(); }catch(e){ errDiv.textContent=e.message; }
     };
     row.appendChild(btnLogin); row.appendChild(btnReg);
     box.appendChild(h3); box.appendChild(p); box.appendChild(inpEmail); box.appendChild(inpPass); box.appendChild(row); box.appendChild(btnClose); box.appendChild(errDiv);
@@ -794,7 +853,6 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     document.body.appendChild(overlay);
   }
 
-  // Veilig overschrijven van saveState
   if(typeof saveState === 'function'){
     const origSave = saveState;
     window.saveState = function(){
@@ -818,8 +876,18 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
         if(panel) panel.appendChild(slot);
       }
       await checkLogin();
-      if(currentUser) await loadFromCloud();
+      if(currentUser){
+        await loadFromCloud(true);
+        startLiveSync();
+      }
       updateAuthUI();
+      // Ook syncen als je tab weer zichtbaar wordt (bijv. wisselen tussen apps)
+      document.addEventListener('visibilitychange', function(){
+        if(document.visibilityState==='visible' && currentUser){
+          loadFromCloud(false);
+        }
+      });
     }, 800);
   });
 })();
+
