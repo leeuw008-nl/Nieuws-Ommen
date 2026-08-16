@@ -1,71 +1,76 @@
-/* service-worker.js v7 - FIX notification icon + badge */
-const CACHE_NAME = 'nieuws-ommen-v8-SIMPLE-BADGE';
-self.addEventListener('install', (e) => {
+// Ommen Nieuws - Service Worker v9 - Push + Live Sync Notification
+const CACHE_NAME = 'ommen-nieuws-v9';
+const URLS_TO_CACHE = ['./', './index.html', './app.js', './manifest.json'];
+
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(URLS_TO_CACHE))
+  );
   self.skipWaiting();
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil((async () => {
-    await self.clients.claim();
-    const keys = await caches.keys();
-    await Promise.all(keys.map(k => caches.delete(k)));
-    console.log('SW v7: all caches cleared');
-  })());
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys => Promise.all(
+      keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+    ))
+  );
+  self.clients.claim();
 });
 
-self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
-  const url = new URL(e.request.url);
-  if (url.origin !== location.origin) return;
-  if (url.pathname.includes('/api/') || url.pathname.includes('/proxy')) return;
-  if (url.pathname.endsWith('app.js')) {
-    e.respondWith(fetch(e.request, {cache: 'no-store'}).then(r=>{
-      return r;
-    }).catch(()=>caches.match(e.request)));
+self.addEventListener('fetch', event => {
+  if (event.request.url.includes('/proxy') || event.request.url.includes('/sync/') || event.request.url.includes('/auth/')) {
     return;
   }
-  e.respondWith(
-    caches.open(CACHE_NAME).then(cache => 
-      cache.match(e.request).then(cached => {
-        const fetched = fetch(e.request).then(network => {
-          if (network.ok) cache.put(e.request, network.clone());
-          return network;
-        }).catch(() => cached);
-        return cached || fetched;
-      })
-    )
+  event.respondWith(
+    caches.match(event.request).then(resp => resp || fetch(event.request))
   );
 });
 
-self.addEventListener('push', (event) => {
-  let data = { title: 'Nieuws Ommen', body: 'Nieuw artikel beschikbaar', url: '/', source: '' };
-  try { if (event.data) { const json = event.data.json(); data = { ...data, ...json }; } } catch {}
+// Push notificaties (bestaand)
+self.addEventListener('push', event => {
+  let data = {title: 'Nieuw(s)Ommen', body: 'Er is nieuw nieuws!', url: '/'};
+  try {
+    if (event.data) data = {...data, ...event.data.json()};
+  } catch {}
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: 'icons/notification-icon-solid-192.png',
-      badge: 'icons/badge-simple-N-96.png',
-      data: { url: data.url || '/', source: data.source || '', articleUrl: data.url || '/' },
-      vibrate: [100, 50, 100]
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: {url: data.url},
+      vibrate: [100,50,100]
     })
   );
 });
 
-self.addEventListener('notificationclick', (event) => {
+self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const articleUrl = event.notification.data?.articleUrl || event.notification.data?.url || '/';
-  const source = event.notification.data?.source || '';
-  const baseUrl = self.registration.scope;
-  const focusUrl = `${baseUrl}?focus=${encodeURIComponent(articleUrl)}&src=${encodeURIComponent(source)}`;
+  const url = event.notification.data?.url || '/';
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    clients.matchAll({type: 'window'}).then(list => {
       for (const c of list) {
-        if (c.url.includes('Nieuws-Ommen') && 'focus' in c) {
-          c.navigate(focusUrl);
-          return c.focus();
-        }
+        if (c.url.includes(self.location.origin) && 'focus' in c) return c.focus();
       }
-      return clients.openWindow(focusUrl);
+      return clients.openWindow(url);
     })
   );
+});
+
+// Nieuw: luister naar berichten vanuit app.js voor live sync melding
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SYNC_UPDATED') {
+    const time = new Date().toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'});
+    event.waitUntil(
+      self.registration.showNotification('Filters gesynchroniseerd', {
+        body: `Je instellingen zijn bijgewerkt om ${time} vanaf een ander apparaat.`,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        tag: 'ommen-sync',
+        renotify: true,
+        silent: false,
+        data: {url: '/'}
+      })
+    );
+  }
 });
