@@ -655,14 +655,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
 window.closePanel=closePanel; window.resetFilters=resetFilters; window.BRONNEN=BRONNEN; window.getAppState=()=>state;
 window.filterNews=filterNews; window.refreshNews=refreshNews;
 
-// ===== v226.1 LIVE SYNC - SAFE VERSION =====
+
+// ===== v226.2 LIVE SYNC + NOTIFICATIE "Filters gesynchroniseerd" =====
 (function(){
   const SYNC_ENABLED = true;
-  const SYNC_INTERVAL_MS = 30000; // 30 sec live check
+  const SYNC_INTERVAL_MS = 30000;
   let currentUser = null;
   let authToken = localStorage.getItem('ommen_auth_token') || null;
   let lastRemoteUpdated = parseInt(localStorage.getItem('ommen_last_sync')||'0', 10);
   let isSyncing = false;
+  let notifPermissionAsked = false;
 
   function getAuthHeaders(){
     return authToken ? {'Authorization': 'Bearer '+authToken, 'Content-Type':'application/json'} : {'Content-Type':'application/json'};
@@ -689,6 +691,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     await loadFromCloud(true);
     updateAuthUI();
     startLiveSync();
+    ensureNotificationPermission();
     return j;
   };
 
@@ -702,6 +705,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     await saveToCloud();
     updateAuthUI();
     startLiveSync();
+    ensureNotificationPermission();
     return j;
   };
 
@@ -715,6 +719,37 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     stopLiveSync();
     updateAuthUI();
   };
+
+  async function ensureNotificationPermission(){
+    if(!('Notification' in window)) return;
+    if(Notification.permission === 'default' && !notifPermissionAsked){
+      notifPermissionAsked = true;
+      try{ await Notification.requestPermission(); }catch{}
+    }
+  }
+
+  function showSyncNotification(isBackground){
+    // 1. Via Service Worker (werkt ook als tab op achtergrond)
+    try{
+      if(navigator.serviceWorker && navigator.serviceWorker.controller){
+        navigator.serviceWorker.controller.postMessage({type: 'SYNC_UPDATED'});
+      } else if(navigator.serviceWorker && navigator.serviceWorker.ready){
+        navigator.serviceWorker.ready.then(reg => {
+          if(reg.active) reg.active.postMessage({type: 'SYNC_UPDATED'});
+        });
+      }
+    }catch{}
+
+    // 2. Als app zichtbaar is, ook een kleine toast in de app zelf
+    if(!isBackground){
+      const toast = document.createElement('div');
+      toast.textContent = '✓ Filters gesynchroniseerd';
+      toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#065f46;color:white;padding:10px 18px;border-radius:999px;font-size:13px;font-weight:600;z-index:99999;box-shadow:0 6px 20px rgba(0,0,0,0.2);opacity:0;transition:opacity 0.3s';
+      document.body.appendChild(toast);
+      setTimeout(()=>{ toast.style.opacity='1'; }, 50);
+      setTimeout(()=>{ toast.style.opacity='0'; setTimeout(()=>toast.remove(), 400); }, 3000);
+    }
+  }
 
   async function saveToCloud(){
     if(!authToken || !SYNC_ENABLED || isSyncing) return;
@@ -730,32 +765,29 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
         lastRemoteUpdated = now;
         localStorage.setItem('ommen_last_sync', String(now));
       }
-      console.log('Sync: opgeslagen live');
     }catch(e){ console.log('Sync save fail', e.message); }
     finally{ isSyncing = false; }
   }
 
   async function loadFromCloud(force=false){
-    if(!authToken || isSyncing) return;
+    if(!authToken || isSyncing) return false;
+    let didUpdate = false;
     try{
       isSyncing = true;
       const r = await fetch(WORKER+'/sync/load', {headers: getAuthHeaders()});
-      if(!r.ok) return;
+      if(!r.ok) return false;
       const data = await r.json();
-      if(!data.state) return;
+      if(!data.state) return false;
       const remoteUpdated = data.updated || 0;
-      // Alleen overschrijven als remote nieuwer is dan wat wij kennen, of force (bij login)
       if(!force && remoteUpdated && remoteUpdated <= lastRemoteUpdated){
-        return;
+        return false;
       }
-      // Check of state echt anders is dan lokaal
       const localStr = JSON.stringify(state);
       const remoteStr = JSON.stringify(data.state);
       if(localStr === remoteStr){
         if(remoteUpdated) { lastRemoteUpdated = remoteUpdated; localStorage.setItem('ommen_last_sync', String(remoteUpdated)); }
-        return;
+        return false;
       }
-      console.log('Sync: nieuwe versie gevonden, toepassen', new Date(remoteUpdated).toLocaleTimeString());
       state = data.state;
       localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
       lastRemoteUpdated = remoteUpdated || Date.now();
@@ -763,16 +795,21 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       if(typeof renderFilters==='function'){ renderFilters(); }
       if(typeof filterNews==='function'){ filterNews(); }
       updateAuthUI();
-      // Kleine visuele feedback
+      didUpdate = true;
+      const isBg = document.visibilityState !== 'visible';
+      // Alleen melding tonen als het echt vanaf ander apparaat komt (niet bij eigen login)
+      if(!force){
+        showSyncNotification(isBg);
+      }
       const slot = document.getElementById('auth-slot');
       if(slot && !force){
         const old = slot.style.background;
         slot.style.background='#d1fae5';
-        slot.title='Automatisch gesynchroniseerd om '+new Date().toLocaleTimeString();
         setTimeout(()=>{ slot.style.background=old||'#f9fbff'; }, 1500);
       }
     }catch(e){ console.log('Sync load fail', e.message); }
     finally{ isSyncing = false; }
+    return didUpdate;
   }
 
   let liveInterval = null;
@@ -780,7 +817,6 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     stopLiveSync();
     if(!authToken) return;
     liveInterval = setInterval(()=>{ loadFromCloud(false); }, SYNC_INTERVAL_MS);
-    console.log('Live sync gestart: elke 30s check');
   }
   function stopLiveSync(){
     if(liveInterval){ clearInterval(liveInterval); liveInterval=null; }
@@ -799,7 +835,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       const liveDot = document.createElement('span');
       liveDot.textContent='● live';
       liveDot.style.fontSize='10px'; liveDot.style.color='#059669'; liveDot.style.fontWeight='700';
-      liveDot.title='Live sync elke 30 sec';
+      liveDot.title='Live sync elke 30 sec met melding';
       const btnOut = document.createElement('button');
       btnOut.textContent='Uitloggen';
       btnOut.className='btn-mini';
@@ -828,7 +864,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     const box = document.createElement('div');
     box.style.cssText='background:white;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.2)';
     const h3 = document.createElement('h3'); h3.textContent='Inloggen voor live sync'; h3.style.margin='0 0 8px'; h3.style.fontSize='18px';
-    const p = document.createElement('p'); p.textContent='Je filters worden live gesynchroniseerd op al je apparaten (elke 30 sec).'; p.style.cssText='margin:0 0 16px;color:#666;font-size:13px';
+    const p = document.createElement('p'); p.textContent='Je filters worden live gesynchroniseerd met melding "Filters gesynchroniseerd".'; p.style.cssText='margin:0 0 16px;color:#666;font-size:13px';
     const inpEmail = document.createElement('input'); inpEmail.type='email'; inpEmail.placeholder='Email'; inpEmail.id='auth-email'; inpEmail.style.cssText='width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;box-sizing:border-box';
     const inpPass = document.createElement('input'); inpPass.type='password'; inpPass.placeholder='Wachtwoord (min 6 tekens)'; inpPass.id='auth-pass'; inpPass.style.cssText='width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:16px;box-sizing:border-box';
     const row = document.createElement('div'); row.style.cssText='display:flex;gap:8px';
@@ -879,9 +915,9 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       if(currentUser){
         await loadFromCloud(true);
         startLiveSync();
+        ensureNotificationPermission();
       }
       updateAuthUI();
-      // Ook syncen als je tab weer zichtbaar wordt (bijv. wisselen tussen apps)
       document.addEventListener('visibilitychange', function(){
         if(document.visibilityState==='visible' && currentUser){
           loadFromCloud(false);
@@ -890,4 +926,3 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     }, 800);
   });
 })();
-
