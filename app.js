@@ -1,4 +1,4 @@
-// app.js v225 - FIX Gemeente filter hersteld (plaatsenlijst) + knop fix
+// app.js v226 - FIX Gemeente filter hersteld (plaatsenlijst) + knop fix
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -654,3 +654,172 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 window.closePanel=closePanel; window.resetFilters=resetFilters; window.BRONNEN=BRONNEN; window.getAppState=()=>state;
 window.filterNews=filterNews; window.refreshNews=refreshNews;
+
+// ===== v226 SYNC + LOGIN - SAFE VERSION (geen < token fout) =====
+(function(){
+  const SYNC_ENABLED = true;
+  let currentUser = null;
+  let authToken = localStorage.getItem('ommen_auth_token') || null;
+
+  function getAuthHeaders(){
+    return authToken ? {'Authorization': 'Bearer '+authToken, 'Content-Type':'application/json'} : {'Content-Type':'application/json'};
+  }
+
+  async function checkLogin(){
+    if(!authToken) return null;
+    try{
+      const r = await fetch(WORKER+'/auth/me', {headers: getAuthHeaders()});
+      if(!r.ok){ logout(); return null; }
+      const u = await r.json();
+      currentUser = u;
+      return u;
+    }catch{ return null; }
+  }
+
+  window.loginOmmen = async function(email, password){
+    const r = await fetch(WORKER+'/auth/login', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password})});
+    const j = await r.json();
+    if(!r.ok) throw new Error(j.error||'Login mislukt');
+    authToken = j.token;
+    localStorage.setItem('ommen_auth_token', authToken);
+    currentUser = {id:j.id, email:j.email};
+    await loadFromCloud();
+    updateAuthUI();
+    return j;
+  };
+
+  window.registerOmmen = async function(email, password){
+    const r = await fetch(WORKER+'/auth/register', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password})});
+    const j = await r.json();
+    if(!r.ok) throw new Error(j.error||'Registratie mislukt');
+    authToken = j.token;
+    localStorage.setItem('ommen_auth_token', authToken);
+    currentUser = {id:j.id, email:j.email};
+    await saveToCloud();
+    updateAuthUI();
+    return j;
+  };
+
+  window.logoutOmmen = function(){
+    if(authToken) fetch(WORKER+'/auth/logout', {method:'POST', headers: getAuthHeaders(), body: JSON.stringify({token: authToken})}).catch(()=>{});
+    authToken = null;
+    currentUser = null;
+    localStorage.removeItem('ommen_auth_token');
+    updateAuthUI();
+  };
+
+  async function saveToCloud(){
+    if(!authToken || !SYNC_ENABLED) return;
+    try{
+      await fetch(WORKER+'/sync/save', {method:'POST', headers: getAuthHeaders(), body: JSON.stringify({state})});
+      console.log('Sync: opgeslagen');
+    }catch(e){ console.log('Sync save fail', e.message); }
+  }
+
+  async function loadFromCloud(){
+    if(!authToken) return;
+    try{
+      const r = await fetch(WORKER+'/sync/load', {headers: getAuthHeaders()});
+      if(!r.ok) return;
+      const data = await r.json();
+      if(data.state && Object.keys(data.state).length>0){
+        state = data.state;
+        localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
+        console.log('Sync: geladen uit cloud');
+        if(typeof renderFilters==='function'){ renderFilters(); }
+        if(typeof filterNews==='function'){ filterNews(); }
+      }
+    }catch(e){ console.log('Sync load fail', e.message); }
+  }
+
+  function updateAuthUI(){
+    const slot = document.getElementById('auth-slot');
+    if(!slot) return;
+    slot.innerHTML = '';
+    if(currentUser){
+      const emailSpan = document.createElement('span');
+      emailSpan.textContent = currentUser.email + ' ';
+      emailSpan.style.fontSize='12px';
+      const btnOut = document.createElement('button');
+      btnOut.textContent='Uitloggen';
+      btnOut.className='btn-mini';
+      btnOut.onclick=window.logoutOmmen;
+      const btnSync = document.createElement('button');
+      btnSync.textContent='Sync nu';
+      btnSync.className='btn-mini primary';
+      btnSync.style.marginLeft='6px';
+      btnSync.onclick=function(){ saveToCloud(); alert('Instellingen gesynchroniseerd!'); };
+      slot.appendChild(emailSpan);
+      slot.appendChild(btnOut);
+      slot.appendChild(btnSync);
+    } else {
+      const btn = document.createElement('button');
+      btn.textContent='Inloggen / Sync';
+      btn.className='btn-mini';
+      btn.onclick=openLoginModal;
+      slot.appendChild(btn);
+    }
+  }
+
+  function openLoginModal(){
+    const old = document.getElementById('login-modal'); if(old) old.remove();
+    const overlay = document.createElement('div');
+    overlay.id='login-modal';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    const box = document.createElement('div');
+    box.style.cssText='background:white;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.2)';
+    const h3 = document.createElement('h3'); h3.textContent='Inloggen voor sync'; h3.style.margin='0 0 8px'; h3.style.fontSize='18px';
+    const p = document.createElement('p'); p.textContent='Je filterinstellingen worden dan op al je apparaten gelijk.'; p.style.cssText='margin:0 0 16px;color:#666;font-size:13px';
+    const inpEmail = document.createElement('input'); inpEmail.type='email'; inpEmail.placeholder='Email'; inpEmail.id='auth-email'; inpEmail.style.cssText='width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;box-sizing:border-box';
+    const inpPass = document.createElement('input'); inpPass.type='password'; inpPass.placeholder='Wachtwoord (min 6 tekens)'; inpPass.id='auth-pass'; inpPass.style.cssText='width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:16px;box-sizing:border-box';
+    const row = document.createElement('div'); row.style.cssText='display:flex;gap:8px';
+    const btnLogin = document.createElement('button'); btnLogin.textContent='Inloggen'; btnLogin.style.cssText='flex:1;padding:10px;background:#0b5bd3;color:white;border:0;border-radius:8px;font-weight:600;cursor:pointer';
+    const btnReg = document.createElement('button'); btnReg.textContent='Account maken'; btnReg.style.cssText='flex:1;padding:10px;background:#e8eef8;color:#0b5bd3;border:0;border-radius:8px;font-weight:600;cursor:pointer';
+    const btnClose = document.createElement('button'); btnClose.textContent='Annuleren'; btnClose.style.cssText='width:100%;margin-top:10px;padding:8px;background:transparent;border:0;color:#666;cursor:pointer';
+    const errDiv = document.createElement('div'); errDiv.id='auth-error'; errDiv.style.cssText='margin-top:10px;color:#c00;font-size:13px';
+    btnClose.onclick=function(){ overlay.remove(); };
+    btnLogin.onclick=async function(){
+      const email=inpEmail.value.trim(); const pass=inpPass.value;
+      errDiv.textContent='Bezig...';
+      try{ await window.loginOmmen(email, pass); overlay.remove(); }catch(e){ errDiv.textContent=e.message; }
+    };
+    btnReg.onclick=async function(){
+      const email=inpEmail.value.trim(); const pass=inpPass.value;
+      errDiv.textContent='Bezig...';
+      try{ await window.registerOmmen(email, pass); overlay.remove(); alert('Account aangemaakt en ingelogd!'); }catch(e){ errDiv.textContent=e.message; }
+    };
+    row.appendChild(btnLogin); row.appendChild(btnReg);
+    box.appendChild(h3); box.appendChild(p); box.appendChild(inpEmail); box.appendChild(inpPass); box.appendChild(row); box.appendChild(btnClose); box.appendChild(errDiv);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+  }
+
+  // Veilig overschrijven van saveState
+  if(typeof saveState === 'function'){
+    const origSave = saveState;
+    window.saveState = function(){
+      try{ origSave(); }catch{}
+      localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
+      try{ if(typeof updateHiddenCompat==='function') updateHiddenCompat(); }catch{}
+      try{ if(typeof updateHeaderCount==='function') updateHeaderCount(); }catch{}
+      try{ if(window.updatePushBell) window.updatePushBell(); }catch{}
+      if(authToken) saveToCloud();
+    };
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(async function(){
+      let slot = document.getElementById('auth-slot');
+      if(!slot){
+        slot = document.createElement('div');
+        slot.id='auth-slot';
+        slot.style.cssText='padding:10px 14px;border-top:1px solid #eee;background:#f9fbff;text-align:center';
+        const panel = document.getElementById('source-panel');
+        if(panel) panel.appendChild(slot);
+      }
+      await checkLogin();
+      if(currentUser) await loadFromCloud();
+      updateAuthUI();
+    }, 800);
+  });
+})();
