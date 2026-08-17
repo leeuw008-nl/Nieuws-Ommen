@@ -1,6 +1,7 @@
-// push.js v16 ULTRA DEBUG - PC geen melding + telefoon geen bel - 13-08-2026
+// push.js v17 FIXED - VAPID key fixed
 const WORKER_URL = 'https://ommen-push-v2.leeuw008.workers.dev';
-let swReg=null; let vapidKey=null;
+const VAPID_PUBLIC_KEY = 'BBnCDkkzIXwUYFrF8ct-OXtRQ6-HaqF74grNVDLe4pw1SwG8_JyMYIHItRY6smyqPpdt81U1EZF33loTsepqnYo';
+let swReg=null;
 
 function urlBase64ToUint8Array(base64String){
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -58,11 +59,6 @@ async function initPush(){
         alert('Meldingen geblokkeerd - sta toe via slotje in adresbalk');
         return;
       }
-      if(!vapidKey){
-        const r=await fetch(WORKER_URL+'/vapidPublicKey',{cache:'no-store'});
-        if(!r.ok) throw new Error('VAPID ophalen mislukt '+r.status);
-        vapidKey=(await r.text()).trim();
-      }
       let existing=null;
       try{ existing=await swReg.pushManager.getSubscription(); }catch{}
 
@@ -85,13 +81,13 @@ async function initPush(){
         if(perm!=='granted'){ alert('Geen toestemming gegeven'); return; }
         let sub;
         try{
-          sub=await swReg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(vapidKey)});
+          sub=await swReg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC_KEY)});
         }catch(subErr){
           if(subErr.message.includes('already') || subErr.name==='InvalidStateError'){
             try{
               const old=await swReg.pushManager.getSubscription();
               if(old) await old.unsubscribe();
-              sub=await swReg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(vapidKey)});
+              sub=await swReg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC_KEY)});
             }catch(e2){ throw new Error('Inschrijven mislukt: '+e2.message); }
           } else {
             throw subErr;
