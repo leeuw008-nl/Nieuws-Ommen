@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nieuw(s)Ommen</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="icons/icon-192x192.png" type="image/png">
+<meta name="theme-color" content="#0b5bd3">
+<style>
+/* BANNER v226.3 */
+#new-feature-banner{
+  background:linear-gradient(135deg,#0b5bd3,#10b981);
+  color:#fff;
+  padding:12px 16px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  position:sticky;
+  top:0;
+  z-index:9999;
+  box-shadow:0 4px 12px rgba(0,0,0,.15);
+  animation:slideDown .4s ease-out;
+}
+@keyframes slideDown{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
+#new-feature-banner .badge-new{
+  background:#fff;
+  color:#0b5bd3;
+  font-weight:900;
+  font-size:11px;
+  padding:3px 8px;
+  border-radius:20px;
+  letter-spacing:.5px;
+  flex-shrink:0;
+}
+#new-feature-banner .text{
+  flex:1;
+  font-size:14px;
+  line-height:1.3;
+  font-weight:600;
+}
+#new-feature-banner .text small{
+  display:block;
+  font-weight:400;
+  opacity:.9;
+  font-size:12px;
+  margin-top:2px;
+}
+#new-feature-banner .btn-banner{
+  background:#fff;
+  color:#0b5bd3;
+  border:none;
+  padding:8px 14px;
+  border-radius:20px;
+  font-weight:800;
+  font-size:13px;
+  cursor:pointer;
+  flex-shrink:0;
+  white-space:nowrap;
+}
+#new-feature-banner .close-banner{
+  background:rgba(255,255,255,.2);
+  border:none;
+  color:#fff;
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  cursor:pointer;
+  font-size:16px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+}
+#new-feature-banner .close-banner:hover{background:rgba(255,255,255,.35)}
+@media(max-width:600px){
+  #new-feature-banner{padding:10px 12px;gap:8px}
+  #new-feature-banner .text{font-size:13px}
+  #new-feature-banner .btn-banner{padding:6px 10px;font-size:12px}
+}
+</style>
+</head>
+<body>
+<!-- BANNER NIEUW v226.3 -->
+<div id="new-feature-banner" style="display:none">
+  <span class="badge-new">NIEUW</span>
+  <div class="text">
+    Maak een account voor sync!
+    <small>Filters & bronnen op al je apparaten + updates per mail</small>
+  </div>
+  <button class="btn-banner" onclick="openAccountModal()">Account maken →</button>
+  <button class="close-banner" onclick="dismissBanner()" aria-label="Sluiten">✕</button>
+</div>
+
+<header>
+  <h1><span class="title-left">📰 Nieuw(s)Ommen</span><a href="informatie.html" class="info-icon-btn" title="Info">i</a></h1>
+  <div class="search-row"><input type="text" id="search-input" placeholder="Zoek in nieuws..."></div>
+  <div class="filter-header" id="filter-header">
+    <div class="filter-header-center"><span class="filter-header-count" id="header-count">9 v/d 9 bronnen</span></div>
+    <div class="filter-header-right">
+      <div class="bell-slot" id="bell-slot"></div>
+      <button class="btn-all-toets" id="btn-all">Alles aan</button>
+      <span class="filter-header-arrow">▼</span>
+    </div>
+  </div>
+  <div id="source-panel">
+    <div class="panel-hint">
+      <div><b>VANDAAG</b> &lt;-&gt; <b>MEER</b> = alleen vandaag of meerdere dagen</div>
+      <div><b>GEMEENTE</b> &lt;-&gt; <b>REGIO</b> = alleen gemeente Ommen of ook regio</div>
+      <div><b>AAN</b> &lt;-&gt; <b>UIT</b> = nieuwsbron wel of niet tonen in het overzicht</div>
+    </div>
+    <div class="source-list" id="source-list"></div>
+    <div class="panel-footer">
+      <button onclick="resetFilters()">Reset</button>
+      <button class="primary" onclick="closePanel()">Sluiten ▲</button>
+    </div>
+  </div>
+  <div id="news-container-anchor"></div>
+  <div id="compat-hidden" style="display:none">
+    <input type="checkbox" id="only-ommen" checked>
+    <div id="compat-sources"></div>
+  </div>
+</header>
+<main><div id="news-container">Bezig met laden...</div></main>
+<footer><button onclick="refreshNews()">🔄 Vernieuwen</button></footer>
+
+<script>
+// Service worker voor GitHub Pages subpad /Nieuws-Ommen/
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./service-worker.js', {scope: './'}).then(r=>{
+    console.log('SW registered', r.scope);
+  }).catch(e=>console.log('SW fail', e));
+}
+</script>
+<script src="app.js"></script>
+<script src="push.js"></script>
+<script src="article-focus.js"></script>
+<script>
+// Banner logica v226.3
+(function(){
+  function shouldShowBanner(){
+    if(localStorage.getItem('ommen_banner_v226_3_dismissed')==='1') return false;
+    try{
+      const keys=['ommen_session','ommen_auth','ommen_user','nieuwsommen_user'];
+      for(const k of keys){
+        if(localStorage.getItem(k)) return false;
+      }
+    }catch{}
+    return true;
+  }
+  function showBanner(){
+    const el=document.getElementById('new-feature-banner');
+    if(el && shouldShowBanner()){
+      el.style.display='flex';
+    }
+  }
+  window.dismissBanner=function(){
+    const el=document.getElementById('new-feature-banner');
+    if(el) el.style.display='none';
+    localStorage.setItem('ommen_banner_v226_3_dismissed','1');
+  };
+  window.openAccountModal=function(){
+    // Zoek bestaande account buttons
+    const selectors=['#user-btn','#account-btn','.user-icon','[data-action="account"]','#auth-btn'];
+    for(const sel of selectors){
+      const btn=document.querySelector(sel);
+      if(btn){ btn.click(); return; }
+    }
+    // Fallback: probeer login functie
+    if(typeof window.openLogin==='function'){ window.openLogin(); return; }
+    if(typeof window.showAuth==='function'){ window.showAuth(); return; }
+    // Anders naar info
+    window.location.href='informatie.html';
+  };
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',()=>setTimeout(showBanner,1200));
+  }else{
+    setTimeout(showBanner,1200);
+  }
+})();
+</script>
+</body>
+</html>

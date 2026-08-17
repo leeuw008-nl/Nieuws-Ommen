@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Info - Nieuw(s)Ommen</title>
+<link rel="icon" href="icon-192x192.png">
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f5f7fb;color:#111;line-height:1.6}
+.header{background:#0b5bd3;color:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0}
+.header a{color:#fff;text-decoration:none}
+.header h1{margin:0;font-size:23px;font-weight:800;flex:1}
+.container{max-width:800px;margin:0 auto;padding:16px;display:block}
+.card{background:#fff;border-radius:12px;padding:16px;margin:12px 0;box-shadow:0 2px 8px rgba(0,0,0,.08);display:block}
+h2{margin-top:0;color:#0b5bd3;font-size:18px}
+h3{margin:12px 0 6px;font-size:15px}
+ul{margin:6px 0;padding-left:20px}
+.badge{display:inline-block;background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:20px;font-size:12px;margin:2px}
+.badge.green{background:#d1fae5;color:#065f46}
+a.link{color:#0b5bd3}
+.footer{padding:20px;text-align:center;color:#6b7280;font-size:12px}
+.btn{display:inline-block;background:#0b5bd3;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:600;margin-top:8px}
+
+.back-btn{
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  background:#fff;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+  box-shadow:0 2px 6px rgba(0,0,0,0.22);
+  text-decoration:none;
+}
+.back-btn svg{
+  width:20px;
+  height:20px;
+  display:block;
+}
+.back-btn:active{transform:scale(0.92)}
+.info-icon{
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  background:rgba(255,255,255,0.22);
+  border:2px solid #fff;
+  color:#fff;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:24px;
+  font-weight:900;
+  flex-shrink:0;
+}
+.feature-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:10px}
+@media(min-width:600px){.feature-grid{grid-template-columns:1fr 1fr}}
+.feature{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px}
+.feature b{display:block;margin-bottom:4px;color:#0b5bd3}
+</style>
+</head>
+<body>
+<div class="header">
+  <a href="index.html" class="back-btn" aria-label="Terug">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#0b5bd3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+  </a>
+  <div class="info-icon">i</div>
+  <h1>Informatie</h1>
+  <span style="width:34px"></span>
+</div>
+<div class="container">
+  <div class="card">
+    <h2>📰 Over Nieuw(s)Ommen</h2>
+    <p><b>Nieuw(s)Ommen</b> – met een knipoog naar <b>OudOmmen.nl</b>. Oud voor de historie, Nieuw(s) voor het nieuws van vandaag.</p>
+    <p><b>Nieuw(s)Ommen</b> bundelt (ca. 95% van) het laatste nieuws uit de gemeente Ommen op één plek. Geen gedoe met meerdere websites, maar alle actuele berichten automatisch verzameld en elke 10 minuten ververst.</p>
+    <p><span class="badge">Gratis</span> <span class="badge">Optioneel account</span> <span class="badge green">Geen advertenties</span> <span class="badge green">Nieuw: Sync</span></p>
+  </div>
+
+  <div class="card" style="border:2px solid #0b5bd3">
+    <h2>👤 Account & Synchronisatie - NIEUW in v226.3</h2>
+    <p>Vanaf nu kun je een <b>gratis account</b> aanmaken. Daarmee blijft alles automatisch gelijk op al je apparaten.</p>
+    <div class="feature-grid">
+      <div class="feature">
+        <b>🔄 Sync alle apparaten</b>
+        Je filters, bronnen en instellingen worden elke 30 seconden gesynchroniseerd. Stel thuis iets in op je laptop, en het staat meteen goed op je telefoon.
+      </div>
+      <div class="feature">
+        <b>📱💻📲 Overal hetzelfde</b>
+        Log in op telefoon, tablet en PC met hetzelfde email adres. Je hoeft maar één keer je favoriete bronnen te selecteren.
+      </div>
+      <div class="feature">
+        <b>🔔 Melding bij sync</b>
+        Je krijgt een kleine melding "Filters gesynchroniseerd" als er op een ander apparaat iets verandert.
+      </div>
+      <div class="feature">
+        <b>⚡ Automatisch</b>
+        Geen knoppen, geen gedoe. Inloggen = klaar. Pull-to-refresh om direct te syncen.
+      </div>
+    </div>
+    <p style="margin-top:12px"><b>Hoe werkt het?</b></p>
+    <ol style="padding-left:20px;margin:6px 0">
+      <li>Tik rechtsboven op het poppetje 👤</li>
+      <li>Maak account met email + wachtwoord (min. 6 tekens)</li>
+      <li>Je bent meteen ingelogd op al je apparaten</li>
+    </ol>
+  </div>
+
+  <div class="card" style="border:2px solid #10b981">
+    <h2>📧 Updates & Nieuwsbrief - NIEUW</h2>
+    <p>Je wordt automatisch <b>geïnformeerd over belangrijke updates</b> van Nieuw(s)Ommen.</p>
+    <ul>
+      <li>Bij een grote update (zoals deze v226.3) krijg je een mailtje</li>
+      <li>Verstuurd vanaf <b>updates@nieuwommen.leeuw008.nl</b></li>
+      <li>Alleen bij echt nieuws, geen spam (max. 1-2 per maand)</li>
+      <li>Uitschrijven? Reply met "STOP" naar de update mail</li>
+    </ul>
+    <p class="badge green" style="font-size:13px;padding:4px 10px">✅ Je email wordt alleen gebruikt voor sync & update mails. Nooit gedeeld.</p>
+  </div>
+
+  <div class="card">
+    <h2>📡 Bronnen</h2>
+    <ul>
+      <li><b>De Stentor</b> – regionaal nieuws (Ommen)</li>
+      <li><b>Gemeente Ommen</b> – officiële berichten</li>
+      <li><b>Natuurlijk Ommen</b> - evenementen & toerisme</li>
+      <li><b>Ommen City</b> – lokaal nieuws</li>
+      <li><b>OudOmmen</b> – artikelen over historie</li>
+      <li><b>RondOmmen</b> - lokaal nieuws</li>
+      <li><b>RTV Oost</b> – regionaal nieuws Overijssel</li>
+      <li><b>RTV Vechtdal</b> – lokaal nieuws Vechtdal</li>
+      <li><b>Vechtdal Centraal</b> – 112 & dorpsnieuws</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2>🔔 Push-meldingen</h2>
+    <ul>
+      <li>Tik op 🔔 in de header om meldingen aan/uit te zetten.</li>
+      <li>Selecteer in het filter de gewenste bronnen.</li>
+      <li>Door het klikken op een melding wordt het betreffende artikel direct in de app weergegeven.</li>
+      <li>Push werkt nu op zowel telefoon als PC na de VAPID fix.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2>🔒 Privacy</h2>
+    <ul>
+      <li><b>Zonder account:</b> er worden geen persoonsgegevens opgeslagen, alleen het technische push-abonnement.</li>
+      <li><b>Met account:</b> alleen je email adres en je filter instellingen worden veilig opgeslagen in Cloudflare KV.</li>
+      <li>Wachtwoorden worden gehashed (SHA-256) opgeslagen, nooit als platte tekst.</li>
+      <li>Er worden geen trackingcookies gebruikt.</li>
+      <li>Er worden geen advertentienetwerken toegepast.</li>
+      <li>Emails worden alleen gebruikt voor login & update mails via Resend (updates@nieuwommen.leeuw008.nl).</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2>🛠 Techniek & beheer</h2>
+    <p>App gebouwd door <b>leeuw008</b> – leeuw008.nl</p>
+    <p>Hosting: GitHub Pages + Cloudflare Workers</p>
+    <p>Email: <a class="link" href="mailto:leeuw008@gmail.com">leeuw008@gmail.com</a></p>
+    <p>Updates: <a class="link" href="mailto:updates@nieuwommen.leeuw008.nl">updates@nieuwommen.leeuw008.nl</a></p>
+    <a class="btn" href="index.html">Terug naar nieuws</a>
+  </div>
+  <div class="footer">Nieuws Ommen v226.3 • aug 2026 • Gemaakt met ❤ voor Ommen</div>
+</div>
+</body>
+</html>
