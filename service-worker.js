@@ -1,12 +1,8 @@
-const CACHE_NAME = 'nieuws-ommen-v227-fix-push';
+// Ommen Service Worker v16.3 - FIXED met bron weergave
+const CACHE_NAME = 'nieuws-ommen-v226';
 const urlsToCache = [
   './',
   './index.html',
-  './informatie.html',
-  './styles.css',
-  './app.js',
-  './push.js',
-  './article-focus.js',
   './manifest.json',
   './icons/icon-192x192.png',
   './icons/icon-512x512.png'
@@ -15,66 +11,65 @@ const urlsToCache = [
 self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache).catch(()=>{}))
   );
 });
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('[SW] Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches.keys().then(keys => Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))).then(()=>self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', event => {
-  // Voor index.html en navigatie altijd netwerk eerst
-  if (event.request.mode === 'navigate' || event.request.url.includes('index.html')) {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => response)
-        .catch(() => caches.match('./index.html'))
-    );
-    return;
-  }
   event.respondWith(
-    caches.match(event.request)
-      .then(response => response || fetch(event.request))
+    caches.match(event.request).then(response => {
+      return response || fetch(event.request).catch(()=>caches.match('./index.html'));
+    })
   );
 });
 
-// ===== PUSH NOTIFICATIES - DIT MISTE =====
 self.addEventListener('push', event => {
-  console.log('[SW] Push ontvangen', event);
   let data = {};
   try {
-    if (event.data) {
+    if(event.data){
       data = event.data.json();
     }
-  } catch (e) {
-    data = { title: 'Nieuw(s)Ommen', body: event.data ? event.data.text() : 'Nieuw artikel beschikbaar' };
+  } catch {
+    try{
+      const text = event.data.text();
+      data = { title: 'Nieuws Ommen', body: text };
+    }catch{
+      data = { title: 'Nieuws Ommen', body: 'Nieuw artikel beschikbaar' };
+    }
   }
 
-  const title = data.title || '📰 Nieuw(s)Ommen';
+  const source = data.source || '';
+  let title = data.title || 'Nieuws Ommen';
+  let body = data.body || 'Nieuw artikel beschikbaar';
+
+  if(source && source !== 'Algemeen' && !title.toLowerCase().includes(source.toLowerCase())){
+    if(title.startsWith('Test:') || source === data.source){
+      title = `${source}: ${title}`;
+    }
+  }
+
   const options = {
-    body: data.body || data.message || 'Er is nieuw nieuws uit Ommen!',
+    body: body,
     icon: './icons/icon-192x192.png',
     badge: './icons/icon-192x192.png',
-    tag: data.tag || 'ommen-nieuws',
-    data: {
-      url: data.url || data.link || './',
-      source: data.source || ''
-    },
+    tag: data.tag || 'ommen-news',
+    renotify: true,
+    requireInteraction: false,
     vibrate: [200, 100, 200],
-    requireInteraction: false
+    data: {
+      url: data.url || './',
+      source: source
+    },
+    actions: [
+      { action: 'open', title: 'Openen' },
+      { action: 'close', title: 'Sluiten' }
+    ]
   };
 
   event.waitUntil(
@@ -83,31 +78,24 @@ self.addEventListener('push', event => {
 });
 
 self.addEventListener('notificationclick', event => {
-  console.log('[SW] Notification click', event);
   event.notification.close();
-
-  const urlToOpen = event.notification.data && event.notification.data.url ? event.notification.data.url : './';
+  const action = event.action;
+  if(action === 'close') return;
+  
+  const url = event.notification.data?.url || './';
+  const fullUrl = url.startsWith('http') ? url : new URL(url, self.location.origin).href;
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-      // Als er al een venster open is, focus die
-      for (let client of windowClients) {
-        if (client.url.includes('Nieuws-Ommen') || client.url.includes('nieuwommen') || client.url.includes('leeuw008')) {
-          client.focus();
-          if (urlToOpen !== './') {
-            client.navigate(urlToOpen);
-          }
-          return;
+    clients.matchAll({type:'window', includeUncontrolled:true}).then(clientList => {
+      for(const client of clientList){
+        if(client.url.includes('Nieuws-Ommen') && 'focus' in client){
+          client.navigate(fullUrl);
+          return client.focus();
         }
       }
-      // Anders nieuw venster openen
-      if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
+      if(clients.openWindow){
+        return clients.openWindow(fullUrl);
       }
     })
   );
-});
-
-self.addEventListener('notificationclose', event => {
-  console.log('[SW] Notification closed', event);
 });
