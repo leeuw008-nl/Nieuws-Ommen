@@ -5,7 +5,13 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin
 header{background:var(--brand);color:white;padding:8px 12px 10px;width:100%;max-width:640px;margin:0 auto;display:block;box-shadow:0 2px 10px rgba(0,0,0,.12)}
 header h1{display:flex;align-items:center;gap:12px;justify-content:center;width:100%;min-height:48px;margin:0 auto 8px;padding-top:10px;font-size:1.7em}
 .title-left{display:inline-flex;align-items:center;justify-content:center}
+.header-icons{display:inline-flex;align-items:center;gap:8px;flex-shrink:0}
 .info-icon-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.45);display:inline-flex;align-items:center;justify-content:center;color:#fff;text-decoration:none;font-weight:900;font-size:20px;line-height:1;flex-shrink:0}
+.user-icon-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.45);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:18px;line-height:1;flex-shrink:0;cursor:pointer;padding:0;position:relative}
+.user-icon-btn:hover{background:rgba(255,255,255,0.28)}
+.user-icon-btn.logged-in{background:#d6ffdf !important;border-color:#86efac !important;color:#065f46 !important}
+.user-icon-btn.logged-in::after{content:"";position:absolute;top:-2px;right:-2px;width:10px;height:10px;background:#16a34a;border:2px solid #fff;border-radius:50%}
+
 .search-row{margin:0 auto 8px;width:100%;max-width:100%;display:block}
 .search-row input{width:100%;padding:11px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.7);font-size:15px;display:block;outline:none}
 .search-row input:focus{border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.25)}
