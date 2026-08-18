@@ -1,101 +1,98 @@
-// Ommen Service Worker v16.3 - FIXED met bron weergave
-const CACHE_NAME = 'nieuws-ommen-v226';
-const urlsToCache = [
-  './',
-  './index.html',
-  './manifest.json',
-  './icons/icon-192x192.png',
-  './icons/icon-512x512.png'
-];
+// Service Worker v16.4 - ROBUST - toont ALTIJD notificatie, ook bij decrypt errors
+const CACHE_NAME = 'nieuws-ommen-v164';
+const ICON_URL = 'https://leeuw008-nl.github.io/Nieuws-Ommen/icons/icon-192x192.png';
 
-self.addEventListener('install', event => {
+self.addEventListener('install', e => {
+  console.log('[SW v16.4] Install');
   self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache).catch(()=>{}))
-  );
 });
 
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))).then(()=>self.clients.claim())
-  );
-});
-
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request).then(response => {
-      return response || fetch(event.request).catch(()=>caches.match('./index.html'));
-    })
+self.addEventListener('activate', e => {
+  console.log('[SW v16.4] Activate - clearing old caches');
+  e.waitUntil(
+    caches.keys().then(keys => Promise.all(keys.map(k => { if(k !== CACHE_NAME) return caches.delete(k); }))).then(()=>self.clients.claim())
   );
 });
 
 self.addEventListener('push', event => {
-  let data = {};
+  console.log('[SW v16.4] Push received', event.data ? 'with data' : 'NO DATA');
+  
+  let title = 'Nieuws Ommen';
+  let body = 'Nieuw artikel beschikbaar';
+  let url = './';
+  let source = '';
+  let tag = 'ommen-'+Date.now();
+
   try {
-    if(event.data){
-      data = event.data.json();
+    if (event.data) {
+      let data;
+      try {
+        data = event.data.json();
+        console.log('[SW v16.4] Data json:', data);
+      } catch (e) {
+        try {
+          const text = event.data.text();
+          console.log('[SW v16.4] Data text:', text);
+          try { data = JSON.parse(text); } catch { data = { body: text }; }
+        } catch (e2) {
+          console.log('[SW v16.4] No parsable data', e2);
+        }
+      }
+      
+      if (data) {
+        // Bron zit nu al in titel bij v16.3: "Natuurlijk Ommen: Test: Ommen Push"
+        title = data.title || title;
+        body = data.body || body;
+        url = data.url || url;
+        source = data.source || '';
+        tag = data.tag || tag;
+        
+        // Als bron niet in titel, toch toevoegen voor duidelijkheid
+        if (source && source !== 'Algemeen' && !title.toLowerCase().includes(source.toLowerCase())) {
+          body = `[${source}] ${body}`;
+        }
+      }
+    } else {
+      console.log('[SW v16.4] event.data is NULL - using defaults');
     }
-  } catch {
-    try{
-      const text = event.data.text();
-      data = { title: 'Nieuws Ommen', body: text };
-    }catch{
-      data = { title: 'Nieuws Ommen', body: 'Nieuw artikel beschikbaar' };
-    }
+  } catch (err) {
+    console.error('[SW v16.4] Error parsing push data', err);
   }
 
-  const source = data.source || '';
-  let title = data.title || 'Nieuws Ommen';
-  let body = data.body || 'Nieuw artikel beschikbaar';
-
-  if(source && source !== 'Algemeen' && !title.toLowerCase().includes(source.toLowerCase())){
-    if(title.startsWith('Test:') || source === data.source){
-      title = `${source}: ${title}`;
-    }
-  }
+  console.log('[SW v16.4] Showing notification:', title, body);
 
   const options = {
     body: body,
-    icon: './icons/icon-192x192.png',
-    badge: './icons/icon-192x192.png',
-    tag: data.tag || 'ommen-news',
+    // Gebruik geen lokaal icon maar absolute URL - voorkomt 404 crash
+    icon: ICON_URL,
+    badge: ICON_URL,
+    tag: tag,
     renotify: true,
-    requireInteraction: false,
     vibrate: [200, 100, 200],
-    data: {
-      url: data.url || './',
-      source: source
-    },
-    actions: [
-      { action: 'open', title: 'Openen' },
-      { action: 'close', title: 'Sluiten' }
-    ]
+    data: { url: url, source: source },
+    // Geen actions - sommige browsers crashen daarop
   };
 
   event.waitUntil(
     self.registration.showNotification(title, options)
+      .then(()=>console.log('[SW v16.4] Notification shown OK'))
+      .catch(err=>{
+        console.error('[SW v16.4] showNotification FAILED', err);
+        // Fallback zonder icon/badge als dat de crash veroorzaakt
+        return self.registration.showNotification(title, { body: body, tag: tag, data: { url: url } });
+      })
   );
 });
 
 self.addEventListener('notificationclick', event => {
+  console.log('[SW v16.4] Click', event.notification.data);
   event.notification.close();
-  const action = event.action;
-  if(action === 'close') return;
-  
   const url = event.notification.data?.url || './';
   const fullUrl = url.startsWith('http') ? url : new URL(url, self.location.origin).href;
-
   event.waitUntil(
-    clients.matchAll({type:'window', includeUncontrolled:true}).then(clientList => {
-      for(const client of clientList){
-        if(client.url.includes('Nieuws-Ommen') && 'focus' in client){
-          client.navigate(fullUrl);
-          return client.focus();
-        }
-      }
-      if(clients.openWindow){
-        return clients.openWindow(fullUrl);
-      }
+    clients.matchAll({type:'window', includeUncontrolled:true}).then(list=>{
+      for(const c of list){ if(c.url.includes('Nieuws-Ommen')){ c.navigate(fullUrl); return c.focus(); } }
+      return clients.openWindow(fullUrl);
     })
   );
 });
