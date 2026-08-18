@@ -103,3 +103,6 @@ footer button{margin:5px;padding:10px 18px;font-size:14px;background:var(--brand
 }
 
 @media(max-width:400px){header h1{font-size:1.4em} .source-row{grid-template-columns:1fr 140px}}
+
+.user-icon-btn svg{display:block;fill:white}
+.user-icon-btn.logged-in svg{fill:#065f46}
