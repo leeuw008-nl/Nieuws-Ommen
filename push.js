@@ -1,4 +1,4 @@
-// push.js v17 FIXED - VAPID key fixed
+// push.js v18 FIXED - push listener hersteld + SW v227
 const WORKER_URL = 'https://ommen-push-v2.leeuw008.workers.dev';
 const VAPID_PUBLIC_KEY = 'BBnCDkkzIXwUYFrF8ct-OXtRQ6-HaqF74grNVDLe4pw1SwG8_JyMYIHItRY6smyqPpdt81U1EZF33loTsepqnYo';
 let swReg=null;
