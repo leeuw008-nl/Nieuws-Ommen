@@ -1,80 +1,118 @@
-// Service Worker v17 FINAL - ROBUUST met BRON weergave, geen externe icon
-const VERSION = 'v17-FINAL-BRON';
-const CACHE_NAME = 'nieuws-ommen-v17';
+const CACHE_NAME = 'nieuws-ommen-v228-white-poppetje-fix';
+const urlsToCache = [
+  './',
+  './index.html',
+  './informatie.html',
+  './app.js',
+  './push.js',
+  './manifest.json',
+  './icons/icon-192x192.png',
+  './icons/icon-512x512.png'
+];
+// Let op: styles.css expres NIET in precache, die doen we network-first
 
-self.addEventListener('install', e => {
-  console.log(`[SW ${VERSION}] Install`);
+self.addEventListener('install', event => {
   self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(urlsToCache))
+  );
 });
-self.addEventListener('activate', e => {
-  console.log(`[SW ${VERSION}] Activate`);
-  e.waitUntil(self.clients.claim());
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            console.log('[SW v228] Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', event => {
+  const url = event.request.url;
+  // Voor styles.css en app.js altijd netwerk eerst, dan cache (zodat nieuwe kleuren direct zichtbaar zijn)
+  if (url.includes('styles.css') || url.includes('app.js') || url.includes('push.js')) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+  if (event.request.mode === 'navigate' || url.includes('index.html')) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => response)
+        .catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => response || fetch(event.request))
+  );
 });
 
 self.addEventListener('push', event => {
-  console.log(`[SW ${VERSION}] Push received`, event.data ? 'WITH data' : 'NO data');
-  let title = 'Nieuws Ommen';
-  let body = 'Nieuw artikel beschikbaar';
-  let url = './';
-  let source = 'Algemeen';
-  let tag = 'ommen-' + Date.now();
-
+  console.log('[SW v228] Push ontvangen', event);
+  let data = {};
   try {
     if (event.data) {
-      const text = event.data.text();
-      console.log(`[SW ${VERSION}] text:`, text.slice(0,300));
-      try {
-        const data = JSON.parse(text);
-        title = data.title || title;
-        body = data.body || body;
-        url = data.url || url;
-        source = data.source || source;
-        tag = data.tag || tag;
-        // Als source niet al in title zit, voeg toe
-        if (source && source !== 'Algemeen' && !title.includes(source)) {
-          title = `${source}: ${title}`;
-        }
-        console.log(`[SW ${VERSION}] parsed`, {title, body, source, url});
-      } catch {
-        // Plain text
-        body = text;
-        console.log(`[SW ${VERSION}] plain text body`, body.slice(0,100));
-      }
+      data = event.data.json();
     }
-  } catch (err) {
-    console.error(`[SW ${VERSION}] error`, err);
-    title = 'Nieuws Ommen - Nieuw artikel';
-    body = 'Er is nieuw nieuws uit Ommen!';
+  } catch (e) {
+    try {
+      data = { title: 'Nieuw(s)Ommen', body: event.data ? event.data.text() : 'Nieuw artikel beschikbaar' };
+    } catch {
+      data = { title: 'Nieuw(s)Ommen', body: 'Nieuw artikel beschikbaar' };
+    }
   }
 
-  console.log(`[SW ${VERSION}] SHOWING`, title);
+  const title = data.title || '📰 Nieuw(s)Ommen';
   const options = {
-    body: body,
-    data: { url: url, source: source },
-    tag: tag,
-    renotify: true,
+    body: data.body || data.message || 'Er is nieuw nieuws uit Ommen!',
+    // geen icon/badge pad dat kan 404'en - dat blokkeerde vorige week alle pushes
+    tag: data.tag || 'ommen-nieuws-' + Date.now(),
+    data: {
+      url: data.url || data.link || './',
+      source: data.source || ''
+    },
+    vibrate: [200, 100, 200],
     requireInteraction: false
-    // GEEN icon/badge om CORS issues te vermijden - Chrome gebruikt dan default browser icon
   };
 
   event.waitUntil(
     self.registration.showNotification(title, options)
-      .then(() => console.log(`[SW ${VERSION}] showNotification OK`))
-      .catch(err => {
-        console.error(`[SW ${VERSION}] showNotification FAILED`, err);
-        // Fallback nog simpeler
-        return self.registration.showNotification('Nieuws Ommen', { body: 'Nieuw artikel uit Ommen!', tag: tag });
-      })
   );
 });
 
 self.addEventListener('notificationclick', event => {
-  console.log(`[SW ${VERSION}] Click`, event.notification.data);
   event.notification.close();
-  const url = event.notification.data?.url || './';
-  event.waitUntil(clients.openWindow(url));
-});
-
-self.addEventListener('notificationclose', event => {
-  console.log(`[SW ${VERSION}] Closed`);
+  const urlToOpen = event.notification.data && event.notification.data.url ? event.notification.data.url : './';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      for (let client of windowClients) {
+        if (client.url.includes('Nieuws-Ommen') || client.url.includes('nieuwommen') || client.url.includes('leeuw008')) {
+          client.focus();
+          if (urlToOpen !== './') {
+            client.navigate(urlToOpen);
+          }
+          return;
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
+  );
 });
