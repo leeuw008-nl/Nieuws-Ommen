@@ -1,4 +1,5 @@
-// app.js v226 - FIX Gemeente filter hersteld (plaatsenlijst) + knop fix
+// app.js v227 - FIX Gemeente filter hersteld + FILTER BRIDGE voor SW v231
+// Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -59,7 +60,7 @@ function parseRTVVechtdalECHT(html){
 }
 
 async function enrichVechtdalWithDetail(arts){
-  const cache = getGemeenteCache(); // reuse same cache
+  const cache = getGemeenteCache();
   const now = Date.now();
   const results=[];
   for(let a of arts){
@@ -70,11 +71,10 @@ async function enrichVechtdalWithDetail(arts){
     try{
       await new Promise(r=>setTimeout(r, 350));
       const html = await fetchViaWorker(a.link);
-      // probeer tijd te vinden: <meta property="article:published_time" content="2026-08-11T14:23:00+02:00">
       let m = html.match(/property="article:published_time" content="([^"]+)"/i) || html.match(/property="og:.*published.*?" content="([^"]+)"/i) || html.match(/"datePublished"\s*:\s*"([^"]+)"/i) || html.match(/<time[^>]+datetime="([^"]+)"/i) || html.match(/(\d{2}-\d{2}-\d{4})\s+(\d{1,2}:\d{2})/);
       let realDate=null;
       if(m){
-        if(m[2]){ // dd-mm-yyyy hh:mm
+        if(m[2]){
           const dparts=m[1].split('-'); const tparts=m[2].split(':');
           realDate=new Date(dparts[2], dparts[1]-1, dparts[0], parseInt(tparts[0]), parseInt(tparts[1]));
         }else{
@@ -165,7 +165,6 @@ const GEMEENTE_PLAATSEN = [
   'Ommerbosch','Ommerkanaal','Ommerschans','Ommerveld','Rotbrink','Stegeren','Stegerveld',
   'Varsen','Vinkenbuurt','Zeesse','Stegeren','Beerzerpoort','Ommerschans'
 ];
-// Voor filter: lowercase set
 const GEMEENTE_ZOEK = GEMEENTE_PLAATSEN.map(p=>p.toLowerCase());
 
 function isGemeenteArtikel(art){
@@ -185,6 +184,10 @@ function saveState(){
   localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
   updateHiddenCompat(); updateHeaderCount();
   if(window.updatePushBell) window.updatePushBell();
+  // v227 - push filters naar SW voor notificatie filtering
+  try{
+    if(window.pushFiltersToSW) window.pushFiltersToSW();
+  }catch(e){}
 }
 function updateHiddenCompat(){
   const cont = document.getElementById('compat-sources'); if(!cont) return;
@@ -256,21 +259,17 @@ function setupFilterHeader(){
 }
 const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
 async function fetchViaWorker(url){
-  // Voor Vechtdal Centraal en RTV Oost: probeer eerst rss2json (heeft CORS + omzeilt Cloudflare block)
   const isVC = url.includes('vechtdalcentraal.nl');
   const isOost = url.includes('rtvoost.nl') || url.includes('oost.nl');
   if(isVC || isOost){
     try{
       const rssUrl = isVC ? 'https://www.vechtdalcentraal.nl/feed/' : 'https://www.rtvoost.nl/nieuws/ommen';
-      // rss2json werkt alleen met echte RSS, dus voor VC gebruiken we feed, voor Oost proberen we homepage via rss2json alternatief
       if(isVC){
         const rss2jsonUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&t=${Date.now()}`;
         const rRss = await fetch(rss2jsonUrl, {cache:'no-store'});
         if(rRss.ok){
           const j = await rRss.json();
           if(j.status==='ok' && j.items && j.items.length>0){
-            console.log('rss2json OK voor', url, j.items.length);
-            // Bouw RSS XML na zodat parseRSSFull het snapt
             let xml = '<rss><channel>';
             j.items.slice(0,20).forEach(it=>{
               xml += `<item><title><![CDATA[${it.title}]]></title><link>${it.link}</link><pubDate>${it.pubDate}</pubDate><description><![CDATA[${it.description}]]></description></item>`;
@@ -297,7 +296,6 @@ async function fetchViaWorker(url){
   }catch(e1){
     clearTimeout(to);
     console.log('worker proxy fail, probeer fallback', url, e1.message);
-    // Fallback voor geblokkeerde domeinen
     try{
       const fallbackUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&t=${Date.now()}`;
       const r2 = await fetch(fallbackUrl, {cache:'no-store'});
@@ -457,7 +455,7 @@ async function enrichGemeenteWithDetail(arts){
   setGemeenteCache(cache);
   return results;
 }
-function parseOostFull(html){
+function parseOostFull_OLD(html){
   const max = MAX_PER_BRON['RTV Oost'];
   const patterns = [
     /<a[^>]+href=["'](\/nieuws\/[^"']*ommen[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
@@ -475,7 +473,7 @@ function parseOostFull(html){
   }
   return Array.from(uniqMap.entries()).slice(0,max).map(([link,title])=>({title:title.slice(0,120), link, pubDate:new Date(), description:'[...]'}));
 }
-function parseVechtdalCentraalFallback(html){
+function parseVechtdalCentraalFallback_OLD(html){
   const max = MAX_PER_BRON['Vechtdal Centraal'];
   const re = /<a[^>]+href=["']([^"']*\/[^"']+)["'][^>]*>\s*<h[23][^>]*>([^<]{8,120})<\/h[23]>/gi;
   const map=new Map();
@@ -488,6 +486,19 @@ function parseVechtdalCentraalFallback(html){
     if(!map.has(href)) map.set(href, title);
   }
   return Array.from(map.entries()).slice(0,max).map(([link,title])=>({title, link, pubDate:new Date(), description:'[...]'}));
+}
+function parseOostFull(html){
+  const echt = parseRTVOostECHT(html);
+  if(echt.length>0) return echt;
+  return parseOostFull_OLD(html);
+}
+function parseVechtdalCentraalFallback(html){
+  const echt = parseVechtdalCentraalECHT(html);
+  if(echt.length>0) return echt;
+  return parseVechtdalCentraalFallback_OLD(html);
+}
+function parseRTVVechtdalFull(html){
+  return parseRTVVechtdalECHT(html);
 }
 async function loadOneSource(b){
   const cfg = BRON_URLS[b.id];
@@ -512,11 +523,9 @@ async function loadOneSource(b){
         const html=await fetchViaWorker(cfg.homepage || 'https://www.rtvvechtdal.nl/');
         let overview=parseRTVVechtdalFull(html); 
         if(overview.length>0){
-          // toon meteen met datum
           const tempArts=overview.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
           allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts);
           loadedSources.add(b.id); updateHeaderCount(); renderArticles();
-          // verrijk daarna met echte tijden
           arts = await enrichVechtdalWithDetail(overview);
         } else {
           arts = overview;
@@ -571,7 +580,6 @@ function isSameDay(d1,d2){
 function formatDate(d, sourceId){
   if(!d || isNaN(d.getTime()) || d.getTime()===0) return '';
   const dateStr = d.toLocaleDateString('nl-NL',{day:'numeric', month:'short'});
-  // Als tijd 00:00 is, was het een datum-only (zoals RTV Vechtdal overzicht) -> toon alleen datum tot detail is opgehaald
   if(d.getHours()===0 && d.getMinutes()===0 && d.getSeconds()===0){
     return dateStr;
   }
@@ -590,7 +598,6 @@ function renderArticles(){
       if(!a.pubDate || isNaN(a.pubDate.getTime())) return false;
       if(!isSameDay(a.pubDate, today)) return false;
     }
-    // HERSTELD: Gemeente filter - alleen artikelen met plaatsnaam uit gemeente Ommen
     if(s.scope==='gemeente'){
       if(!isGemeenteArtikel(a)) return false;
     }
@@ -655,9 +662,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 window.closePanel=closePanel; window.resetFilters=resetFilters; window.BRONNEN=BRONNEN; window.getAppState=()=>state;
 window.filterNews=filterNews; window.refreshNews=refreshNews;
 
-
-
-// ===== v226.2 LIVE SYNC + NOTIFICATIE "Filters gesynchroniseerd" =====
+// ===== v226.2 LIVE SYNC + NOTIFICATIE =====
 (function(){
   const SYNC_ENABLED = true;
   const SYNC_INTERVAL_MS = 30000;
@@ -730,7 +735,6 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
   }
 
   function showSyncNotification(isBackground){
-    // 1. Via Service Worker (werkt ook als tab op achtergrond)
     try{
       if(navigator.serviceWorker && navigator.serviceWorker.controller){
         navigator.serviceWorker.controller.postMessage({type: 'SYNC_UPDATED'});
@@ -741,7 +745,6 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       }
     }catch{}
 
-    // 2. Als app zichtbaar is, ook een kleine toast in de app zelf
     if(!isBackground){
       const toast = document.createElement('div');
       toast.textContent = '✓ Filters gesynchroniseerd';
@@ -798,15 +801,8 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       updateAuthUI();
       didUpdate = true;
       const isBg = document.visibilityState !== 'visible';
-      // Alleen melding tonen als het echt vanaf ander apparaat komt (niet bij eigen login)
       if(!force){
         showSyncNotification(isBg);
-      }
-      const slot = document.getElementById('auth-slot');
-      if(slot && !force){
-        const old = slot.style.background;
-        slot.style.background='#d1fae5';
-        setTimeout(()=>{ slot.style.background=old||'#f9fbff'; }, 1500);
       }
     }catch(e){ console.log('Sync load fail', e.message); }
     finally{ isSyncing = false; }
@@ -824,14 +820,10 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
   }
 
   function updateAuthUI(){
-    // NIEUW: poppetje in header rechtsboven, geen auth-slot meer onderin filterpagina
     const btn = document.getElementById('user-icon-btn');
-    // opruimen oude auth-slot als die nog uit cache komt
     const oldSlot = document.getElementById('auth-slot');
     if(oldSlot) oldSlot.remove();
-
     if(!btn) return;
-
     if(currentUser){
       btn.classList.add('logged-in');
       btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" style="display:block;flex-shrink:0"><path fill-rule="evenodd" d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" clip-rule="evenodd"/></svg>';
@@ -910,10 +902,8 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
 
   document.addEventListener('DOMContentLoaded', function(){
     setTimeout(async function(){
-      // NIEUW: oude auth-slot onderaan filterpagina opruimen - login zit nu in header poppetje
       const oldAuthSlot = document.getElementById('auth-slot');
       if(oldAuthSlot) oldAuthSlot.remove();
-
       await checkLogin();
       if(currentUser){
         await loadFromCloud(true);
@@ -927,5 +917,78 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
         }
       });
     }, 800);
+  });
+})();
+
+// ===== v227 FILTER BRIDGE VOOR SERVICE WORKER v231 =====
+(function(){
+  function getSelectedSourcesForSW(){
+    try{
+      if(typeof state !== 'object') return [];
+      const selected = [];
+      for(const bron of BRONNEN){
+        const s = state[bron.id];
+        if(s && s.aan){
+          selected.push(bron.id);
+        }
+      }
+      return selected;
+    }catch(e){ return []; }
+  }
+
+  window.pushFiltersToSW = function(){
+    const sources = getSelectedSourcesForSW();
+    // 1. Naar Service Worker
+    try{
+      if(navigator.serviceWorker && navigator.serviceWorker.controller){
+        navigator.serviceWorker.controller.postMessage({type:'SET_FILTERS', sources: sources});
+      }
+      navigator.serviceWorker.ready.then(reg=>{
+        if(reg.active) reg.active.postMessage({type:'SET_FILTERS', sources: sources});
+      }).catch(()=>{});
+    }catch(e){}
+    // 2. Naar IndexedDB voor offline fallback
+    try{
+      const req = indexedDB.open('nieuws-ommen', 1);
+      req.onupgradeneeded = (e)=>{
+        const db = e.target.result;
+        if(!db.objectStoreNames.contains('settings')){
+          db.createObjectStore('settings');
+        }
+      };
+      req.onsuccess = (e)=>{
+        const db = e.target.result;
+        try{
+          const tx = db.transaction('settings','readwrite');
+          const store = tx.objectStore('settings');
+          store.put(sources, 'selectedSources');
+        }catch(err){}
+      };
+    }catch(e){}
+    console.log('[v227] Filters naar SW gepusht:', sources);
+  };
+
+  // Service Worker vraagt om filters (GET_FILTERS)
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.addEventListener('message', event=>{
+      if(event.data && event.data.type === 'GET_FILTERS'){
+        const sources = getSelectedSourcesForSW();
+        if(event.ports && event.ports[0]){
+          event.ports[0].postMessage({sources: sources});
+        }
+      }
+    });
+  }
+
+  // Bij load ook meteen pushen
+  document.addEventListener('DOMContentLoaded', ()=>{
+    setTimeout(()=>{ try{ window.pushFiltersToSW(); }catch(e){} }, 1500);
+  });
+
+  // Bij visibility change (terugkomen in app) ook pushen
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible'){
+      try{ window.pushFiltersToSW(); }catch(e){}
+    }
   });
 })();
