@@ -1,17 +1,14 @@
-/* service-worker v231 - FILTER FIX + NO-PAYLOAD
+/* service-worker v232 - ICON FIX + FILTER FIX + NO-PAYLOAD
+ * Icons staan in map /icons/ niet in root (fix voor 404 op custom domein nieuwommen.leeuw008.nl)
  * Werkt met worker-v20-FIXED-ENCRYPT + v2
- * - Bevat app.js fix (geen script.js meer)
- * - No-payload: haalt zelf /last op als push geen data heeft
- * - NIEUW: respecteert filterpagina voor zowel weergave als notifications
- *   (zoals bedoeld in info-pagina)
  */
 
-const CACHE_NAME = 'ommen-v231';
+const CACHE_NAME = 'ommen-v232';
 const STATIC_ASSETS = [
   './',
   './index.html',
-  './icon-192.png',
-  './icon-512.png'
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
 self.addEventListener('install', event => {
@@ -50,7 +47,6 @@ self.addEventListener('fetch', event => {
 
 const PUSH_WORKER_URL = 'https://ommen-push-v2.leeuw008.workers.dev';
 
-// Probeer filters op te halen uit open tabs (app.js moet message listener hebben)
 async function getFiltersFromClients() {
   try {
     const allClients = await self.clients.matchAll({type: 'window', includeUncontrolled: true});
@@ -162,7 +158,7 @@ self.addEventListener('push', event => {
         const normSource = String(source).toLowerCase();
         const isAllowed = normAllowed.some(a => normSource.includes(a) || a.includes(normSource) || normSource === a);
         if (!isAllowed) {
-          console.log(`[v231] Push geblokkeerd door filter: bron "${source}" niet in [${allowedSources.join(', ')}]`);
+          console.log(`[v232] Push geblokkeerd door filter: bron "${source}" niet in [${allowedSources.join(', ')}]`);
           return;
         }
       }
@@ -172,10 +168,10 @@ self.addEventListener('push', event => {
 
     const options = {
       body: body,
-      icon: './icon-192.png',
-      badge: './icon-192.png',
+      icon: './icons/icon-192.png',
+      badge: './icons/icon-192.png',
       data: { url: link, source: source, id: articleId },
-      tag: articleId ? `ommen-${articleId}` : `ommen-${source || 'algemeen'}-${Date.now()}`,
+      tag: articleId ? `ommen-${articleId}` : `ommen-${source || 'algemeen'}-${Date.now()}_v232`,
       renotify: true,
       vibrate: [100, 50, 100]
     };
@@ -204,6 +200,16 @@ self.addEventListener('notificationclick', event => {
 
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'SET_FILTERS') {
-    console.log('[v231] Filters ontvangen van app:', event.data.sources);
+    console.log('[v232] Filters ontvangen van app:', event.data.sources);
+  }
+  if (event.data && event.data.type === 'SYNC_UPDATED') {
+    // toon notificatie voor filter sync
+    self.registration.showNotification('Nieuws Ommen', {
+      body: '✓ Filters gesynchroniseerd',
+      icon: './icons/icon-192.png',
+      badge: './icons/icon-192.png',
+      tag: 'ommen-sync',
+      renotify: false
+    });
   }
 });
