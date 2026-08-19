@@ -1,9 +1,11 @@
-/* service-worker v232 - ICON FIX + FILTER FIX + NO-PAYLOAD
- * Icons staan in map /icons/ niet in root (fix voor 404 op custom domein nieuwommen.leeuw008.nl)
- * Werkt met worker-v20-FIXED-ENCRYPT + v2
+/* service-worker v233 - DYNAMISCHE CHECK + ICON FALLBACK + FILTER FIX
+ * - Geen harde v230 check meer, elke versie met app.js is OK
+ * - Icons in /icons/ map, met fallback naar github URL als 404
+ * - Filter fix: respecteert filterpagina
+ * - No-payload: haalt /last op
  */
 
-const CACHE_NAME = 'ommen-v232';
+const CACHE_NAME = 'ommen-v233';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -27,7 +29,6 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Network-first voor app.js (v230 fix), cache-first voor rest
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.pathname.includes('app.js') || url.pathname.includes('push.js')) {
@@ -55,161 +56,102 @@ async function getFiltersFromClients() {
       const filters = await new Promise(resolve => {
         const channel = new MessageChannel();
         let done = false;
-        channel.port1.onmessage = (e) => {
-          if (!done) { done = true; resolve(e.data); }
-        };
-        try {
-          client.postMessage({type: 'GET_FILTERS'}, [channel.port2]);
-        } catch (err) {
-          resolve(null);
-        }
+        channel.port1.onmessage = (e) => { if (!done) { done = true; resolve(e.data); } };
+        try { client.postMessage({type: 'GET_FILTERS'}, [channel.port2]); } catch { resolve(null); }
         setTimeout(() => { if (!done) { done = true; resolve(null); } }, 400);
       });
-      if (filters && filters.sources) {
-        return filters.sources;
-      }
+      if (filters && filters.sources) return filters.sources;
     }
     return null;
-  } catch (e) {
-    return null;
-  }
+  } catch { return null; }
 }
-
 async function getFiltersFromIDB() {
   try {
-    const dbNames = ['nieuws-ommen', 'ommen-news', 'ommen-nieuws'];
-    for (const dbName of dbNames) {
+    for (const dbName of ['nieuws-ommen','ommen-news','ommen-nieuws']) {
       try {
-        const db = await new Promise((resolve, reject) => {
-          const req = indexedDB.open(dbName);
-          req.onsuccess = () => resolve(req.result);
-          req.onerror = () => reject(req.error);
-        });
+        const db = await new Promise((res,rej)=>{ const req=indexedDB.open(dbName); req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); });
         if (!db.objectStoreNames.contains('settings')) { db.close(); continue; }
-        const tx = db.transaction('settings', 'readonly');
-        const store = tx.objectStore('settings');
-        const result = await new Promise(res => {
-          const q = store.get('selectedSources');
-          q.onsuccess = () => res(q.result);
-          q.onerror = () => res(null);
-        });
+        const tx=db.transaction('settings','readonly'); const store=tx.objectStore('settings');
+        const result=await new Promise(r=>{ const q=store.get('selectedSources'); q.onsuccess=()=>r(q.result); q.onerror=()=>r(null); });
         db.close();
-        if (result && Array.isArray(result) && result.length > 0) return result;
+        if (result && Array.isArray(result) && result.length>0) return result;
         if (result && result.sources) return result.sources;
-      } catch (e) {}
+      } catch {}
     }
     return null;
-  } catch (e) {
-    return null;
-  }
+  } catch { return null; }
 }
-
 async function getAllowedSources() {
-  const fromClients = await getFiltersFromClients();
-  if (fromClients && fromClients.length > 0) return fromClients;
-  const fromIDB = await getFiltersFromIDB();
-  if (fromIDB && fromIDB.length > 0) return fromIDB;
+  const fromClients=await getFiltersFromClients(); if(fromClients && fromClients.length>0) return fromClients;
+  const fromIDB=await getFiltersFromIDB(); if(fromIDB && fromIDB.length>0) return fromIDB;
   return null;
 }
 
 self.addEventListener('push', event => {
   event.waitUntil((async () => {
-    let title = 'Nieuws Ommen';
-    let body = 'Er is nieuw nieuws uit Ommen';
-    let link = '/';
-    let source = '';
-    let articleId = '';
-
+    let title='Nieuws Ommen'; let body='Er is nieuw nieuws uit Ommen'; let link='/'; let source=''; let articleId='';
     if (event.data) {
-      try {
-        const data = event.data.json();
-        title = data.title || title;
-        body = data.body || data.title || body;
-        link = data.link || data.url || link;
-        source = data.source || '';
-        articleId = data.id || data.articleId || '';
-        if (source) body = `${source}: ${title}`;
-      } catch(e) {
-        try {
-          const txt = event.data.text();
-          if (txt) body = txt;
-        } catch {}
-      }
+      try { const data=event.data.json(); title=data.title||title; body=data.body||data.title||body; link=data.link||data.url||link; source=data.source||''; articleId=data.id||data.articleId||''; if(source) body=`${source}: ${title}`; }
+      catch { try { body=event.data.text()||body; } catch {} }
     } else {
-      try {
-        const r = await fetch(`${PUSH_WORKER_URL}/last`, { cache: 'no-store' });
-        if (r.ok) {
-          const j = await r.json();
-          title = j.title || title;
-          link = j.link || link;
-          source = j.source || '';
-          articleId = j.id || '';
-          body = source ? `${source}: ${j.title}` : j.title;
-        }
-      } catch(e) {
-        console.log('last fetch failed', e);
-      }
+      try { const r=await fetch(`${PUSH_WORKER_URL}/last`,{cache:'no-store'}); if(r.ok){ const j=await r.json(); title=j.title||title; link=j.link||link; source=j.source||''; articleId=j.id||''; body=source?`${source}: ${j.title}`:j.title; } } catch(e){ console.log('last fetch failed',e); }
     }
-
     try {
-      const allowedSources = await getAllowedSources();
-      if (allowedSources && allowedSources.length > 0 && source) {
-        const normAllowed = allowedSources.map(s => String(s).toLowerCase());
-        const normSource = String(source).toLowerCase();
-        const isAllowed = normAllowed.some(a => normSource.includes(a) || a.includes(normSource) || normSource === a);
-        if (!isAllowed) {
-          console.log(`[v232] Push geblokkeerd door filter: bron "${source}" niet in [${allowedSources.join(', ')}]`);
-          return;
-        }
+      const allowed=await getAllowedSources();
+      if(allowed && allowed.length>0 && source){
+        const normAllowed=allowed.map(s=>String(s).toLowerCase()); const normSource=String(source).toLowerCase();
+        const isAllowed=normAllowed.some(a=>normSource.includes(a)||a.includes(normSource)||normSource===a);
+        if(!isAllowed){ console.log(`[v233] Push geblokkeerd door filter: bron "${source}" niet in [${allowed.join(', ')}]`); return; }
       }
-    } catch (filterErr) {
-      console.log('Filter check failed, toch tonen', filterErr);
-    }
+    } catch(e){ console.log('Filter check failed, toch tonen',e); }
 
-    const options = {
+    // ICON FIX v233: probeer icons/ map, fallback naar github URL, fallback naar geen icon
+    let iconUrl='./icons/icon-192.png';
+    let badgeUrl='./icons/icon-192.png';
+    try {
+      // check of icon bestaat in cache of via fetch HEAD
+      const test=await fetch(iconUrl,{method:'HEAD',cache:'no-store'}).catch(()=>null);
+      if(!test || !test.ok){
+        // fallback naar absolute github URL die altijd werkt
+        iconUrl='https://leeuw008-nl.github.io/Nieuws-Ommen/icons/icon-192.png';
+        badgeUrl='https://leeuw008-nl.github.io/Nieuws-Ommen/icons/icon-192.png';
+      }
+    } catch { /* keep original */ }
+
+    const options={
       body: body,
-      icon: './icons/icon-192.png',
-      badge: './icons/icon-192.png',
+      icon: iconUrl,
+      badge: badgeUrl,
       data: { url: link, source: source, id: articleId },
-      tag: articleId ? `ommen-${articleId}` : `ommen-${source || 'algemeen'}-${Date.now()}_v232`,
+      tag: articleId ? `ommen-${articleId}` : `ommen-${source||'algemeen'}-${Date.now()}_v233`,
       renotify: true,
-      vibrate: [100, 50, 100]
+      vibrate: [100,50,100]
     };
-
-    return self.registration.showNotification(title, options);
+    try {
+      return await self.registration.showNotification(title, options);
+    } catch(err){
+      // Fallback zonder icon als icon URL 404 geeft en showNotification faalt
+      console.log('showNotification met icon faalde, probeer zonder icon', err);
+      delete options.icon; delete options.badge;
+      return await self.registration.showNotification(title, options);
+    }
   })());
 });
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const url = event.notification.data?.url || '/';
+  const url=event.notification.data?.url||'/';
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then(windowClients => {
-      for (const client of windowClients) {
-        if ((client.url.includes('Nieuws-Ommen') || client.url.includes('nieuwommen')) && 'focus' in client) {
-          client.navigate(url);
-          return client.focus();
-        }
-      }
-      if (clients.openWindow) {
-        return clients.openWindow(url);
-      }
+    clients.matchAll({type:'window'}).then(clientsList=>{
+      for(const c of clientsList){ if((c.url.includes('Nieuws-Ommen')||c.url.includes('nieuwommen')) && 'focus' in c){ c.navigate(url); return c.focus(); } }
+      if(clients.openWindow) return clients.openWindow(url);
     })
   );
 });
 
 self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SET_FILTERS') {
-    console.log('[v232] Filters ontvangen van app:', event.data.sources);
-  }
-  if (event.data && event.data.type === 'SYNC_UPDATED') {
-    // toon notificatie voor filter sync
-    self.registration.showNotification('Nieuws Ommen', {
-      body: '✓ Filters gesynchroniseerd',
-      icon: './icons/icon-192.png',
-      badge: './icons/icon-192.png',
-      tag: 'ommen-sync',
-      renotify: false
-    });
+  if(event.data && event.data.type==='SET_FILTERS'){ console.log('[v233] Filters ontvangen:',event.data.sources); }
+  if(event.data && event.data.type==='SYNC_UPDATED'){
+    self.registration.showNotification('Nieuws Ommen',{body:'✓ Filters gesynchroniseerd',icon:'./icons/icon-192.png',badge:'./icons/icon-192.png',tag:'ommen-sync',renotify:false}).catch(()=>{ self.registration.showNotification('Nieuws Ommen',{body:'✓ Filters gesynchroniseerd',tag:'ommen-sync'}); });
   }
 });
