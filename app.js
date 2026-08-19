@@ -834,7 +834,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
 
     if(currentUser){
       btn.classList.add('logged-in');
-      btn.textContent = '👤';
+      btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="display:block"><path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.2c-3.2 0-9.5 1.6-9.5 4.8v2.5h19V16.5c0-3.2-6.3-4.8-9.5-4.8z"/></svg>';
       btn.title = currentUser.email + ' - ingelogd (● live)';
       btn.onclick = function(){
         const old = document.getElementById('login-modal'); if(old) old.remove();
@@ -857,7 +857,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       };
     } else {
       btn.classList.remove('logged-in');
-      btn.textContent = '👤';
+      btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="display:block"><path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.2c-3.2 0-9.5 1.6-9.5 4.8v2.5h19V16.5c0-3.2-6.3-4.8-9.5-4.8z"/></svg>';
       btn.title = 'Inloggen / Account maken';
       btn.onclick = openLoginModal;
     }
