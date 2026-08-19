@@ -677,8 +677,8 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       const r = await fetch(WORKER+'/auth/me', {headers: getAuthHeaders()});
       if(!r.ok){ logout(); return null; }
       const u = await r.json();
-      currentUser = u;
-      return u;
+      currentUser = u.user || u;
+      return currentUser;
     }catch{ return null; }
   }
 
@@ -688,7 +688,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     if(!r.ok) throw new Error(j.error||'Login mislukt');
     authToken = j.token;
     localStorage.setItem('ommen_auth_token', authToken);
-    currentUser = {id:j.id, email:j.email};
+    currentUser = {id:j.id||j.user?.id, email:j.email||j.user?.email};
     await loadFromCloud(true);
     updateAuthUI();
     startLiveSync();
@@ -702,7 +702,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     if(!r.ok) throw new Error(j.error||'Registratie mislukt');
     authToken = j.token;
     localStorage.setItem('ommen_auth_token', authToken);
-    currentUser = {id:j.id, email:j.email};
+    currentUser = {id:j.id||j.user?.id, email:j.email||j.user?.email};
     await saveToCloud();
     updateAuthUI();
     startLiveSync();
@@ -834,7 +834,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
 
     if(currentUser){
       btn.classList.add('logged-in');
-      btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
+      btn.textContent = '👤';
       btn.title = currentUser.email + ' - ingelogd (● live)';
       btn.onclick = function(){
         const old = document.getElementById('login-modal'); if(old) old.remove();
@@ -843,7 +843,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
         overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
         const box = document.createElement('div');
         box.style.cssText='background:white;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.2);color:#111';
-        const emailSafe = currentUser.email.replace(/</g,'&lt;');
+        const emailSafe = (currentUser.email || currentUser.user?.email || '').replace(/</g,'&lt;');
         box.innerHTML = `<h3 style="margin:0 0 8px;font-size:18px">Ingelogd als</h3>
           <p style="margin:0 0 16px;color:#374151;font-size:13px;word-break:break-all">${emailSafe}<br><span style="font-size:11px;color:#059669;font-weight:700">● live sync elke 30 sec</span></p>
           <div style="display:flex;gap:8px"><button id="btn-sync-now" style="flex:1;padding:10px;background:#0b5bd3;color:white;border:0;border-radius:8px;font-weight:600;cursor:pointer">Sync nu</button><button id="btn-logout-now" style="flex:1;padding:10px;background:#fee2e2;color:#991b1b;border:0;border-radius:8px;font-weight:600;cursor:pointer">Uitloggen</button></div>
@@ -857,7 +857,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       };
     } else {
       btn.classList.remove('logged-in');
-      btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
+      btn.textContent = '👤';
       btn.title = 'Inloggen / Account maken';
       btn.onclick = openLoginModal;
     }
@@ -870,8 +870,8 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
     const box = document.createElement('div');
     box.style.cssText='background:white;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.2)';
-    const h3 = document.createElement('h3'); h3.textContent='Inloggen voor sync & nieuwsbrief'; h3.style.margin='0 0 8px'; h3.style.fontSize='18px';
-    const p = document.createElement('p'); p.textContent='Je filters worden live gesynchroniseerd én je ontvangt de nieuwsbrief met belangrijke updates (max 1-2 per maand).'; p.style.cssText='margin:0 0 16px;color:#666;font-size:13px';
+    const h3 = document.createElement('h3'); h3.textContent='Inloggen voor live sync'; h3.style.margin='0 0 8px'; h3.style.fontSize='18px';
+    const p = document.createElement('p'); p.textContent='Je filters worden live gesynchroniseerd met melding "Filters gesynchroniseerd".'; p.style.cssText='margin:0 0 16px;color:#666;font-size:13px';
     const inpEmail = document.createElement('input'); inpEmail.type='email'; inpEmail.placeholder='Email'; inpEmail.id='auth-email'; inpEmail.style.cssText='width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;box-sizing:border-box';
     const inpPass = document.createElement('input'); inpPass.type='password'; inpPass.placeholder='Wachtwoord (min 6 tekens)'; inpPass.id='auth-pass'; inpPass.style.cssText='width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:16px;box-sizing:border-box';
     const row = document.createElement('div'); row.style.cssText='display:flex;gap:8px';
