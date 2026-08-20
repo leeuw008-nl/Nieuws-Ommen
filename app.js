@@ -581,10 +581,14 @@ function isSameDay(d1,d2){
 function formatDate(d, sourceId){
   if(!d || isNaN(d.getTime()) || d.getTime()===0) return '';
   const dateStr = d.toLocaleDateString('nl-NL',{day:'numeric', month:'short'});
+  const timeStr = d.toLocaleTimeString('nl-NL',{hour:'2-digit', minute:'2-digit'});
+  // v228 fix: RTV Vechtdal altijd tijd tonen, ook 00:00 zodat duidelijk is dat het onbekende tijd is en onderaan komt
+  if(sourceId==='RTV Vechtdal'){
+    return `${dateStr} ${timeStr}`;
+  }
   if(d.getHours()===0 && d.getMinutes()===0 && d.getSeconds()===0){
     return dateStr;
   }
-  const timeStr = d.toLocaleTimeString('nl-NL',{hour:'2-digit', minute:'2-digit'});
   return `${dateStr} ${timeStr}`;
 }
 function renderArticles(){
