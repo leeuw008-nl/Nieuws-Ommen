@@ -19,7 +19,7 @@ const BRON_URLS = {
   'Ommen City': {url:'https://ommencity.nl/feed/', homepage:'https://ommencity.nl/'},
   'OudOmmen': {url:'https://weblog.oudommen.nl/feed/', homepage:'https://weblog.oudommen.nl/'},
   'RondOmmen': {url:'https://www.rondommen.nl/feed/', homepage:'https://www.rondommen.nl/'},
-  'RTV Oost': {url:'https://www.oost.nl/nieuws/ommen', homepage:'https://www.oost.nl/nieuws/ommen', type:'oost', fallback:'https://www.oost.nl/nieuws/vechtdal'},
+  'RTV Oost': {url:'https://www.oost.nl/nieuws/vechtdal', homepage:'https://www.oost.nl/nieuws/vechtdal', type:'oost', fallback:'https://www.oost.nl/nieuws/vechtdal'},
   'RTV Vechtdal': {url:'https://rtvvechtdal.nl/feed/', homepage:'https://rtvvechtdal.nl/'},
   'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/', fallback:'https://www.vechtdalcentraal.nl/'},
 };
@@ -100,60 +100,49 @@ async function enrichVechtdalWithDetail(arts){
 
 function parseRTVOostECHT(html){
   const items=[]; let m;
-  console.log('[RTV Oost Vechtdal] HTML len', html.length, 'url: oost.nl/nieuws/vechtdal');
-  // 1. Zoek __NEXT_DATA__ - oost.nl is Next.js
+  console.log('[RTV Oost vechtdal] HTML len', html.length);
+  // Als RSS xml
+  if(html.includes('<item>')){
+    const rssItems = [...html.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)];
+    for(const itm of rssItems.slice(0,15)){
+      const it=itm[1];
+      let title=(it.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i)||[])[1]||'';
+      title=title.replace(/<[^>]*>/g,'').trim();
+      let link=(it.match(/<link[^>]*>([\s\S]*?)<\/link>/i)||[])[1]||'';
+      link=link.replace(/<!\[CDATA\[/g,'').replace(/\]\]>/g,'').trim();
+      if(title && link){ items.push({title, link, pubDate:new Date(), description:title+' [...]'}); }
+    }
+    if(items.length>0) return items;
+  }
+  // Zoek __NEXT_DATA__
   try{
     const nextMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
     if(nextMatch){
-      const json = JSON.parse(nextMatch[1]);
-      const flat = JSON.stringify(json);
-      // Pattern: artikelen in vechtdal
-      const re = /"title":"([^"]{10,180})"[^}]{0,800}?"(url|slug)":"(\/nieuws\/[^"]+|vechtdal[^"]*)"[^}]{0,800}?"(publishedAt|publishDate|date)":"([^"]+)"/gi;
-      while((m=re.exec(flat))!==null && items.length<20){
-        let title=m[1].replace(/\\"/g,'"').replace(/\u0026/g,'&');
-        let link=m[3]; if(link.startsWith('/')) link='https://www.oost.nl'+link; if(!link.startsWith('http')) continue;
-        let pdStr=m[5]; let pd=new Date(pdStr);
-        if(!items.find(x=>x.link===link) && title.length>10){
-          items.push({title, link, pubDate:isNaN(pd.getTime())?new Date():pd, description:title+' [...]'});
-        }
+      const txt = nextMatch[1];
+      const re = /"title":"([^"]{10,180})"[^}]{0,500}?"url":"(\/nieuws\/[^"]+)"/gi;
+      while((m=re.exec(txt))!==null && items.length<20){
+        let title=m[1]; let link=m[2]; if(link.startsWith('/')) link='https://www.oost.nl'+link;
+        if(!items.find(x=>x.link===link)) items.push({title, link, pubDate:new Date(), description:title+' [...]'});
       }
     }
-  }catch(e){ console.log('oost next_data fail', e.message); }
-  // 2. Fallback: zoek alle links met vechtdal/ommen en h2/h3 titles - nieuwe oost.nl layout
+  }catch(e){}
+  // Zoek alle /nieuws/vechtdal of /nieuws/ links met h2/h3
   if(items.length===0){
-    // oost.nl gebruikt vaak article cards met <a href="/nieuws/..."><h3>
-    const reCard = /<a[^>]+href=["'](\/nieuws\/[^"']+)["'][^>]*>[\s\S]{0,400}?<(h2|h3)[^>]*>([^<]{10,180})<\/\2>/gi;
-    while((m=reCard.exec(html))!==null && items.length<20){
+    const reCard = /<a[^>]+href=["'](\/nieuws\/[^"']+)["'][^>]*>[^<]*<h[23][^>]*>([^<]{10,180})<\/h[23]>/gi;
+    let mm; while((mm=reCard.exec(html))!==null && items.length<20){
+      let link=mm[1]; if(link.startsWith('/')) link='https://www.oost.nl'+link;
+      let title=mm[2].trim(); if(!items.find(x=>x.link===link)) items.push({title, link, pubDate:new Date(), description:title+' [...]'});
+    }
+  }
+  if(items.length===0){
+    const reAll = /<a[^>]+href=["'](\/nieuws\/[^"']+)["'][^>]*>([^<]{10,120})<\/a>/gi;
+    while((m=reAll.exec(html))!==null && items.length<20){
       let link=m[1]; if(link.startsWith('/')) link='https://www.oost.nl'+link;
-      let title=m[3].trim();
-      // filter alleen vechtdal relevant of alles als vechtdal pagina
-      if(!items.find(x=>x.link===link) && title.length>10){
-        items.push({title, link, pubDate:new Date(), description:title+' [...]'});
-      }
-    }
-  }
-  // 3. Nog een fallback: time + link
-  if(items.length===0){
-    const reTime = /<time[^>]+datetime=["']([^"']+)["'][^>]*>[\s\S]{0,300}?<a[^>]+href=["'](\/nieuws\/[^"']+)["'][^>]*>([^<]{10,180})<\/a>/gi;
-    while((m=reTime.exec(html))!==null && items.length<20){
-      try{
-        let pd=new Date(m[1]); let link=m[2]; if(link.startsWith('/')) link='https://www.oost.nl'+link;
-        let title=m[3].trim();
-        if(!items.find(x=>x.link===link)) items.push({title, link, pubDate:isNaN(pd.getTime())?new Date():pd, description:title+' [...]'});
-      }catch{}
-    }
-  }
-  // 4. Laatste: alle /nieuws/vechtdal of /nieuws/* links
-  if(items.length===0){
-    const reAll = /<a[^>]+href=["']([^"']*\/nieuws\/[^"']*)["'][^>]*>([^<]{10,180})<\/a>/gi;
-    while((m=reAll.exec(html))!==null && items.length<15){
-      let link=m[1]; if(link.startsWith('/')) link='https://www.oost.nl'+link; if(!link.startsWith('http')) continue;
-      let title=m[2].trim(); if(title.length<10) continue;
-      if(link.includes('#')||link.includes('/tag/')) continue;
+      let title=m[2].replace(/<[^>]*>/g,'').trim(); if(title.length<10) continue;
       if(!items.find(x=>x.link===link)) items.push({title, link, pubDate:new Date(), description:title+' [...]'});
     }
   }
-  console.log('[RTV Oost Vechtdal] gevonden', items.length);
+  console.log('[RTV Oost] gevonden', items.length);
   return items;
 }
 
