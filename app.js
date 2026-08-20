@@ -33,7 +33,7 @@ function parseVechtdalCentraalECHT(html){
     let link=m[1]; if(link.startsWith('/')) link='https://www.vechtdalcentraal.nl'+link;
     if(seen.has(link)) continue; seen.add(link);
     const title=m[2].replace(/&#8217;/g,"'").replace(/&amp;/g,"&").trim();
-    if(title.length>4) items.push({title, link, pubDate:new Date(), description:title+' [...]'});
+    if(title.length>4) items.push({title, link, pubDate:getPoll(link), description:cleanTitle(title)+' [...]'});
   }
   return items;
 }
@@ -98,17 +98,17 @@ async function enrichVechtdalWithDetail(arts){
 }
 
 
-function parseRTVOostECHT(html){
+function getOostPollCache(){try{return JSON.parse(localStorage.getItem('ommen_oost_poll')||'{}');}catch{return {};}} function setOostPollCache(c){try{localStorage.setItem('ommen_oost_poll', JSON.stringify(c));}catch{}} function parseRTVOostECHT(html){
   const items=[]; let m;
-  console.log('[RTV Oost vechtdal] HTML len', html.length);
-  const BLACKLIST_EXACT = ['alle nieuws','zwolle','twente','enschede','vechtdal','salland','kop van overijssel','home','nieuws','sport','kijk','luister','puzzels','dossiers','net binnen','tv & radio','instellingen','zoeken'];
+  if(typeof dirty!=='undefined' && dirty) setOostPollCache(pollCache); console.log('[RTV Oost vechtdal] HTML len', html.length);
+  const pollCache=getOostPollCache(); let dirty=false; const now=new Date(); function getPoll(link){if(pollCache[link]){const d=new Date(pollCache[link]); if(!isNaN(d.getTime())) return d;} const d=new Date(now); pollCache[link]=d.toISOString(); dirty=true; return d;} function cleanTitle(t){let p='';while(p!==t){p=t; t=t.replace(/^(Nieuws|112|Economie|Sport)\s*[:\-]?\s*/i,'').trim();} return t;} const BLACKLIST_EXACT = ['alle nieuws','zwolle','twente','enschede','vechtdal','salland','kop van overijssel','home','nieuws','sport','kijk','luister','puzzels','dossiers','net binnen','tv & radio','instellingen','zoeken'];
   const BLACKLIST_URLS = ['/nieuws','/nieuws/zwolle','/nieuws/twente','/nieuws/enschede','/nieuws/vechtdal','/nieuws/salland','/nieuws/kop-van-overijssel'];
   
   function cleanTitle(t){
     if(!t) return '';
     t=t.trim();
     // Strip leidende categorie labels zoals "Nieuws ", "112 ", "Economie ", "Sport " etc
-    t=t.replace(/^(Nieuws|112|Economie|Sport|Cultuur|Politiek)\s+/i,'');
+    t=t.replace(/^(Nieuws|112|Economie|Sport|Cultuur|Politiek)\s*[:\-]?\s*/i,'').trim(); t=t.replace(/^(Nieuws|112)\s+/i,'').trim();
     // Strip ook als er nog een keer "Nieuws " voor staat
     t=t.replace(/^(Nieuws|112)\s+/i,'');
     return t.trim();
