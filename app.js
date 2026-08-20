@@ -39,10 +39,27 @@ function parseVechtdalCentraalECHT(html){
 }
 function parseRTVVechtdalECHT(html){
   const items=[];
+  const pollingMoment = new Date();
+  const today = new Date();
+  today.setHours(0,0,0,0);
   const reFull=/<div class="allmode_date">([^<]+)<\/div>[\s\S]{0,600}?<h3 class="allmode_title"><a href="([^"]+)">([^<]+)<\/a>[\s\S]{0,800}?<div class="allmode_(?:intro|text|introtext)[^>]*>([\s\S]*?)<\/div>/gi;
   let m;
   while((m=reFull.exec(html))!==null && items.length<20){
-    const dparts=m[1].split('-'); let pd=new Date(); if(dparts.length===3) pd=new Date(dparts[2],dparts[1]-1,dparts[0],0,0,0);
+    const dparts=m[1].split('-'); 
+    let pd=null;
+    let isToday=false;
+    if(dparts.length===3){
+      const d = new Date(parseInt(dparts[2]), parseInt(dparts[1])-1, parseInt(dparts[0]), 0,0,0);
+      const dMidnight = new Date(d); dMidnight.setHours(0,0,0,0);
+      isToday = dMidnight.getTime() === today.getTime();
+      if(isToday){
+        pd = new Date(pollingMoment);
+      }else{
+        pd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0);
+      }
+    }else{
+      pd = new Date(pollingMoment);
+    }
     let link=m[2].replace(/&amp;/g,'&'); if(!link.startsWith('http')) link='https://www.rtvvechtdal.nl'+link;
     let intro=m[4].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
     if(intro.length>200) intro=intro.slice(0,200)+' [...]'; else if(intro) intro=intro+' [...]'; else intro=m[3].trim()+' [...]';
@@ -51,7 +68,21 @@ function parseRTVVechtdalECHT(html){
   if(items.length===0){
     const re=/<div class="allmode_date">([^<]+)<\/div>[\s\S]{0,500}?<h3 class="allmode_title"><a href="([^"]+)">([^<]+)<\/a>/gi;
     while((m=re.exec(html))!==null && items.length<15){
-      const dparts=m[1].split('-'); let pd=new Date(); if(dparts.length===3) pd=new Date(dparts[2],dparts[1]-1,dparts[0],0,0,0);
+      const dparts=m[1].split('-'); 
+      let pd=null;
+      let isToday=false;
+      if(dparts.length===3){
+        const d = new Date(parseInt(dparts[2]), parseInt(dparts[1])-1, parseInt(dparts[0]), 0,0,0);
+        const dMidnight = new Date(d); dMidnight.setHours(0,0,0,0);
+        isToday = dMidnight.getTime() === today.getTime();
+        if(isToday){
+          pd = new Date(pollingMoment);
+        }else{
+          pd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0);
+        }
+      }else{
+        pd = new Date(pollingMoment);
+      }
       let link=m[2].replace(/&amp;/g,'&'); if(!link.startsWith('http')) link='https://www.rtvvechtdal.nl'+link;
       items.push({title:m[3].trim(), link, pubDate:pd, description:m[3].trim()+' [...]'});
     }
@@ -60,41 +91,10 @@ function parseRTVVechtdalECHT(html){
 }
 
 async function enrichVechtdalWithDetail(arts){
-  const cache = getGemeenteCache();
-  const now = Date.now();
-  const results=[];
-  for(let a of arts){
-    const cached = cache[a.link+'_vd'];
-    if(cached && (now - cached.ts) < 1000*60*60*6 && cached.iso){
-      const d=new Date(cached.iso); if(!isNaN(d.getTime())){ a.pubDate=d; results.push(a); continue; }
-    }
-    try{
-      await new Promise(r=>setTimeout(r, 350));
-      const html = await fetchViaWorker(a.link);
-      let m = html.match(/property="article:published_time" content="([^"]+)"/i) || html.match(/property="og:.*published.*?" content="([^"]+)"/i) || html.match(/"datePublished"\s*:\s*"([^"]+)"/i) || html.match(/<time[^>]+datetime="([^"]+)"/i) || html.match(/(\d{2}-\d{2}-\d{4})\s+(\d{1,2}:\d{2})/);
-      let realDate=null;
-      if(m){
-        if(m[2]){
-          const dparts=m[1].split('-'); const tparts=m[2].split(':');
-          realDate=new Date(dparts[2], dparts[1]-1, dparts[0], parseInt(tparts[0]), parseInt(tparts[1]));
-        }else{
-          realDate=new Date(m[1]);
-        }
-      }
-      if(realDate && !isNaN(realDate.getTime())){
-        a.pubDate=realDate;
-        cache[a.link+'_vd']={iso:realDate.toISOString(), ts:now};
-      }
-    }catch(e){}
-    results.push(a);
-    if(results.length % 2 ===0){
-      allArticles = allArticles.filter(x=>x.id!=='RTV Vechtdal').concat(results.map(r=>({...r, source:'RTV Vechtdal', id:'RTV Vechtdal', isFallback:false})));
-      renderArticles();
-    }
-  }
-  setGemeenteCache(cache);
-  return results;
+  console.log('[v228] RTV Vechtdal enrich DISABLED - polling moment gebruikt, geen extra fetches');
+  return arts;
 }
+
 
 function parseRTVOostECHT(html){
   const items=[]; let m;
@@ -526,7 +526,8 @@ async function loadOneSource(b){
           const tempArts=overview.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
           allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts);
           loadedSources.add(b.id); updateHeaderCount(); renderArticles();
-          arts = await enrichVechtdalWithDetail(overview);
+          // v228: geen enrich meer, polling moment al gezet
+          arts = overview;
         } else {
           arts = overview;
         }
@@ -622,9 +623,7 @@ function renderArticles(){
     if(a.isFallback){
       return `<div class="article fallback" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${a.source}</a></h2><small>${a.source}${a.pubDate.getTime()?` - ${formatDate(a.pubDate, a.id)}`:''}</small><div style="margin-top:6px;color:#666;">${a.description}</div></div>`;
     }
-    // Maak uniek id per artikel (zelfde hash als worker gebruikt)
-const uid = btoa(a.link).replace(/[^a-zA-Z0-9]/g,'').slice(0,16);
-return `<div class="article" data-source="${a.id}" data-id="${uid}" data-link="${a.link}" id="art-${uid}"><h2><a href="${a.link}" target="_blank">${cleanTitle}</a></h2><small>${a.source} - ${formatDate(a.pubDate, a.id)}</small>${a.description?`<div style="margin-top:6px;color:#555;">${a.description}</div>`:''}</div>`;
+    return `<div class="article" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${cleanTitle}</a></h2><small>${a.source} - ${formatDate(a.pubDate, a.id)}</small>${a.description?`<div style="margin-top:6px;color:#555;">${a.description}</div>`:''}</div>`;
   }).join('');
   container.innerHTML = countHtml + html;
   window.getAllArticles = ()=> filtered;
@@ -994,145 +993,3 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     }
   });
 })();
-// app-patch-v236 - HIGHLIGHT na notificatie click + GEEN REFRESH bij terugkomen van info-pagina
-(function(){
-  // 1. Highlight artikel als ?highlight=id in URL staat (komt van notificatie click)
-  function tryHighlight(){
-    const params = new URLSearchParams(location.search);
-    const hl = params.get('highlight');
-    if(!hl) return;
-    console.log('[v236] Highlight requested for', hl);
-    let attempts=0;
-    const interval = setInterval(()=>{
-      attempts++;
-      // Zoek artikel met data-id of id
-      let el = document.querySelector(`[data-id="${CSS.escape(hl)}"]`) || document.getElementById(hl) || document.querySelector(`[data-article-id="${CSS.escape(hl)}"]`);
-      // Fallback: zoek op link bevat id?
-      if(!el && window.allArticles){
-        const art = window.allArticles.find(a=>a.id===hl);
-        if(art){
-          // probeer via link
-          el = document.querySelector(`a[href="${art.link}"]`)?.closest('article, .article, .card') || document.querySelector(`[href*="${hl}"]`)?.closest('article, .card');
-        }
-      }
-      if(el){
-        clearInterval(interval);
-        el.scrollIntoView({behavior:'smooth', block:'center'});
-        el.style.transition='outline 0.3s';
-        el.style.outline='3px solid #0b5bd3';
-        el.style.outlineOffset='2px';
-        el.classList.add('highlight-pulse');
-        setTimeout(()=>{el.style.outline=''; el.classList.remove('highlight-pulse');}, 4000);
-        // URL schoonmaken zonder refresh
-        history.replaceState(null,'', location.pathname);
-      }
-      if(attempts>20) clearInterval(interval);
-    }, 400);
-  }
-
-  document.addEventListener('DOMContentLoaded', ()=>setTimeout(tryHighlight, 600));
-  window.addEventListener('load', ()=>setTimeout(tryHighlight, 1000));
-
-  // Luister naar postMessage van service-worker (als app al open is)
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.addEventListener('message', e=>{
-      if(e.data && e.data.type==='NOTIFICATION_CLICK'){
-        console.log('[v236] SW message NOTIFICATION_CLICK', e.data);
-        // Sla externe url op voor later gebruik indien nodig
-        localStorage.setItem('ommen_last_notification_url', e.data.url||'');
-        localStorage.setItem('ommen_last_notification_id', e.data.id||'');
-        // Als we al op pagina zijn, highlight direct
-        setTimeout(tryHighlight, 300);
-      }
-    });
-  }
-
-  // 2. Fix: niet refreshen als je terugkomt van info-pagina
-  // Oude code deed fetch op visibilitychange. Nu alleen als >5 min geleden
-  let lastFetchTime = Date.now();
-  const FETCH_INTERVAL = 5*60*1000; // 5 minuten
-  
-  // Override visibilitychange listeners die te agressief refreshen
-  const origAddEventListener = document.addEventListener;
-  // We voegen een nieuwe listener toe die lastFetchTime bijhoudt
-  document.addEventListener('visibilitychange', ()=>{
-    if(document.visibilityState==='visible'){
-      if(Date.now() - lastFetchTime > FETCH_INTERVAL){
-        console.log('[v236] Visibility visible, maar interval nog niet verstreken, geen refresh');
-        // Als je toch wil refreshen na lang weg zijn:
-        // if(typeof fetchFeeds==='function') fetchFeeds();
-      }
-    }
-  });
-
-  // Info-pagina terug knop: gebruik history.back() ipv location.href
-  document.addEventListener('click', (e)=>{
-    const a = e.target.closest('a');
-    if(a && a.href && a.href.includes('informatie.html')){
-      // Laat normaal gaan
-      return;
-    }
-    // Terug knop op info-pagina
-    if(e.target.closest('#back-to-app, .back-button, [data-back]')){
-      e.preventDefault();
-      history.back();
-    }
-  });
-
-  // Expose helper om lastFetchTime te updaten na succesvolle fetch
-  window.markArticlesFetched = function(){
-    lastFetchTime = Date.now();
-  };
-
-  console.log('[v236] App patch geladen - highlight + geen onnodige refresh');
-})();
-
-// FIX v237 - 1) GEEN REFRESH bij terug van info-pagina, 2) RTV Vechtdal geen extra detail fetch -> polling tijd gebruiken
-
-(function(){
-  // 1. Voorkom refresh als je terugkomt van info-pagina
-  // Oud: refreshNews() draait bij DOMContentLoaded altijd
-  // Nieuw: sla laatste fetch op, hergebruik als <10 min geleden en coming from informatie.html
-  const origRefresh = window.refreshNews;
-  let lastLoadTs = parseInt(sessionStorage.getItem('ommen_last_load')||'0', 10);
-  let cameFromInfo = document.referrer.includes('informatie.html') || performance.getEntriesByType('navigation')[0]?.type === 'back_forward';
-
-  // Override refreshNews om te skippen als net geladen
-  if(typeof refreshNews === 'function'){
-    window.refreshNews = async function(force=false){
-      const now = Date.now();
-      const tenMin = 10*60*1000;
-      if(!force && lastLoadTs && (now - lastLoadTs) < tenMin && cameFromInfo){
-        console.log('[v237] Skip refresh - net terug van info, hergebruik cache');
-        cameFromInfo = false;
-        return;
-      }
-      lastLoadTs = now;
-      sessionStorage.setItem('ommen_last_load', String(now));
-      if(origRefresh) return origRefresh();
-    };
-  }
-
-  // 2. RTV Vechtdal - geen extra detail fetch meer, gebruik polling moment als tijd
-  // In app-v227 zat enrichVechtdalWithDetail die per artikel de pagina fetched (350ms x 20 = 7 sec traag)
-  // We overschrijven die functie met no-op die direct datum = nu gebruikt
-  window.enrichVechtdalWithDetail = async function(arts){
-    console.log('[v237] RTV Vechtdal detail fetch UITGESCHAKELD voor performance, gebruik polling tijd');
-    // Gebruik polling moment als pubDate
-    const now = new Date();
-    return arts.map(a=>({...a, pubDate: a.pubDate && !isNaN(a.pubDate.getTime()) && a.pubDate.getTime()>0 ? a.pubDate : now}));
-  };
-
-  // Ook parse functie versimpelen: direct nu als datum als geen datum gevonden
-  if(typeof parseRTVVechtdalECHT === 'function'){
-    const origParse = parseRTVVechtdalECHT;
-    window.parseRTVVechtdalECHT = function(html){
-      const items = origParse(html);
-      const now = new Date();
-      return items.map(it=>({...it, pubDate: it.pubDate && !isNaN(it.pubDate.getTime()) && it.pubDate.getTime()>0 ? it.pubDate : now}));
-    };
-  }
-
-  console.log('[v237] Fixes geladen: geen refresh bij terug + RTV Vechtdal polling tijd');
-})();
-
