@@ -37,9 +37,11 @@ function parseVechtdalCentraalECHT(html){
   }
   return items;
 }
+function getVechtdalCache(){try{return JSON.parse(localStorage.getItem('ommen_vechtdal_poll')||'{}');}catch{return {};}}
+function setVechtdalCache(c){try{localStorage.setItem('ommen_vechtdal_poll',JSON.stringify(c));}catch{}}
 function parseRTVVechtdalECHT(html){
   const items=[];
-  const pollingMoment = new Date();
+  const now = new Date(); const pollCache=getVechtdalCache(); let dirty=false; const pollingMoment=now;
   const today = new Date();
   today.setHours(0,0,0,0);
   const reFull=/<div class="allmode_date">([^<]+)<\/div>[\s\S]{0,600}?<h3 class="allmode_title"><a href="([^"]+)">([^<]+)<\/a>[\s\S]{0,800}?<div class="allmode_(?:intro|text|introtext)[^>]*>([\s\S]*?)<\/div>/gi;
@@ -63,7 +65,7 @@ function parseRTVVechtdalECHT(html){
     let link=m[2].replace(/&amp;/g,'&'); if(!link.startsWith('http')) link='https://www.rtvvechtdal.nl'+link;
     let intro=m[4].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
     if(intro.length>200) intro=intro.slice(0,200)+' [...]'; else if(intro) intro=intro+' [...]'; else intro=m[3].trim()+' [...]';
-    items.push({title:m[3].trim(), link, pubDate:pd, description:intro});
+    if(pollCache[link]==null){pollCache[link]=pd.toISOString(); dirty=true;} else if(pd.getHours()!=0 || pd.getMinutes()!=0){pd=new Date(pollCache[link]);} if(dirty) setVechtdalCache(pollCache); items.push({title:m[3].trim(), link, pubDate:pd, description:intro});
   }
   if(items.length===0){
     const re=/<div class="allmode_date">([^<]+)<\/div>[\s\S]{0,500}?<h3 class="allmode_title"><a href="([^"]+)">([^<]+)<\/a>/gi;
@@ -581,14 +583,10 @@ function isSameDay(d1,d2){
 function formatDate(d, sourceId){
   if(!d || isNaN(d.getTime()) || d.getTime()===0) return '';
   const dateStr = d.toLocaleDateString('nl-NL',{day:'numeric', month:'short'});
-  const timeStr = d.toLocaleTimeString('nl-NL',{hour:'2-digit', minute:'2-digit'});
-  // v228 fix: RTV Vechtdal altijd tijd tonen, ook 00:00 zodat duidelijk is dat het onbekende tijd is en onderaan komt
-  if(sourceId==='RTV Vechtdal'){
-    return `${dateStr} ${timeStr}`;
-  }
   if(d.getHours()===0 && d.getMinutes()===0 && d.getSeconds()===0){
     return dateStr;
   }
+  const timeStr = d.toLocaleTimeString('nl-NL',{hour:'2-digit', minute:'2-digit'});
   return `${dateStr} ${timeStr}`;
 }
 function renderArticles(){
