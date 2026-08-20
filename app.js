@@ -622,7 +622,9 @@ function renderArticles(){
     if(a.isFallback){
       return `<div class="article fallback" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${a.source}</a></h2><small>${a.source}${a.pubDate.getTime()?` - ${formatDate(a.pubDate, a.id)}`:''}</small><div style="margin-top:6px;color:#666;">${a.description}</div></div>`;
     }
-    return `<div class="article" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${cleanTitle}</a></h2><small>${a.source} - ${formatDate(a.pubDate, a.id)}</small>${a.description?`<div style="margin-top:6px;color:#555;">${a.description}</div>`:''}</div>`;
+    // Maak uniek id per artikel (zelfde hash als worker gebruikt)
+const uid = btoa(a.link).replace(/[^a-zA-Z0-9]/g,'').slice(0,16);
+return `<div class="article" data-source="${a.id}" data-id="${uid}" data-link="${a.link}" id="art-${uid}"><h2><a href="${a.link}" target="_blank">${cleanTitle}</a></h2><small>${a.source} - ${formatDate(a.pubDate, a.id)}</small>${a.description?`<div style="margin-top:6px;color:#555;">${a.description}</div>`:''}</div>`;
   }).join('');
   container.innerHTML = countHtml + html;
   window.getAllArticles = ()=> filtered;
