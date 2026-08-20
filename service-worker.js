@@ -1,24 +1,6 @@
-/* service-worker v232 - FINAL FIX - correcte icon paden
- * Icons staan in /icons/ als icon-192x192.png etc, niet als /icon-192.png
- * - CACHE_NAME v232 forceert update
- * - Filter respect voor meldingen (zoals bedoeld)
- * - No-payload support: haalt zelf /last op als push geen data heeft
- * - Icon fallback: als icon mist, toon melding zonder icon (geen crash)
- */
-
-const CACHE_NAME = 'ommen-v232';
-const ICON_192 = '/icons/icon-192x192.png';
-const ICON_512 = '/icons/icon-512x512.png';
-const ICON_96 = '/icons/icon-96x96.png';
-const BADGE = '/icons/badge-simple-N-96.png';
-
-const STATIC_ASSETS = [
-  './',
-  './index.html',
-  ICON_192,
-  ICON_512,
-  ICON_96
-];
+/* service-worker v233 - DEFINITIEF ZONDER ICONS - geen 404 meer */
+const CACHE_NAME = 'ommen-v233-no-icons';
+const STATIC_ASSETS = ['./','./index.html'];
 
 self.addEventListener('install', event => {
   self.skipWaiting();
@@ -95,7 +77,7 @@ async function getAllowedSources() {
   if (fromClients && fromClients.length > 0) return fromClients;
   const fromIDB = await getFiltersFromIDB();
   if (fromIDB && fromIDB.length > 0) return fromIDB;
-  return null; // null = alles toestaan (9/9)
+  return null;
 }
 
 self.addEventListener('push', event => {
@@ -129,7 +111,7 @@ self.addEventListener('push', event => {
           articleId = j.id || '';
           body = source ? `${source}: ${j.title}` : j.title;
         }
-      } catch(e) { console.log('last fetch failed', e); }
+      } catch(e) {}
     }
 
     try {
@@ -138,32 +120,20 @@ self.addEventListener('push', event => {
         const normAllowed = allowedSources.map(s => String(s).toLowerCase());
         const normSource = String(source).toLowerCase();
         const isAllowed = normAllowed.some(a => normSource.includes(a) || a.includes(normSource) || normSource === a);
-        if (!isAllowed) {
-          console.log(`[v232] Push geblokkeerd door filter: "${source}" niet in [${allowedSources.join(', ')}]`);
-          return;
-        }
+        if (!isAllowed) return;
       }
     } catch {}
 
+    // GEEN icon, GEEN badge meer - definitief einde icon discussie
     const options = {
       body: body,
-      icon: ICON_192,
-      badge: ICON_96,
       data: { url: link, source: source, id: articleId },
       tag: articleId ? `ommen-${articleId}` : `ommen-${source || 'algemeen'}-${Date.now()}`,
       renotify: true,
       vibrate: [100, 50, 100]
     };
 
-    // Probeer met icon, fallback zonder icon als icon 404
-    try {
-      return await self.registration.showNotification(title, options);
-    } catch (e) {
-      console.log('Icon fail, retry zonder icon', e);
-      delete options.icon;
-      delete options.badge;
-      return await self.registration.showNotification(title, options);
-    }
+    return self.registration.showNotification(title, options);
   })());
 });
 
@@ -181,10 +151,4 @@ self.addEventListener('notificationclick', event => {
       if (clients.openWindow) return clients.openWindow(url);
     })
   );
-});
-
-self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SET_FILTERS') {
-    console.log('[v232] Filters ontvangen:', event.data.sources);
-  }
 });
