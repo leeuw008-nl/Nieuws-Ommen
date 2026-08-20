@@ -1,29 +1,101 @@
-/* v235 - selected sources werken via worker, SW blokkeert nooit */
-const CACHE_NAME='ommen-v235-selected';
-self.addEventListener('install',e=>{self.skipWaiting();});
-self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE_NAME).map(x=>caches.delete(x)))).then(()=>self.clients.claim()));});
-self.addEventListener('fetch',e=>{
+/* service-worker v236 - FIX DUBBEL + CLICK NAAR APP + GEEN FILTER BLOKKADE
+ * - Fix dubbel: zelfde id = zelfde tag, renotify false
+ * - Fix click: gaat naar app met ?highlight=id ipv direct extern, zodat artikel omlijnd wordt
+ * - Fix: geen client-side filter blokkade meer (worker v25.2 filtert al op geselecteerde bronnen)
+ * - Werkt met worker v25.2-TEST-ALL-FIXED
+ */
+const CACHE_NAME='ommen-v236-final';
+const STATIC_ASSETS=['./','./index.html','./icon-192.png','./icon-512.png'];
+
+self.addEventListener('install', e=>{
+  self.skipWaiting();
+  e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(STATIC_ASSETS.map(u=>new Request(u,{cache:'no-cache'}))).catch(()=>{})));
+});
+self.addEventListener('activate', e=>{
+  e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
+});
+self.addEventListener('fetch', e=>{
   const u=new URL(e.request.url);
   if(u.pathname.includes('app.js')||u.pathname.includes('push.js')||u.pathname.includes('informatie.html')){
-    e.respondWith(fetch(e.request).then(r=>{const c=r.clone();caches.open(CACHE_NAME).then(ca=>ca.put(e.request,c));return r;}).catch(()=>caches.match(e.request)));
+    e.respondWith(fetch(e.request).then(r=>{const clone=r.clone();caches.open(CACHE_NAME).then(ca=>ca.put(e.request,clone));return r;}).catch(()=>caches.match(e.request)));
     return;
   }
-  e.respondWith(caches.match(e.request).then(c=>c||fetch(e.request)));
+  e.respondWith(caches.match(e.request).then(cached=>cached||fetch(e.request)));
 });
+
 const PUSH_WORKER_URL='https://ommen-push-v2.leeuw008.workers.dev';
-self.addEventListener('push',e=>{
+
+self.addEventListener('push', e=>{
   e.waitUntil((async()=>{
-    let title='Nieuws Ommen',body='Er is nieuw nieuws',link='/';
-    if(e.data){try{const d=e.data.json();title=d.title||title;body=d.body||d.title||body;link=d.link||d.url||link;}catch{try{const t=e.data.text();if(t)body=t;}catch{}}}
-    else{try{const r=await fetch(`${PUSH_WORKER_URL}/last`,{cache:'no-store'});if(r.ok){const j=await r.json();title=j.title||title;link=j.link||link;body=j.title;}}catch{}}
-    return self.registration.showNotification(title,{body,data:{url:link},tag:`ommen-${Date.now()}`,renotify:true});
+    let title='Nieuws Ommen', body='Er is nieuw nieuws uit Ommen', link='/', source='', id='';
+    if(e.data){
+      try{
+        const d=e.data.json();
+        title=d.title||title;
+        body=d.body||d.title||body;
+        link=d.link||d.url||link;
+        source=d.source||'';
+        id=d.id||d.articleId||'';
+        if(source) body=`${source}: ${title}`;
+      }catch{
+        try{const txt=e.data.text(); if(txt) body=txt;}catch{}
+      }
+    }else{
+      try{
+        const r=await fetch(`${PUSH_WORKER_URL}/last`,{cache:'no-store'});
+        if(r.ok){
+          const j=await r.json();
+          title=j.title||title;
+          link=j.link||link;
+          source=j.source||'';
+          id=j.id||'';
+          body=source?`${source}: ${j.title}`:j.title;
+        }
+      }catch{}
+    }
+    // DEDUP: zelfde articleId = zelfde tag -> vervangt vorige melding, geen dubbel
+    const tag = id ? `ommen-${id}` : `ommen-${(source||'algemeen').toLowerCase().replace(/\s+/g,'-')}`;
+    const options={
+      body,
+      icon:'./icon-192.png',
+      badge:'./icon-192.png',
+      data:{url:link, source, id},
+      tag,
+      renotify:false,
+      vibrate:[100,50,100]
+    };
+    return self.registration.showNotification(title, options);
   })());
 });
-self.addEventListener('notificationclick',e=>{
+
+self.addEventListener('notificationclick', e=>{
   e.notification.close();
-  const url=e.notification.data?.url||'/';
-  e.waitUntil(clients.matchAll({type:'window'}).then(wc=>{
-    for(const c of wc){if((c.url.includes('nieuwommen')||c.url.includes('Nieuws-Ommen'))&&'focus' in c){c.navigate(url);return c.focus();}}
-    if(clients.openWindow) return clients.openWindow(url);
-  }));
+  const data=e.notification.data||{};
+  const id=data.id||'';
+  const externalUrl=data.url||'/';
+  const source=data.source||'';
+  // Naar app met highlight param, zodat artikel omlijnd wordt zoals vroeger
+  const appUrl = id ? `/?highlight=${encodeURIComponent(id)}&src=${encodeURIComponent(source)}` : '/';
+  e.waitUntil((async()=>{
+    try{
+      const all=await clients.matchAll({type:'window', includeUncontrolled:true});
+      for(const c of all){
+        if((c.url.includes('nieuwommen')||c.url.includes('Nieuws-Ommen')||c.url.includes('localhost')) && 'focus' in c){
+          // Stuur externe url mee via postMessage voor app.js
+          try{c.postMessage({type:'NOTIFICATION_CLICK', id, url:externalUrl, source});}catch{}
+          await c.navigate(appUrl);
+          return c.focus();
+        }
+      }
+      if(clients.openWindow) return clients.openWindow(appUrl);
+    }catch{
+      if(clients.openWindow) return clients.openWindow(appUrl);
+    }
+  })());
+});
+
+self.addEventListener('message', e=>{
+  if(e.data && e.data.type==='SET_FILTERS'){
+    console.log('[v236] Filters ontvangen:', e.data.sources);
+  }
 });
