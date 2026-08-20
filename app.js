@@ -1087,3 +1087,52 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
   console.log('[v236] App patch geladen - highlight + geen onnodige refresh');
 })();
 
+// FIX v237 - 1) GEEN REFRESH bij terug van info-pagina, 2) RTV Vechtdal geen extra detail fetch -> polling tijd gebruiken
+
+(function(){
+  // 1. Voorkom refresh als je terugkomt van info-pagina
+  // Oud: refreshNews() draait bij DOMContentLoaded altijd
+  // Nieuw: sla laatste fetch op, hergebruik als <10 min geleden en coming from informatie.html
+  const origRefresh = window.refreshNews;
+  let lastLoadTs = parseInt(sessionStorage.getItem('ommen_last_load')||'0', 10);
+  let cameFromInfo = document.referrer.includes('informatie.html') || performance.getEntriesByType('navigation')[0]?.type === 'back_forward';
+
+  // Override refreshNews om te skippen als net geladen
+  if(typeof refreshNews === 'function'){
+    window.refreshNews = async function(force=false){
+      const now = Date.now();
+      const tenMin = 10*60*1000;
+      if(!force && lastLoadTs && (now - lastLoadTs) < tenMin && cameFromInfo){
+        console.log('[v237] Skip refresh - net terug van info, hergebruik cache');
+        cameFromInfo = false;
+        return;
+      }
+      lastLoadTs = now;
+      sessionStorage.setItem('ommen_last_load', String(now));
+      if(origRefresh) return origRefresh();
+    };
+  }
+
+  // 2. RTV Vechtdal - geen extra detail fetch meer, gebruik polling moment als tijd
+  // In app-v227 zat enrichVechtdalWithDetail die per artikel de pagina fetched (350ms x 20 = 7 sec traag)
+  // We overschrijven die functie met no-op die direct datum = nu gebruikt
+  window.enrichVechtdalWithDetail = async function(arts){
+    console.log('[v237] RTV Vechtdal detail fetch UITGESCHAKELD voor performance, gebruik polling tijd');
+    // Gebruik polling moment als pubDate
+    const now = new Date();
+    return arts.map(a=>({...a, pubDate: a.pubDate && !isNaN(a.pubDate.getTime()) && a.pubDate.getTime()>0 ? a.pubDate : now}));
+  };
+
+  // Ook parse functie versimpelen: direct nu als datum als geen datum gevonden
+  if(typeof parseRTVVechtdalECHT === 'function'){
+    const origParse = parseRTVVechtdalECHT;
+    window.parseRTVVechtdalECHT = function(html){
+      const items = origParse(html);
+      const now = new Date();
+      return items.map(it=>({...it, pubDate: it.pubDate && !isNaN(it.pubDate.getTime()) && it.pubDate.getTime()>0 ? it.pubDate : now}));
+    };
+  }
+
+  console.log('[v237] Fixes geladen: geen refresh bij terug + RTV Vechtdal polling tijd');
+})();
+
