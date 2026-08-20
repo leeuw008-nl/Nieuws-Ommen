@@ -1,5 +1,5 @@
-/* v234 - FIX PC - filter blokkeert nooit */
-const CACHE_NAME='ommen-v234-noblock';
+/* v235 - selected sources werken via worker, SW blokkeert nooit */
+const CACHE_NAME='ommen-v235-selected';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE_NAME).map(x=>caches.delete(x)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',e=>{
@@ -19,4 +19,11 @@ self.addEventListener('push',e=>{
     return self.registration.showNotification(title,{body,data:{url:link},tag:`ommen-${Date.now()}`,renotify:true});
   })());
 });
-self.addEventListener('notificationclick',e=>{e.notification.close();const url=e.notification.data?.url||'/';e.waitUntil(clients.matchAll({type:'window'}).then(wc=>{for(const c of wc){if((c.url.includes('nieuwommen')||c.url.includes('Nieuws-Ommen'))&&'focus' in c){c.navigate(url);return c.focus();}}if(clients.openWindow) return clients.openWindow(url);}));});
+self.addEventListener('notificationclick',e=>{
+  e.notification.close();
+  const url=e.notification.data?.url||'/';
+  e.waitUntil(clients.matchAll({type:'window'}).then(wc=>{
+    for(const c of wc){if((c.url.includes('nieuwommen')||c.url.includes('Nieuws-Ommen'))&&'focus' in c){c.navigate(url);return c.focus();}}
+    if(clients.openWindow) return clients.openWindow(url);
+  }));
+});
