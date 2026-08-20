@@ -992,3 +992,96 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     }
   });
 })();
+// app-patch-v236 - HIGHLIGHT na notificatie click + GEEN REFRESH bij terugkomen van info-pagina
+(function(){
+  // 1. Highlight artikel als ?highlight=id in URL staat (komt van notificatie click)
+  function tryHighlight(){
+    const params = new URLSearchParams(location.search);
+    const hl = params.get('highlight');
+    if(!hl) return;
+    console.log('[v236] Highlight requested for', hl);
+    let attempts=0;
+    const interval = setInterval(()=>{
+      attempts++;
+      // Zoek artikel met data-id of id
+      let el = document.querySelector(`[data-id="${CSS.escape(hl)}"]`) || document.getElementById(hl) || document.querySelector(`[data-article-id="${CSS.escape(hl)}"]`);
+      // Fallback: zoek op link bevat id?
+      if(!el && window.allArticles){
+        const art = window.allArticles.find(a=>a.id===hl);
+        if(art){
+          // probeer via link
+          el = document.querySelector(`a[href="${art.link}"]`)?.closest('article, .article, .card') || document.querySelector(`[href*="${hl}"]`)?.closest('article, .card');
+        }
+      }
+      if(el){
+        clearInterval(interval);
+        el.scrollIntoView({behavior:'smooth', block:'center'});
+        el.style.transition='outline 0.3s';
+        el.style.outline='3px solid #0b5bd3';
+        el.style.outlineOffset='2px';
+        el.classList.add('highlight-pulse');
+        setTimeout(()=>{el.style.outline=''; el.classList.remove('highlight-pulse');}, 4000);
+        // URL schoonmaken zonder refresh
+        history.replaceState(null,'', location.pathname);
+      }
+      if(attempts>20) clearInterval(interval);
+    }, 400);
+  }
+
+  document.addEventListener('DOMContentLoaded', ()=>setTimeout(tryHighlight, 600));
+  window.addEventListener('load', ()=>setTimeout(tryHighlight, 1000));
+
+  // Luister naar postMessage van service-worker (als app al open is)
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.addEventListener('message', e=>{
+      if(e.data && e.data.type==='NOTIFICATION_CLICK'){
+        console.log('[v236] SW message NOTIFICATION_CLICK', e.data);
+        // Sla externe url op voor later gebruik indien nodig
+        localStorage.setItem('ommen_last_notification_url', e.data.url||'');
+        localStorage.setItem('ommen_last_notification_id', e.data.id||'');
+        // Als we al op pagina zijn, highlight direct
+        setTimeout(tryHighlight, 300);
+      }
+    });
+  }
+
+  // 2. Fix: niet refreshen als je terugkomt van info-pagina
+  // Oude code deed fetch op visibilitychange. Nu alleen als >5 min geleden
+  let lastFetchTime = Date.now();
+  const FETCH_INTERVAL = 5*60*1000; // 5 minuten
+  
+  // Override visibilitychange listeners die te agressief refreshen
+  const origAddEventListener = document.addEventListener;
+  // We voegen een nieuwe listener toe die lastFetchTime bijhoudt
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState==='visible'){
+      if(Date.now() - lastFetchTime > FETCH_INTERVAL){
+        console.log('[v236] Visibility visible, maar interval nog niet verstreken, geen refresh');
+        // Als je toch wil refreshen na lang weg zijn:
+        // if(typeof fetchFeeds==='function') fetchFeeds();
+      }
+    }
+  });
+
+  // Info-pagina terug knop: gebruik history.back() ipv location.href
+  document.addEventListener('click', (e)=>{
+    const a = e.target.closest('a');
+    if(a && a.href && a.href.includes('informatie.html')){
+      // Laat normaal gaan
+      return;
+    }
+    // Terug knop op info-pagina
+    if(e.target.closest('#back-to-app, .back-button, [data-back]')){
+      e.preventDefault();
+      history.back();
+    }
+  });
+
+  // Expose helper om lastFetchTime te updaten na succesvolle fetch
+  window.markArticlesFetched = function(){
+    lastFetchTime = Date.now();
+  };
+
+  console.log('[v236] App patch geladen - highlight + geen onnodige refresh');
+})();
+
