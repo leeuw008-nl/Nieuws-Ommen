@@ -2,172 +2,247 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ommen Nieuws - Informatie</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Informatie - Nieuws Ommen</title>
 <style>
- :root{--blue:#0b5bd3}
- *{box-sizing:border-box}
- body{margin:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f6f8fb;color:#1a1d23}
- header{background:var(--blue);color:#fff;padding:18px 16px}
- header h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-0.02em}
- header p{margin:6px 0 0;opacity:.9;font-size:13px}
- .wrap{max-width:840px;margin:0 auto;padding:0 16px}
- .tabs{display:flex;gap:6px;overflow:auto;padding:12px 0 0;border-bottom:1px solid #e3e8f0;margin-bottom:16px;scrollbar-width:none}
- .tabs::-webkit-scrollbar{display:none}
- .tabs button{white-space:nowrap;border:1px solid #dbe3f0;background:#fff;color:#2a3a55;padding:8px 14px;border-radius:999px;font-size:13px;cursor:pointer;flex-shrink:0}
- .tabs button.active{background:var(--blue);color:#fff;border-color:var(--blue)}
- .card{background:#fff;border:1px solid #e6ebf2;border-radius:14px;padding:18px;line-height:1.6}
- .card h2{margin:0 0 10px;font-size:18px}
- .card ul{padding-left:18px;margin:8px 0}
- .muted{color:#5a6b86;font-size:13px}
- .btn{appearance:none;border:0;background:var(--blue);color:#fff;padding:10px 14px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer}
- .btn.secondary{background:#eef3ff;color:var(--blue)}
- .stack{display:flex;flex-direction:column;gap:10px}
- .row{display:flex;gap:10px;flex-wrap:wrap}
- input{border:1px solid #dbe3f0;border-radius:10px;padding:10px 12px;font-size:14px;width:100%}
- .badge{display:inline-block;background:#eef3ff;color:#0b5bd3;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700}
- pre{white-space:pre-wrap;word-break:break-word;background:#f6f8fb;padding:10px;border-radius:10px;border:1px solid #e6ebf2}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f5f7fb;color:#1a1a1a;line-height:1.6}
+header{background:#0b5bd3;color:white;padding:14px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10}
+header a{color:white;text-decoration:none;font-size:20px;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,.15)}
+header h1{font-size:18px;font-weight:700}
+.tabs{display:flex;gap:8px;padding:12px 16px;background:white;border-bottom:1px solid #e5e7eb;overflow-x:auto;white-space:nowrap;position:sticky;top:52px;z-index:9}
+.tabs button{padding:8px 14px;border-radius:20px;border:1px solid #d1d5db;background:white;font-size:14px;cursor:pointer;flex-shrink:0}
+.tabs button.active{background:#0b5bd3;color:white;border-color:#0b5bd3}
+.tabs button.admin-tab{background:#fff7ed;border-color:#fb923c;color:#9a3412;display:none}
+.tabs button.admin-tab.visible{display:inline-flex;align-items:center;gap:6px}
+.tabs button.admin-tab.visible.active{background:#f97316;color:white;border-color:#f97316}
+.badge{font-size:10px;background:#f97316;color:white;padding:2px 6px;border-radius:10px;font-weight:800}
+.content{max-width:800px;margin:0 auto;padding:20px 16px 40px}
+.panel{display:none;background:white;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.panel.active{display:block}
+h2{font-size:20px;margin-bottom:12px;color:#0b5bd3}
+h3{font-size:16px;margin:16px 0 8px;color:#111}
+p{margin-bottom:12px;color:#374151}
+ul{margin:8px 0 12px 20px;color:#374151}
+li{margin-bottom:6px}
+.source-grid{display:grid;grid-template-columns:1fr;gap:10px;margin:12px 0}
+@media(min-width:600px){.source-grid{grid-template-columns:1fr 1fr}}
+.source-card{border:1px solid #e5e7eb;border-radius:10px;padding:12px;background:#fafafa}
+.source-card strong{display:block;color:#111;margin-bottom:2px}
+.source-card span{font-size:13px;color:#6b7280}
+.btn{padding:10px 16px;border-radius:8px;border:0;background:#0b5bd3;color:white;font-weight:600;cursor:pointer;margin:6px 6px 6px 0}
+.btn.secondary{background:#e5e7eb;color:#111}
+.btn.orange{background:#f97316}
+.result{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin-top:12px;font-family:monospace;font-size:13px;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto}
+.admin-only{border:2px solid #fb923c;background:#fff7ed;border-radius:12px;padding:16px;margin-top:16px}
+.hidden{display:none !important}
 </style>
 </head>
 <body>
 <header>
- <div class="wrap">
-  <h1>Ommen Nieuws & Meldingen</h1>
-  <p>Simpel overzicht – geen technische info</p>
- </div>
+<a href="./">←</a>
+<h1>Nieuws Ommen - Info</h1>
 </header>
-<div class="wrap">
- <nav class="tabs" id="tabs"></nav>
- <div id="content"></div>
- <p class="muted" style="margin:22px 0 32px">Contact: leeuw008@gmail.com — Privacy: geen tracking, alleen push-abonnement indien je meldingen aanzet.</p>
+
+<div class="tabs" id="tabs">
+<button data-tab="over" class="active">Over</button>
+<button data-tab="bronnen">Bronnen</button>
+<button data-tab="meldingen">Meldingen</button>
+<button data-tab="tips">Filters & Tips</button>
+<button data-tab="privacy">Privacy & Contact</button>
+<button data-tab="beheer" class="admin-tab" id="adminTab">Beheer <span class="badge">ADMIN</span></button>
 </div>
+
+<div class="content">
+<!-- OVER -->
+<div class="panel active" id="panel-over">
+<h2>Over Nieuws Ommen</h2>
+<p>Nieuws Ommen bundelt al het lokale nieuws uit Ommen en omgeving op één plek. Geen losse sites meer afstruinen, alles overzichtelijk bij elkaar.</p>
+<p>De app ververst automatisch en toont de laatste artikelen bovenaan. Je kunt filteren op bron en zoeken op onderwerp.</p>
+<h3>Hoe werkt het?</h3>
+<ul>
+<li>We lezen de RSS-feeds en websites van 9 lokale bronnen uit</li>
+<li>Nieuwe artikelen verschijnen automatisch in de app</li>
+<li>Je kiest zelf welke bronnen je wilt zien</li>
+<li>Met meldingen aan krijg je direct een push bij belangrijk nieuws</li>
+</ul>
+</div>
+
+<!-- BRONNEN -->
+<div class="panel" id="panel-bronnen">
+<h2>Bronnen</h2>
+<p>We verzamelen nieuws uit deze 9 betrouwbare lokale bronnen:</p>
+<div class="source-grid">
+<div class="source-card"><strong>De Stentor</strong><span>Regionaal dagblad - Ommen sectie</span></div>
+<div class="source-card"><strong>Gemeente Ommen</strong><span>Officiële berichten gemeente</span></div>
+<div class="source-card"><strong>Natuurlijk Ommen</strong><span>Evenementen en uit-tips</span></div>
+<div class="source-card"><strong>Ommen City</strong><span>Lokaal nieuws & ondernemers</span></div>
+<div class="source-card"><strong>OudOmmen</strong><span>Historie en verhalen uit Ommen</span></div>
+<div class="source-card"><strong>RondOmmen</strong><span>Nieuws uit de regio</span></div>
+<div class="source-card"><strong>RTV Oost</strong><span>Provinciaal nieuws Overijssel</span></div>
+<div class="source-card"><strong>RTV Vechtdal</strong><span>Lokaal Vechtdal nieuws</span></div>
+<div class="source-card"><strong>Vechtdal Centraal</strong><span>Nieuws uit het Vechtdal</span></div>
+</div>
+<p style="margin-top:16px">Tip: via Filters kun je bronnen aan/uit zetten. Sta je alles aan (9/9) dan zie je alles.</p>
+</div>
+
+<!-- MELDINGEN -->
+<div class="panel" id="panel-meldingen">
+<h2>Meldingen instellen</h2>
+<p>Wil je direct weten als er nieuws is? Zet meldingen aan via het belletje rechtsboven in de app.</p>
+<h3>Zo werkt het:</h3>
+<ul>
+<li>Klik op het belletje 🔔</li>
+<li>Geef toestemming voor meldingen</li>
+<li>Je krijgt nu een pushmelding bij nieuwe artikelen</li>
+<li>Klik op de melding om direct naar het artikel te gaan</li>
+</ul>
+<h3>Geen meldingen?</h3>
+<ul>
+<li>Controleer of je toestemming hebt gegeven in je browser/telefoon instellingen</li>
+<li>Zet het belletje uit en weer aan</li>
+<li>Op iPhone: voeg de site toe aan je beginscherm voor betere meldingen</li>
+</ul>
+</div>
+
+<!-- TIPS -->
+<div class="panel" id="panel-tips">
+<h2>Filters & Tips</h2>
+<h3>Filteren op bron</h3>
+<p>Via het filter icoon kun je kiezen welke van de 9 bronnen je wilt zien. Handig als je alleen gemeente nieuws of alleen RTV Oost wilt.</p>
+<h3>9/9 bronnen aan?</h3>
+<p>Als je alle bronnen aan hebt staan, zie je al het nieuws. De app onthoudt je keuze, ook na het sluiten.</p>
+<h3>Installeren als app</h3>
+<p>Op je telefoon: open het menu van je browser en kies "Toevoegen aan beginscherm" of "Installeren". Dan werkt Nieuws Ommen als een echte app, ook offline.</p>
+</div>
+
+<!-- PRIVACY -->
+<div class="panel" id="panel-privacy">
+<h2>Privacy & Contact</h2>
+<h3>Privacy</h3>
+<p>Nieuws Ommen plaatst geen tracking cookies, volgt je niet en verkoopt geen data. We slaan alleen je filter voorkeur lokaal op je eigen apparaat op (in je browser). Push abonnementen worden alleen gebruikt om je meldingen te sturen.</p>
+<h3>Disclaimer</h3>
+<p>Artikelen zijn afkomstig van externe bronnen. Wij zijn niet verantwoordelijk voor de inhoud van die bronnen.</p>
+<h3>Contact & Ideeën</h3>
+<p>Heb je een tip, mis je een bron of heb je een idee? Mail naar <a href="mailto:leeuw008@gmail.com">leeuw008@gmail.com</a></p>
+<p>We horen graag van je!</p>
+</div>
+
+<!-- BEHEER - ALLEEN ADMIN -->
+<div class="panel" id="panel-beheer">
+<h2>Beheer & Diagnose <span class="badge">ALLEEN VOOR ADMIN</span></h2>
+<div class="admin-only">
+<p><strong>Ingelogd als admin:</strong> <span id="adminEmail">-</span></p>
+<p id="adminStatus" style="font-size:13px;color:#6b7280">Controleren...</p>
+
+<h3>1. Push status</h3>
+<p id="pushStatus">Controleren...</p>
+<button class="btn" id="btnLocal">Test lokale melding</button>
+<button class="btn orange" id="btnPush">Test echte push via worker</button>
+<button class="btn secondary" id="btnCheckDebug">Check /debug</button>
+
+<h3 style="margin-top:20px">2. Service Worker</h3>
+<p id="swStatus">Controleren...</p>
+
+<h3>Resultaat</h3>
+<div class="result" id="result">Nog geen test uitgevoerd.</div>
+</div>
+</div>
+
+</div>
+
 <script>
-var WORKER_URL = 'https://ommen-push-v2.YOUR_SUBDOMAIN.workers.dev';
-var ADMIN_EMAIL = 'leeuw008@gmail.com';
-var tabsDef = [
- {id:'over', label:'Over'},
- {id:'bronnen', label:'Bronnen'},
- {id:'meldingen', label:'Meldingen'},
- {id:'privacy', label:'Privacy & Contact'}
-];
-var bronnen = [
- '1. Gemeente Ommen – ommen.nl',
- '2. RTV Oost – rtv-oost.nl/ommen',
- '3. De Stentor – Ommen',
- '4. Politie Oost-Nederland – politie.nl',
- '5. Brandweer IJsselland – brandweer.nl',
- '6. 112 Ommen – p2000 meldingen',
- '7. Waterschap Vechtstromen',
- '8. Rijkswaterstaat – verkeer',
- '9. Buienradar / KNMI – weeralarmen'
-];
-var active = 'over';
-function isAdmin(){
- try{
-  var v = (localStorage.getItem('email')||'').toLowerCase().trim();
-  return v === ADMIN_EMAIL;
- }catch(e){return false}
-}
-function renderTabs(){
- var nav = document.getElementById('tabs');
- var all = tabsDef.slice();
- if(isAdmin()) all.push({id:'beheer', label:'Beheer'});
- nav.innerHTML = all.map(function(t){
-  return '<button class="'+(active===t.id?'active':'')+'" data-tab="'+t.id+'">'+t.label+'</button>';
- }).join('');
- nav.querySelectorAll('button').forEach(function(b){
-  b.addEventListener('click', function(){
-   active = b.getAttribute('data-tab');
-   renderTabs();
-   renderContent();
+const tabs = document.querySelectorAll('.tabs button');
+const panels = document.querySelectorAll('.panel');
+tabs.forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    tabs.forEach(b=>b.classList.remove('active'));
+    panels.forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
   });
- });
+});
+
+function getEmail(){
+  try{
+    const keys=['ommen_current_user_email','user_email','email','auth_email','leeuw008_email'];
+    for(const k of keys){
+      const v=localStorage.getItem(k)||sessionStorage.getItem(k);
+      if(v && v.toLowerCase().includes('@')) return v;
+    }
+    if(window.ommenCurrentUser && window.ommenCurrentUser.email) return window.ommenCurrentUser.email;
+  }catch(e){}
+  return null;
 }
-function renderContent(){
- var el = document.getElementById('content');
- if(active==='over'){
-  el.innerHTML = '<div class="card"><span class="badge">Over deze app</span><h2>Wat doet deze app?</h2><p>Deze app verzamelt nieuws en meldingen rond Ommen en omgeving. Geen extra techniek, gewoon duidelijk wat er speelt.</p><p>Je krijgt alleen een melding bij echt belangrijk nieuws (112, weer, wegafsluiting). Je kiest zelf of je meldingen aan wilt.</p></div>';
- }
- if(active==='bronnen'){
-  el.innerHTML = '<div class="card"><h2>9 bronnen</h2><ul>'+bronnen.map(function(b){return '<li>'+b+'</li>';}).join('')+'</ul><p class="muted">Bronnen worden elk uur gecontroleerd. Geen trackers, geen cookies.</p></div>';
- }
- if(active==='meldingen'){
-  el.innerHTML = '<div class="card"><h2>Meldingen</h2><p>Wil je een seintje bij belangrijk nieuws?</p><div class="stack"><button class="btn" id="btnEnable">Meldingen aanzetten</button><p class="muted" id="notifStatus"></p></div><p class="muted" style="margin-top:12px">Werkt op telefoon en desktop. Je kunt het altijd weer uitzetten in je browser instellingen.</p></div>';
-  setTimeout(function(){
-   var s=document.getElementById('notifStatus');
-   if(!('Notification' in window)) s.textContent='Meldingen worden niet ondersteund in deze browser.';
-   else s.textContent='Status: '+Notification.permission;
-   var btn=document.getElementById('btnEnable');
-   if(btn){
-    btn.addEventListener('click', async function(){
-     try{
-      var perm = await Notification.requestPermission();
-      s.textContent='Status: '+perm;
-      if(perm==='granted' && WORKER_URL.indexOf('YOUR_SUBDOMAIN')===-1){
-       var reg = await navigator.serviceWorker.register('/sw.js');
-       var vapid = await fetch(WORKER_URL+'/vapidPublicKey').then(function(r){return r.text();});
-       var sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey: urlBase64ToUint8Array(vapid)});
-       await fetch(WORKER_URL+'/subscribe',{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(sub)});
-       s.textContent+=' - geregistreerd';
+
+async function checkAdmin(){
+  const adminTab=document.getElementById('adminTab');
+  const adminEmailEl=document.getElementById('adminEmail');
+  const adminStatus=document.getElementById('adminStatus');
+  let email=getEmail();
+  // probeer ook via worker /auth/me
+  try{
+    const token=localStorage.getItem('ommen_auth_token')||localStorage.getItem('auth_token')||localStorage.getItem('token')||'';
+    if(token){
+      const r=await fetch('https://ommen-push-v2.leeuw008.workers.dev/auth/me',{headers:{'Authorization':'Bearer '+token}});
+      if(r.ok){
+        const j=await r.json();
+        if(j.email) email=j.email;
       }
-     }catch(e){ s.textContent='Fout: '+e.message; }
-    });
-   }
-  },0);
- }
- if(active==='privacy'){
-  el.innerHTML = '<div class="card"><h2>Privacy & Contact</h2><p>We slaan geen persoonsgegevens op, behalve je push-abonnement als je meldingen aanzet. Dat abonnement kun je altijd verwijderen via Afmelden.</p><p><strong>Contact:</strong> leeuw008@gmail.com</p><div class="stack" style="margin-top:12px"><label class="muted">Voor beheer (alleen admin): e-mail opslaan lokaal</label><div class="row"><input id="emailInput" placeholder="jouw e-mail"/><button class="btn secondary" id="saveEmail">Opslaan</button></div><p class="muted" id="emailMsg"></p></div></div>';
-  setTimeout(function(){
-   var inp=document.getElementById('emailInput');
-   var msg=document.getElementById('emailMsg');
-   try{ inp.value=localStorage.getItem('email')||'';}catch(e){}
-   var save=document.getElementById('saveEmail');
-   if(save){
-    save.addEventListener('click', function(){
-     try{
-      localStorage.setItem('email', inp.value.trim().toLowerCase());
-      msg.textContent='Opgeslagen. Herlaad pagina voor Beheer tab indien admin.';
-      renderTabs();
-     }catch(e){msg.textContent='Kon niet opslaan: '+e.message}
-    });
-   }
-  },0);
- }
- if(active==='beheer'){
-  if(!isAdmin()){ el.innerHTML='<div class="card"><p>Geen toegang.</p></div>'; return; }
-  el.innerHTML = '<div class="card"><span class="badge">Alleen admin</span><h2>Beheer</h2><div class="stack"><button class="btn" id="testLocal">Test lokale melding</button><button class="btn secondary" id="testPush">Test echte push (/test?mode=no-payload)</button><button class="btn secondary" id="checkDebug">Toon aantal subscribers (/debug)</button><pre id="beheerOut" class="muted">Klaar voor test...</pre></div></div>';
-  setTimeout(function(){
-   var out=document.getElementById('beheerOut');
-   document.getElementById('testLocal').addEventListener('click', async function(){
-    var p = await Notification.requestPermission(); if(p!=='granted'){out.textContent='Geen toestemming: '+p; return;}
-    new Notification('Test lokaal',{body:'Dit is een lokale test. Tijd: '+new Date().toLocaleTimeString()});
-    out.textContent='Lokale melding verstuurd';
-   });
-   document.getElementById('testPush').addEventListener('click', async function(){
-    out.textContent='Versturen...';
-    try{
-     var r=await fetch(WORKER_URL+'/test?mode=no-payload');
-     var t=await r.text(); out.textContent='Result /test: '+t;
-    }catch(e){ out.textContent='Fout: '+e.message+' - Check of WORKER_URL klopt en CORS aan staat.'; }
-   });
-   document.getElementById('checkDebug').addEventListener('click', async function(){
-    out.textContent='Ophalen...';
-    try{
-     var r=await fetch(WORKER_URL+'/debug'); var j=await r.json();
-     out.textContent=JSON.stringify(j,null,2);
-    }catch(e){ out.textContent='Fout: '+e.message; }
-   });
-  },0);
- }
+    }
+  }catch(e){}
+  if(email && email.toLowerCase()==='leeuw008@gmail.com'){
+    adminTab.classList.add('visible');
+    adminEmailEl.textContent=email;
+    adminStatus.textContent='Admin toegang verleend ✓';
+    initAdmin();
+  }else{
+    adminTab.classList.remove('visible');
+    adminStatus.textContent='Niet ingelogd als admin ('+(email||'geen email gevonden')+')';
+  }
 }
-function urlBase64ToUint8Array(base64String){
- var padding='='.repeat((4-base64String.length%4)%4);
- var base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
- var raw=atob(base64); var output=new Uint8Array(raw.length);
- for(var i=0;i<raw.length;i++) output[i]=raw.charCodeAt(i);
- return output;
+
+function initAdmin(){
+  const pushStatus=document.getElementById('pushStatus');
+  const swStatus=document.getElementById('swStatus');
+  const result=document.getElementById('result');
+  try{
+    pushStatus.textContent='Permission: '+Notification.permission;
+  }catch(e){pushStatus.textContent='Notification API niet beschikbaar';}
+  if('serviceWorker' in navigator && navigator.serviceWorker.controller){
+    swStatus.textContent='Service Worker actief ✓';
+  }else{
+    swStatus.textContent='Service Worker: controleren...';
+    navigator.serviceWorker.ready.then(()=>{swStatus.textContent='Service Worker actief ✓';}).catch(()=>{swStatus.textContent='Service Worker niet actief';});
+  }
+
+  document.getElementById('btnLocal').onclick=async()=>{
+    try{
+      const reg=await navigator.serviceWorker.ready;
+      await reg.showNotification('Nieuws Ommen - Test',{body:'Lokale test melding werkt! ✓',icon:'/icons/icon-192x192.png',badge:'/icons/icon-96x96.png'});
+      result.textContent='Lokale notificatie verstuurd ✓\n(Als je niets ziet, check browser toestemming)';
+    }catch(e){result.textContent='Fout lokale notificatie: '+e.message;}
+  };
+  document.getElementById('btnPush').onclick=async()=>{
+    result.textContent='Echte push versturen via worker...';
+    try{
+      const r=await fetch('https://ommen-push-v2.leeuw008.workers.dev/test?mode=no-payload&title=Test%20Ommen&body=Dit%20is%20een%20echte%20push%20test');
+      const txt=await r.text();
+      result.textContent='Response van /test:\n'+txt;
+    }catch(e){result.textContent='Fout bij /test: '+e.message;}
+  };
+  document.getElementById('btnCheckDebug').onclick=async()=>{
+    result.textContent='Debug ophalen...';
+    try{
+      const r=await fetch('https://ommen-push-v2.leeuw008.workers.dev/debug');
+      const j=await r.json();
+      result.textContent='Debug info:\n'+JSON.stringify(j,null,2);
+    }catch(e){result.textContent='Fout debug: '+e.message;}
+  };
 }
-renderTabs(); renderContent();
+
+document.addEventListener('DOMContentLoaded',checkAdmin);
+setInterval(checkAdmin,3000);
 </script>
 </body>
 </html>
