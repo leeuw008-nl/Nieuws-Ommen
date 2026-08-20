@@ -33,7 +33,7 @@ function parseVechtdalCentraalECHT(html){
     let link=m[1]; if(link.startsWith('/')) link='https://www.vechtdalcentraal.nl'+link;
     if(seen.has(link)) continue; seen.add(link);
     const title=m[2].replace(/&#8217;/g,"'").replace(/&amp;/g,"&").trim();
-    if(title.length>4) items.push({title, link, pubDate:getPoll(link), description:cleanTitle(title)+' [...]'});
+    if(title.length>4) items.push({title, link, pubDate:new Date(), description:title+' [...]'});
   }
   return items;
 }
@@ -98,127 +98,85 @@ async function enrichVechtdalWithDetail(arts){
 }
 
 
-function getOostPollCache(){try{return JSON.parse(localStorage.getItem('ommen_oost_poll')||'{}');}catch{return {};}} function setOostPollCache(c){try{localStorage.setItem('ommen_oost_poll', JSON.stringify(c));}catch{}} function parseRTVOostECHT(html){
+function getOostPollCache(){try{return JSON.parse(localStorage.getItem('ommen_oost_poll')||'{}');}catch{return {};}}
+function setOostPollCache(c){try{localStorage.setItem('ommen_oost_poll', JSON.stringify(c));}catch{}}
+function parseRTVOostECHT(html){
   const items=[]; let m;
-  if(typeof dirty!=='undefined' && dirty) setOostPollCache(pollCache); console.log('[RTV Oost vechtdal] HTML len', html.length);
-  const pollCache=getOostPollCache(); let dirty=false; const now=new Date(); function getPoll(link){if(pollCache[link]){const d=new Date(pollCache[link]); if(!isNaN(d.getTime())) return d;} const d=new Date(now); pollCache[link]=d.toISOString(); dirty=true; return d;} function cleanTitle(t){let p='';while(p!==t){p=t; t=t.replace(/^(Nieuws|112|Economie|Sport)\s*[:\-]?\s*/i,'').trim();} return t;} const BLACKLIST_EXACT = ['alle nieuws','zwolle','twente','enschede','vechtdal','salland','kop van overijssel','home','nieuws','sport','kijk','luister','puzzels','dossiers','net binnen','tv & radio','instellingen','zoeken'];
-  const BLACKLIST_URLS = ['/nieuws','/nieuws/zwolle','/nieuws/twente','/nieuws/enschede','/nieuws/vechtdal','/nieuws/salland','/nieuws/kop-van-overijssel'];
-  
-  function cleanTitle(t){
-    if(!t) return '';
-    t=t.trim();
-    // Strip leidende categorie labels zoals "Nieuws ", "112 ", "Economie ", "Sport " etc
-    t=t.replace(/^(Nieuws|112|Economie|Sport|Cultuur|Politiek)\s*[:\-]?\s*/i,'').trim(); t=t.replace(/^(Nieuws|112)\s+/i,'').trim();
-    // Strip ook als er nog een keer "Nieuws " voor staat
-    t=t.replace(/^(Nieuws|112)\s+/i,'');
-    return t.trim();
+  console.log('[RTV Oost vechtdal] HTML len', html.length);
+  const pollCache=getOostPollCache(); let dirty=false; const now=new Date();
+  function getPoll(link){
+    if(pollCache[link]){const d=new Date(pollCache[link]); if(!isNaN(d.getTime())) return d;}
+    const d=new Date(now); pollCache[link]=d.toISOString(); dirty=true; return d;
   }
-  
-  function isValid(title, link){
-    if(!title || !link) return false;
-    title=title.trim(); 
-    if(title.length<12) return false;
-    if(BLACKLIST_EXACT.includes(title.toLowerCase())) return false;
-    if(BLACKLIST_EXACT.includes(title.toLowerCase().replace(/\s+/g,' '))) return false;
-    try{
-      const u = new URL(link, 'https://www.oost.nl');
-      const path = u.pathname.toLowerCase().replace(/\/$/,'');
-      if(BLACKLIST_URLS.includes(path)) return false;
-      if(!path.includes('/nieuws/')) return false;
-      // Categorie pagina's zijn kort: /nieuws/vechtdal = 15, echte artikelen zijn /nieuws/1234567/xxx = veel langer
-      if(path.length<20) return false;
-    }catch{}
-    return true;
+  function cleanCat(raw){
+    if(!raw) return '';
+    raw=raw.trim().toUpperCase();
+    if(raw.length>20) return '';
+    if(['NIEUWS','112','ECONOMIE','SPORT','CULTUUR','POLITIEK'].includes(raw)) return raw;
+    // soms is het "Nieuws" met hoofdletter
+    const low=raw.toLowerCase();
+    if(['nieuws','112','economie','sport'].includes(low)) return raw.toUpperCase();
+    return '';
   }
-
-  function extractDateAround(pos){
-    // Zoek <time datetime="..."> binnen 1000 chars rond pos
-    const slice = html.substring(Math.max(0,pos-1000), pos+1000);
-    let tm = slice.match(/<time[^>]+datetime=["']([^"']+)["']/i);
-    if(tm){
-      const d=new Date(tm[1]);
-      if(!isNaN(d.getTime())) return d;
+  // Zoek naar oost.nl article cards - structuur: category label boven titel
+  // Voorbeeld uit HTML: <span class="...">NIEUWS</span> ... <h3>N36 komende...</h3> binnen <a href="/nieuws/...">
+  // We zoeken per <a href="/nieuws/..."> blok
+  const reBlock = /<a[^>]+href=["'](\/nieuws\/(?!zwolle|twente|enschede|vechtdal|salland|kop-van-overijssel)[^"']{10,150})["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let blockMatch;
+  while((blockMatch=reBlock.exec(html))!==null && items.length<20){
+    let link=blockMatch[1]; if(link.startsWith('/')) link='https://www.oost.nl'+link;
+    let inner=blockMatch[2];
+    // Zoek categorie in inner
+    let catMatch = inner.match(/<(?:span|div)[^>]*>\s*(NIEUWS|112|ECONOMIE|SPORT|CULTUUR|POLITIEK)\s*<\/(?:span|div)>/i);
+    let category = catMatch ? catMatch[1].toUpperCase() : '';
+    // Zoek titel h2/h3
+    let titleMatch = inner.match(/<h[23][^>]*>([^<]{12,180})<\/h[23]>/i);
+    let title = titleMatch ? titleMatch[1].trim() : '';
+    if(!title){
+      // fallback: neem tekst na categorie
+      let alt = inner.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+      // verwijder categorie uit begin
+      alt = alt.replace(/^(NIEUWS|112|ECONOMIE|SPORT)\s+/i,'').trim();
+      if(alt.length>12 && alt.length<180) title=alt;
     }
-    // Zoek ook publishedAt in json nabij
-    tm = slice.match(/"publish(edAt|Date)"\s*:\s*"([^"]+)"/i);
-    if(tm){
-      const d=new Date(tm[2]);
-      if(!isNaN(d.getTime())) return d;
-    }
-    return new Date();
-  }
-
-  // 1. RSS fallback
-  if(html.includes('<item>')){
-    const rssItems = [...html.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)];
-    for(const itm of rssItems.slice(0,15)){
-      const it=itm[1];
-      let title=(it.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i)||[])[1]||'';
-      title=cleanTitle(title.replace(/<[^>]*>/g,'').trim());
-      let link=(it.match(/<link[^>]*>([\s\S]*?)<\/link>/i)||[])[1]||'';
-      link=link.replace(/<!\[CDATA\[/g,'').replace(/\]\]>/g,'').trim();
-      let pubStr=(it.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i)||[])[1]||'';
-      let pd=pubStr?new Date(pubStr):new Date();
-      if(isValid(title, link) && !items.find(x=>x.link===link)){
-        items.push({title, link, pubDate:isNaN(pd.getTime())?new Date():pd, description:title+' [...]'});
+    if(!title || title.length<12) continue;
+    // Blacklist filter knoppen
+    if(['alle nieuws','zwolle','twente','enschede','vechtdal','salland','kop van overijssel'].includes(title.toLowerCase())) continue;
+    if(link.length<25) continue;
+    // Maak titel met categorie: "112: Man die..." zoals gebruiker vraagt
+    let finalTitle = title;
+    if(category){
+      // Als titel al begint met categorie, niet dubbel
+      if(!title.toUpperCase().startsWith(category)){
+        finalTitle = category + ': ' + title;
+      } else {
+        // Zorg dat er dubbele punt achter staat: "112 Man..." -> "112: Man..."
+        finalTitle = title.replace(new RegExp('^'+category+'\\s+', 'i'), category+': ');
+        if(!finalTitle.includes(':')) finalTitle = finalTitle.replace(new RegExp('^'+category, 'i'), category+':');
       }
     }
-    if(items.length>0){ console.log('[RTV Oost] RSS parsed', items.length); return items; }
+    if(!items.find(x=>x.link===link)){
+      items.push({title:finalTitle, link, pubDate:getPoll(link), description:title+' [...]', _cat:category});
+    }
   }
 
-  // 2. __NEXT_DATA__ met datum
-  try{
-    const nextMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
-    if(nextMatch){
-      const txt = nextMatch[1];
-      // probeer title + url + publishDate samen
-      const re = /"title"\s*:\s*"([^"]{12,200})"[^}]{0,800}?"url"\s*:\s*"(\/nieuws\/[^"]{10,150})"[^}]{0,800}?"publishDate"\s*:\s*"([^"]+)"|"publishDate"\s*:\s*"([^"]+)"[^}]{0,800}?"title"\s*:\s*"([^"]{12,200})"[^}]{0,800}?"url"\s*:\s*"(\/nieuws\/[^"]{10,150})"/gi;
-      let mm;
-      while((mm=re.exec(txt))!==null && items.length<20){
-        let title, link, dateStr;
-        if(mm[1]){ title=mm[1]; link=mm[2]; dateStr=mm[3]; }
-        else { dateStr=mm[4]; title=mm[5]; link=mm[6]; }
-        if(!title||!link) continue;
-        title=cleanTitle(title);
-        if(link.startsWith('/')) link='https://www.oost.nl'+link;
-        let pd=dateStr?new Date(dateStr):new Date();
-        if(isValid(title, link) && !items.find(x=>x.link===link)){
-          items.push({title, link, pubDate:isNaN(pd.getTime())?new Date():pd, description:title+' [...]'});
-        }
-      }
-    }
-  }catch(e){}
-
-  // 3. Zoek article cards met <a href="/nieuws/..."> en h3 titel, plus time erbij
+  // Fallback: oude methode met h3 direct na a href als block methode faalt
   if(items.length===0){
-    // Pattern: <a href="/nieuws/..."> ... <time datetime="..."> ... <h3>Title</h3>
-    const reCard = /<a[^>]+href=["'](\/nieuws\/(?!zwolle|twente|enschede|vechtdal|salland|kop-van-overijssel)[^"']{10,150})["'][^>]*>[\s\S]{0,800}?<h[23][^>]*>([^<]{12,180})<\/h[23]>/gi;
+    const reCard = /<a[^>]+href=["'](\/nieuws\/(?!zwolle|twente|enschede|vechtdal|salland|kop-van-overijssel)[^"']{10,150})["'][^>]*>[^<]*<h[23][^>]*>([^<]{12,180})<\/h[23]>/gi;
     while((m=reCard.exec(html))!==null && items.length<20){
       let link=m[1]; if(link.startsWith('/')) link='https://www.oost.nl'+link;
-      let title=cleanTitle(m[2]);
-      let pd=extractDateAround(m.index);
-      if(isValid(title, link) && !items.find(x=>x.link===link)){
-        items.push({title, link, pubDate:pd, description:title+' [...]'});
+      let title=m[2].trim();
+      if(['alle nieuws','zwolle','twente','enschede','vechtdal','salland','kop van overijssel'].includes(title.toLowerCase())) continue;
+      if(link.length<25) continue;
+      if(!items.find(x=>x.link===link)){
+        items.push({title, link, pubDate:getPoll(link), description:title+' [...]'});
       }
     }
   }
 
-  // 4. Fallback: alle /nieuws/ links met lange titel, met datum uit omgeving
-  if(items.length===0){
-    const reAll = /<a[^>]+href=["'](\/nieuws\/(?!zwolle|twente|enschede|vechtdal|salland|kop-van-overijssel)[^"']+)["'][^>]*>([^<]{12,180})<\/a>/gi;
-    while((m=reAll.exec(html))!==null && items.length<20){
-      let link=m[1]; if(link.startsWith('/')) link='https://www.oost.nl'+link;
-      let title=cleanTitle(m[2].replace(/<[^>]*>/g,'').trim());
-      let pd=extractDateAround(m.index);
-      if(isValid(title, link) && !items.find(x=>x.link===link)){
-        items.push({title, link, pubDate:pd, description:title+' [...]'});
-      }
-    }
-  }
-
-  // Sorteer op datum nieuwste eerst
+  if(dirty) setOostPollCache(pollCache);
   items.sort((a,b)=>b.pubDate - a.pubDate);
-  console.log('[RTV Oost] gevonden', items.length, 'echte artikelen');
+  console.log('[RTV Oost] gevonden', items.length, 'met polling + categorie: titel');
   return items;
 }
 
