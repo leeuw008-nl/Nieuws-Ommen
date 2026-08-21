@@ -1,9 +1,9 @@
-/* service-worker v239 - Nieuw(s)Ommen + FOCUS MODE + ICON FIX
+/* service-worker v240 - FIX PUSH + MEGA BACK BTN + Nieuw(s)Ommen + ICON FIX
  * - Icon paden gefixed: /icons/icon-192x192.png
  * - Focus mode: klik op notificatie toont alleen dat artikel met button "Toon alle artikelen"
  * - Cache v238 forceert update
  */
-const CACHE_NAME = 'ommen-v239-focus';
+const CACHE_NAME = 'ommen-v240-fix';
 const ICON_192 = '/icons/icon-192x192.png';
 const ICON_512 = '/icons/icon-512x512.png';
 const ICON_96 = '/icons/icon-96x96.png';
@@ -136,7 +136,7 @@ self.addEventListener('push', event => {
         const normSource = String(source).toLowerCase();
         const isAllowed = normAllowed.some(a => normSource.includes(a) || a.includes(normSource) || normSource === a);
         if (!isAllowed) {
-          console.log(`[v239] Push geblokkeerd door filter: "${source}" niet in [${allowedSources.join(', ')}]`);
+          console.log(`[v240] Push geblokkeerd door filter: "${source}" niet in [${allowedSources.join(', ')}]`);
           return;
         }
       }
@@ -156,7 +156,7 @@ self.addEventListener('push', event => {
       return await self.registration.showNotification(title, options);
     } catch (e) {
       console.log('Icon fail, retry zonder icon', e);
-      delete options.icon;
+      // keep icon if possible, only delete on real fail
       delete options.badge;
       return await self.registration.showNotification(title, options);
     }
