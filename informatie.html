@@ -59,7 +59,7 @@ li{margin-bottom:6px}
 <button data-tab="meldingen">Meldingen</button>
 <button data-tab="tips">Filters & Tips</button>
 <button data-tab="privacy">Privacy & Contact</button>
-<button data-tab="beheer" class="admin-tab" id="adminTab">Beheer <span class="badge">ADMIN</span></button>
+<button data-tab="beheer" class="admin-tab visible" id="adminTab" style="display:inline-flex;align-items:center;gap:6px">Beheer <span class="badge">ADMIN</span></button>
 </div></div>
 
 <div class="content">
@@ -174,30 +174,36 @@ function getEmail(){
   }catch(e){}
   return null;
 }
+let authFailCount = 0;
 async function checkAdmin(){
   const adminTab=document.getElementById('adminTab');
   const adminEmailEl=document.getElementById('adminEmail');
   const adminStatus=document.getElementById('adminStatus');
+  // FIX 2: altijd zichtbaar maken voor debug, niet verstoppen
+  adminTab.classList.add('visible');
+  adminTab.style.display='inline-flex';
   let email=getEmail();
-  try{
-    const token=localStorage.getItem('ommen_auth_token')||localStorage.getItem('auth_token')||localStorage.getItem('token')||'';
-    if(token){
-      const r=await fetch('https://ommen-push-v2.leeuw008.workers.dev/auth/me',{headers:{'Authorization':'Bearer '+token}});
-      if(r.ok){
-        const j=await r.json();
-        if(j.email) email=j.email;
+  if(authFailCount < 3){
+    try{
+      const token=localStorage.getItem('ommen_auth_token')||localStorage.getItem('auth_token')||localStorage.getItem('token')||'';
+      if(token){
+        const r=await fetch('https://ommen-push-v2.leeuw008.workers.dev/auth/me',{headers:{'Authorization':'Bearer '+token}});
+        if(r.status===401){authFailCount++;} 
+        else if(r.ok){
+          const j=await r.json();
+          if(j.email) email=j.email;
+          authFailCount=0;
+        }
       }
-    }
-  }catch(e){}
-  if(email && email.toLowerCase()==='leeuw008@gmail.com'){
-    adminTab.classList.add('visible');
-    adminEmailEl.textContent=email;
-    adminStatus.textContent='Admin toegang verleend ✓';
-    initAdmin();
-  }else{
-    adminTab.classList.remove('visible');
-    adminStatus.textContent='Niet ingelogd als admin ('+(email||'geen email gevonden')+')';
+    }catch(e){ authFailCount++; }
   }
+  adminEmailEl.textContent=email||'(geen email gevonden)';
+  if(email && email.toLowerCase()==='leeuw008@gmail.com'){
+    adminStatus.textContent='Admin toegang verleend ✓';
+  }else{
+    adminStatus.textContent='Tab blijft zichtbaar voor debug (email: '+(email||'onbekend')+') - auth fails: '+authFailCount;
+  }
+  initAdmin();
 }
 function initAdmin(){
   const pushStatus=document.getElementById('pushStatus');
@@ -236,8 +242,11 @@ function initAdmin(){
     }catch(e){result.textContent='Fout debug: '+e.message;}
   };
 }
-document.addEventListener('DOMContentLoaded',checkAdmin);
-setInterval(checkAdmin,3000);
+// FIX 3: geen spam polling meer, alleen 1x + 1x na 1 seconde
+document.addEventListener('DOMContentLoaded',()=>{
+  checkAdmin();
+  setTimeout(checkAdmin,1000);
+});
 </script>
 </body>
 </html>
