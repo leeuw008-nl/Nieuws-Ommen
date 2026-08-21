@@ -1,303 +1,109 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Nieuws Ommen Push — Testpaneel (FIXED)</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nieuw(s)Ommen Testpaneel v242 - per bron</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f5f7fb;color:#111;line-height:1.6}
-.header{background:#0b5bd3;color:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0}
-.card{background:#fff;border-radius:12px;padding:16px;margin:12px 0;box-shadow:0 2px 8px rgba(0,0,0,.08)}
-.badge{display:inline-block;background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:20px;font-size:12px;margin:2px}
-.badge.green{background:#d1fae5;color:#065f46}
-.badge.red{background:#fee2e2;color:#991b1b}
-pre{white-space:pre-wrap;word-break:break-all;background:#0b1020;color:#e2e8f0;padding:12px;border-radius:8px;overflow:auto;font-size:12px;max-height:400px}
-button{padding:10px 16px;border-radius:8px;border:0;background:#0b5bd3;color:white;font-weight:600;cursor:pointer;margin:4px 4px 4px 0}
-button.secondary{background:#e5e7eb;color:#111}
-input,select,textarea{padding:10px;border:1px solid #ddd;border-radius:8px;width:100%;box-sizing:border-box;margin:4px 0}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media(max-width:800px){.grid{grid-template-columns:1fr}}
+  *{box-sizing:border-box} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif;background:#f5f7fb;color:#111}
+  header{background:#0b5bd3;color:#fff;padding:18px 20px;position:sticky;top:0;z-index:10}
+  header h1{margin:0;font-size:20px;letter-spacing:.2px} header p{margin:4px 0 0;opacity:.9;font-size:13px}
+  .wrap{max-width:980px;margin:0 auto;padding:16px}
+  .card{background:#fff;border:1px solid #e3e8ef;border-radius:10px;padding:14px 16px;margin:14px 0;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .card h2{margin:0 0 8px;font-size:15px;color:#0b5bd3}
+  .muted{color:#667085;font-size:13px}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:10px;white-space:pre-wrap;word-break:break-all;font-size:12px;max-height:320px;overflow:auto}
+  .grid9{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+  button{appearance:none;border:1px solid #0b5bd3;background:#0b5bd3;color:#fff;border-radius:8px;padding:9px 12px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+  button:hover{background:#0a4fba} button:disabled{opacity:.5;cursor:not-allowed}
+  button.secondary{background:#fff;color:#0b5bd3} button.secondary:hover{background:#eef4ff}
+  button.filtered{background:#0f7a3f;border-color:#0f7a3f} button.filtered:hover{background:#0c6a36}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .badge{display:inline-block;background:#eef4ff;color:#0b5bd3;border:1px solid #cdd9f0;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700}
+  .badge.ok{background:#dcfce7;color:#166534;border-color:#bbf7d0}
+  .badge.err{background:#fee2e2;color:#991b1b;border-color:#fecaca}
+  .explain{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.5}
+  code{background:#f1f5f9;padding:2px 5px;border-radius:4px;font-size:12px}
 </style>
 </head>
 <body>
-<div class="header">
-  <h1 style="margin:0;font-size:18px">📰 Nieuws Ommen Push — Testpaneel (FIXED v16.1)</h1>
-  <span style="margin-left:auto;font-size:12px" id="onlineStatus">checking...</span>
-</div>
-<div style="max-width:1100px;margin:0 auto;padding:16px">
-
-<div class="card">
-  <h3 style="margin:0 0 8px">Worker URL</h3>
-  <div style="display:flex;gap:8px">
-    <input id="workerUrl" value="https://ommen-push-v2.leeuw008.workers.dev" style="flex:1">
-    <button onclick="checkWorker()">Check</button>
-    <button class="secondary" onclick="clearAll()">Clear</button>
-  </div>
-  <div id="workerInfo" style="margin-top:8px;font-size:12px;color:#666"></div>
-  <div><span class="badge green">Fix: gebruikt ./service-worker.js i.p.v. /sw.js</span> <span class="badge">Scope: ./</span> <span class="badge" id="swStatus">SW: onbekend</span></div>
-</div>
-
-<div class="grid">
-  <div class="card">
-    <h3>1. Test notificatie sturen</h3>
-    <label>Titel <input id="title" value="Test: Ommen Push"></label>
-    <label>Bron <select id="source"><option>De Stentor</option><option>Gemeente Ommen</option><option>Natuurlijk Ommen</option><option>Ommen City</option><option>OudOmmen</option><option>RondOmmen</option><option>RTV Oost</option><option>RTV Vechtdal</option><option>Vechtdal Centraal</option><option>Algemeen</option></select></label>
-    <label>Body <textarea id="body">Dit is een testmelding vanaf het testpaneel.</textarea></label>
-    <label>URL (optioneel) <input id="url" value="https://leeuw008-nl.github.io/Nieuws-Ommen/"></label>
-    <div>
-      <button onclick="sendTest('POST')">Stuur via POST /broadcast</button>
-      <button onclick="sendTest('GET')" class="secondary">Stuur via GET /send</button>
-    </div>
-    <pre id="sendOut">Nog geen test verstuurd</pre>
-    <div style="margin-top:8px;font-size:11px;color:#666">cURL: <code id="curlPreview"></code></div>
+<header>
+  <h1>Nieuw(s)Ommen Testpaneel v242 – per bron</h1>
+  <p>Worker v25.3-PROXY-CORS-FIXED · TEST = naar iedereen · SEND = gefilterd</p>
+</header>
+<div class="wrap">
+  <div class="explain">
+    <strong>Uitleg:</strong> <code>/test</code> stuurt altijd naar <b>alle</b> subscribers (voor dit testpaneel). 
+    <code>/send</code> stuurt alleen naar mensen die die bron geselecteerd hebben (echte cron gedrag). 
+    Gebruik <code>/test</code> om te checken of push werkt, <code>/send</code> om filtering te testen.
   </div>
 
   <div class="card">
-    <h3>2. Subscriptions bekijken</h3>
-    <button onclick="loadSubs()">↻ Haal subscriptions op</button>
-    <pre id="subsOut">Nog niet opgehaald</pre>
-  </div>
-</div>
-
-<div class="grid">
-  <div class="card">
-    <h3>3. Crontab / Cron check</h3>
-    <p style="font-size:12px;color:#666">Worker draait via scheduled event. Check /cron-status en trigger handmatig.</p>
-    <div>
-      <button onclick="checkCron(false)" class="secondary">Check laatste run</button>
-      <button onclick="checkCron(true)">▶ Trigger handmatig</button>
+    <h2>1. VAPID + Abonneren</h2>
+    <div class="muted" style="margin-bottom:8px">Worker: <code>https://ommen-push-v2.leeuw008.workers.dev</code> · Service Worker: <code>./service-worker.js</code> scope <code>./</code></div>
+    <div class="mono" id="vapidBox">laden...</div>
+    <div class="row" style="margin-top:10px">
+      <button id="subBtn">🔔 Abonneren / Her-registreren</button>
+      <span id="subStatus" class="muted">Nog niet geabonneerd</span>
     </div>
-    <pre id="cronOut">Nog geen check</pre>
-    <div style="font-size:11px;color:#666;margin-top:8px">cron pattern: */15 * * * * (verwacht) | fetch feeds → diff → broadcast</div>
   </div>
 
   <div class="card">
-    <h3>4. Zelf abonneren (deze browser) - FIXED</h3>
-    <p style="font-size:12px;color:#666">Fix: registreert nu <code>./service-worker.js</code> met scope <code>./</code> i.p.v. <code>/sw.js</code> op root (die 404 gaf).</p>
-    <div id="sourceChecks" style="display:flex;flex-wrap:wrap;gap:4px;margin:8px 0"></div>
-    <div>
-      <button class="secondary" onclick="selectAll(true)">Alles</button>
-      <button class="secondary" onclick="selectAll(false)">Geen</button>
-      <span id="selCount" style="font-size:12px;margin-left:8px"></span>
-    </div>
-    <div style="margin:8px 0;padding:8px;background:#f5f7fb;border-radius:8px">
-      <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#666">VAPID PUBLIC KEY</div>
-      <div id="vapidKey" style="font-size:11px;word-break:break-all">Laden...</div>
-    </div>
-    <button onclick="subscribeFixed()" style="background:#059669;width:100%">🔔 Abonneer deze browser nu (FIXED)</button>
-    <pre id="subOut">Nog niet geabonneerd in dit paneel</pre>
-    <div style="font-size:11px;color:#666;margin-top:8px">Tip: als blob geblokkeerd wordt, gebruikt hij nu automatisch ./service-worker.js uit je repo.</div>
+    <h2>2. Debug info</h2>
+    <div class="row" style="margin-bottom:8px"><button class="secondary" id="debugBtn">🔄 Refresh /debug</button> <span class="muted">Toont subs, version, lastSeen</span></div>
+    <div class="mono" id="debugBox">laden...</div>
   </div>
-</div>
 
+  <div class="card">
+    <h2>3. Test per bron – <span class="badge">/test → naar iedereen</span></h2>
+    <p class="muted">Elke knop roept <code>/test?source=BRON</code> aan. Iedereen krijgt hem, ook als ze die bron niet volgen. Handig om push te testen.</p>
+    <div class="grid9" id="testGrid"></div>
+  </div>
+
+  <div class="card">
+    <h2>4. Test gefilterd (echt gedrag) – <span class="badge ok">/send → alleen geselecteerd</span></h2>
+    <p class="muted">Roept <code>/send?source=BRON</code> aan. Alleen subscribers die die bron aan hebben gevinkt krijgen de push. Zo werkt de cron ook.</p>
+    <div class="grid9" id="sendGrid"></div>
+  </div>
+
+  <div class="card">
+    <h2>5. Cron handmatig</h2>
+    <div class="row"><button id="checkBtn">▶️ Trigger /check (handmatige cron)</button> <span class="muted">Scrapet feeds en stuurt bij nieuw artikel</span></div>
+  </div>
+
+  <div class="card">
+    <h2>6. Laatste artikel</h2>
+    <div class="row" style="margin-bottom:8px"><button class="secondary" id="lastBtn">🔄 Refresh /last</button></div>
+    <div class="mono" id="lastBox">laden...</div>
+  </div>
+
+  <div class="card">
+    <h2>Resultaat log</h2>
+    <div class="mono" id="logBox" style="min-height:120px"></div>
+  </div>
+
+  <div class="card">
+    <h2>Origineel bestand</h2>
+    <p class="muted">Oude URL (voor referentie): <a href="https://leeuw008-nl.github.io/Nieuws-Ommen/test2.html" target="_blank" rel="noopener">https://leeuw008-nl.github.io/Nieuws-Ommen/test2.html</a></p>
+  </div>
 </div>
 
 <script>
-const BRONNEN = ["De Stentor","Gemeente Ommen","Ommen City","OudOmmen","RondOmmen","RTV Oost","RTV Vechtdal","Vechtdal Centraal","Natuurlijk Ommen"];
-const VAPID_PUBLIC = "BBnCDkkzIXwUYFrF8ct-OXtRQ6-HaqF74grNVDLe4pw1SwG8_JyMYIHItRY6smyqPpdt81U1EZF33loTsepqnYo";
-let selectedSources = [...BRONNEN];
-
-function initChecks(){
-  const div = document.getElementById('sourceChecks');
-  div.innerHTML = '';
-  BRONNEN.forEach(src=>{
-    const btn = document.createElement('button');
-    btn.textContent = src;
-    btn.style.padding = '4px 8px';
-    btn.style.fontSize = '12px';
-    btn.style.borderRadius = '16px';
-    btn.style.border = '1px solid #ddd';
-    btn.style.background = selectedSources.includes(src) ? '#0b5bd3' : 'white';
-    btn.style.color = selectedSources.includes(src) ? 'white' : '#333';
-    btn.onclick = ()=>{
-      if(selectedSources.includes(src)) selectedSources = selectedSources.filter(s=>s!==src);
-      else selectedSources.push(src);
-      initChecks();
-    };
-    div.appendChild(btn);
-  });
-  document.getElementById('selCount').textContent = selectedSources.length + ' geselecteerd';
-}
-initChecks();
-function selectAll(v){ selectedSources = v ? [...BRONNEN] : []; initChecks(); }
-
-function b64ToUint8(base64String){
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g,'+').replace(/_/g,'/');
-  const raw = atob(base64);
-  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
-}
-
-async function checkWorker(){
-  const url = document.getElementById('workerUrl').value.replace(/\/$/,'');
-  const out = document.getElementById('workerInfo');
-  const statusEl = document.getElementById('onlineStatus');
-  out.textContent = 'Checken...';
-  try{
-    const r = await fetch(url+'/', {cache:'no-store'});
-    const t = await r.text();
-    const isNew = t.includes('v16');
-    statusEl.textContent = isNew ? 'online v16.1' : 'online (oud v15)';
-    statusEl.style.color = isNew ? '#10b981' : '#f59e0b';
-    out.innerHTML = `<span class="badge ${isNew?'green':'red'}">${t.slice(0,120)}</span> Status: ${r.status}`;
-    // VAPID
-    try{
-      const rv = await fetch(url+'/vapidPublicKey');
-      const jv = await rv.json();
-      document.getElementById('vapidKey').textContent = jv.vapidPublicKey || jv.publicKey || VAPID_PUBLIC;
-    }catch{
-      document.getElementById('vapidKey').textContent = VAPID_PUBLIC + ' (fallback)';
-    }
-    // SW status
-    if('serviceWorker' in navigator){
-      const reg = await navigator.serviceWorker.getRegistration('./');
-      document.getElementById('swStatus').textContent = reg ? 'SW: geregistreerd ('+reg.scope+')' : 'SW: niet geregistreerd';
-    }
-  }catch(e){
-    out.textContent = 'Fout: '+e.message;
-    statusEl.textContent = 'offline';
-  }
-}
-function clearAll(){ document.getElementById('sendOut').textContent=''; document.getElementById('subsOut').textContent=''; document.getElementById('cronOut').textContent=''; document.getElementById('subOut').textContent=''; }
-
-async function sendTest(method){
-  const workerUrl = document.getElementById('workerUrl').value.replace(/\/$/,'');
-  const title = document.getElementById('title').value;
-  const body = document.getElementById('body').value;
-  const source = document.getElementById('source').value;
-  const urlVal = document.getElementById('url').value;
-  const out = document.getElementById('sendOut');
-  const curlEl = document.getElementById('curlPreview');
-  curlEl.textContent = `curl -X POST "${workerUrl}/broadcast" -H "Content-Type: application/json" -d '{"title":"${title}","body":"${body}","source":"${source}","url":"${urlVal}"}'`;
-  try{
-    let url, opts;
-    if(method==='GET'){
-      url = `${workerUrl}/send?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}&source=${encodeURIComponent(source)}&url=${encodeURIComponent(urlVal)}`;
-      opts = {};
-    }else{
-      url = `${workerUrl}/broadcast`;
-      opts = {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,body,source,url:urlVal})};
-    }
-    out.textContent = `Versturen naar ${url}...`;
-    const r = await fetch(url, opts);
-    const t = await r.text();
-    let pretty = t;
-    try{ pretty = JSON.stringify(JSON.parse(t), null, 2); }catch{}
-    out.textContent = `[${r.status}] ${method} ${url}\n${pretty.slice(0,3000)}`;
-  }catch(e){ out.textContent = 'Fout: '+e.message; }
-}
-
-async function loadSubs(){
-  const workerUrl = document.getElementById('workerUrl').value.replace(/\/$/,'');
-  const out = document.getElementById('subsOut');
-  out.textContent = 'Ophalen...';
-  let txt = '';
-  for(let p of ['/subs','/subscriptions','/stats']){
-    try{
-      const r = await fetch(workerUrl+p);
-      const t = await r.text();
-      let pretty = t;
-      try{ pretty = JSON.stringify(JSON.parse(t), null, 2); }catch{}
-      txt += `== ${p} -> ${r.status}\n${pretty.slice(0,2000)}\n\n`;
-      if(r.ok) break;
-    }catch(e){ txt += `== ${p} ERR ${e.message}\n\n`; }
-  }
-  out.textContent = txt || 'Geen data';
-}
-
-async function checkCron(trigger){
-  const workerUrl = document.getElementById('workerUrl').value.replace(/\/$/,'');
-  const out = document.getElementById('cronOut');
-  const path = trigger ? '/trigger-cron' : '/cron-status';
-  out.textContent = (trigger?'Triggeren':'Checken')+'...';
-  try{
-    const r = await fetch(workerUrl+path, {method: trigger?'POST':'GET'});
-    const t = await r.text();
-    let pretty = t;
-    try{ pretty = JSON.stringify(JSON.parse(t), null, 2); }catch{}
-    out.textContent = `== ${path} [${r.status}]\n${pretty.slice(0,4000)}`;
-  }catch(e){ out.textContent = 'Fout: '+e.message; }
-}
-
-async function subscribeFixed(){
-  const out = document.getElementById('subOut');
-  const workerUrl = document.getElementById('workerUrl').value.replace(/\/$/,'');
-  out.textContent = 'Start abonneren met FIXED path ./service-worker.js...\n';
-  try{
-    if(!('serviceWorker' in navigator)) throw Error('ServiceWorker niet ondersteund');
-    if(!('PushManager' in window)) throw Error('Push API niet ondersteund');
-
-    // FIXED: gebruik ./service-worker.js met scope ./ i.p.v. /sw.js
-    let reg;
-    try{
-      reg = await navigator.serviceWorker.getRegistration('./');
-      if(!reg){
-        out.textContent += 'Registreren ./service-worker.js met scope ./ ...\n';
-        reg = await navigator.serviceWorker.register('./service-worker.js', {scope:'./'});
-      }else{
-        out.textContent += `SW al geregistreerd: ${reg.scope}\n`;
-      }
-    }catch(e){
-      out.textContent += `SW registratie ./service-worker.js mislukt: ${e.message}\nProbeer fallback met blob...\n`;
-      // Fallback blob zoals origineel, maar dan met juiste push handler
-      const swCode = `
-        self.addEventListener('push', e => {
-          let data = {};
-          try { data = e.data.json(); } catch { data = { title: 'Ommen', body: e.data.text() } }
-          const title = data.title || 'Nieuws Ommen';
-          const opts = {
-            body: data.body || '',
-            icon: './icons/icon-192x192.png',
-            badge: './icons/icon-192x192.png',
-            data: { url: data.url || './' }
-          };
-          e.waitUntil(self.registration.showNotification(title, opts));
-        });
-        self.addEventListener('notificationclick', e => {
-          e.notification.close();
-          const url = e.notification.data?.url || './';
-          e.waitUntil(clients.openWindow(url));
-        });
-      `;
-      const blob = new Blob([swCode], {type:'application/javascript'});
-      const blobUrl = URL.createObjectURL(blob);
-      reg = await navigator.serviceWorker.register(blobUrl);
-    }
-
-    await navigator.serviceWorker.ready;
-    out.textContent += 'SW ready\n';
-
-    const perm = await Notification.requestPermission();
-    if(perm !== 'granted') throw Error('Permissie '+perm);
-    out.textContent += `Permissie: ${perm}\n`;
-
-    let sub = await reg.pushManager.getSubscription();
-    if(!sub){
-      out.textContent += 'Nieuwe subscription aanmaken...\n';
-      sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64ToUint8(VAPID_PUBLIC)});
-    }else{
-      out.textContent += 'Bestaande subscription gevonden\n';
-    }
-
-    const p256dh = btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-    const auth = btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-
-    out.textContent += `Endpoint: ${sub.endpoint.slice(0,80)}...\nBronnen: ${selectedSources.join(', ')}\nServer opslaan...\n`;
-
-    const resp = await fetch(workerUrl+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint,keys:{p256dh,auth},sources:selectedSources})});
-    const txt = await resp.text();
-    let pretty = txt;
-    try{ pretty = JSON.stringify(JSON.parse(txt), null, 2); }catch{}
-    out.textContent += `Server [${resp.status}]:\n${pretty.slice(0,1000)}\n\n✓ Geabonneerd! Probeer nu een test notificatie te sturen.`;
-
-    document.getElementById('swStatus').textContent = 'SW: actief + geabonneerd';
-  }catch(e){
-    out.textContent += `\nFout bij abonneren:\n${e.message}\n${e.stack||''}`;
-  }
-}
-
-// Auto check bij load
-window.addEventListener('load', ()=>{ checkWorker(); });
+const WORKER_URL="https://ommen-push-v2.leeuw008.workers.dev";
+const BRONNEN=["De Stentor","Natuurlijk Ommen","Ommen City","OudOmmen","RondOmmen","RTV Vechtdal","Vechtdal Centraal","Gemeente Ommen","RTV Oost"];
+function u8(base64String){const p="=".repeat((4-base64String.length%4)%4);const b=(base64String+p).replace(/-/g,"+").replace(/_/g,"/");const r=atob(b);const o=new Uint8Array(r.length);for(let i=0;i<r.length;++i)o[i]=r.charCodeAt(i);return o;}
+function log(m,ok){const box=document.getElementById('logBox');const t=new Date().toLocaleTimeString('nl-NL');box.textContent="["+t+"] "+m+"\n"+box.textContent;}
+async function fetchVapid(){try{const r=await fetch(WORKER_URL+"/vapidPublicKey");let txt=await r.text();try{const j=JSON.parse(txt);txt=j.publicKey||j.key||j.vapidPublicKey||txt;}catch{}document.getElementById('vapidBox').textContent=txt;log("VAPID OK "+txt.slice(0,20)+"...",true);return txt;}catch(e){document.getElementById('vapidBox').textContent="Error: "+e.message;log("VAPID err "+e.message,false);}}
+async function fetchDebug(){try{const r=await fetch(WORKER_URL+"/debug");const j=await r.json();document.getElementById('debugBox').textContent=JSON.stringify(j,null,2);log("Debug "+(j.subs||j.count||"?")+" subs",true);}catch(e){document.getElementById('debugBox').textContent="Error "+e.message;log("Debug err "+e.message,false);}}
+async function fetchLast(){try{const r=await fetch(WORKER_URL+"/last");const j=await r.json();document.getElementById('lastBox').textContent=JSON.stringify(j,null,2);log("Last OK",true);}catch(e){document.getElementById('lastBox').textContent="Error "+e.message;}}
+async function subscribe(){const btn=document.getElementById('subBtn');const status=document.getElementById('subStatus');btn.disabled=true;try{if(!('serviceWorker' in navigator))throw new Error("SW niet ondersteund");const perm=await Notification.requestPermission();if(perm!=="granted")throw new Error(perm);log("Registreer ./service-worker.js");const reg=await navigator.serviceWorker.register("./service-worker.js",{scope:"./"});await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription();if(!sub){const vapid=document.getElementById('vapidBox').textContent.trim();sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:u8(vapid)});}status.textContent="Subscription verkregen, POST naar worker...";const res=await fetch(WORKER_URL+"/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subscription:sub,sources:BRONNEN})});const txt=await res.text();status.textContent="Geabonneerd! "+txt.slice(0,120);log("Subscribe OK "+txt.slice(0,100),true);fetchDebug();}catch(e){status.textContent="Fout: "+e.message;log("Sub err "+e.message,false);}finally{btn.disabled=false;}}
+async function callTest(bron,filtered){const ep=filtered?"send":"test";const title=encodeURIComponent((filtered?"[FILTERED] ":"[TEST] ")+bron+" - "+new Date().toLocaleTimeString('nl-NL'));const body=encodeURIComponent("Dit is een "+(filtered?"gefilterd":"test")+" bericht van "+bron+" om "+new Date().toLocaleString('nl-NL'));const url=WORKER_URL+"/"+ep+"?source="+encodeURIComponent(bron)+"&title="+title+"&body="+body;log("> "+ep+"?source="+bron);try{const r=await fetch(url);const txt=await r.text();log(ep+" "+bron+": "+txt.slice(0,300),r.ok);}catch(e){log(ep+" err "+e.message,false);}}
+function buildGrid(id,filtered){const g=document.getElementById(id);BRONNEN.forEach(b=>{const btn=document.createElement('button');btn.textContent=b;if(filtered)btn.className="filtered";btn.onclick=()=>callTest(b,filtered);g.appendChild(btn);});}
+document.getElementById('subBtn').onclick=subscribe;
+document.getElementById('debugBtn').onclick=fetchDebug;
+document.getElementById('lastBtn').onclick=fetchLast;
+document.getElementById('checkBtn').onclick=async()=>{log("> /check");try{const r=await fetch(WORKER_URL+"/check");const t=await r.text();log("CHECK "+t.slice(0,400),r.ok);fetchDebug();fetchLast();}catch(e){log("check err "+e.message,false);}};
+buildGrid("testGrid",false);buildGrid("sendGrid",true);fetchVapid();fetchDebug();fetchLast();
 </script>
 </body>
 </html>
