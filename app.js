@@ -1,4 +1,4 @@
-// app.js v229 - FOCUS MODE FIX + FILTER BRIDGE
+// app.js v230 - FOCUS MODE + RTV OOST FIX (oost.nl/vechtdal werkend)
 // Bij klik op notificatie: alleen dat artikel + knop "Toon alle artikelen"
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
@@ -19,7 +19,7 @@ const BRON_URLS = {
   'Ommen City': {url:'https://ommencity.nl/feed/', homepage:'https://ommencity.nl/'},
   'OudOmmen': {url:'https://weblog.oudommen.nl/feed/', homepage:'https://weblog.oudommen.nl/'},
   'RondOmmen': {url:'https://www.rondommen.nl/feed/', homepage:'https://www.rondommen.nl/'},
-  'RTV Oost': {url:'https://www.rtvoost.nl/nieuws/ommen', homepage:'https://www.rtvoost.nl/nieuws/ommen', type:'oost'},
+  'RTV Oost': {url:'https://www.oost.nl/nieuws/vechtdal', homepage:'https://www.oost.nl/nieuws/vechtdal', type:'oost', fallback:'https://www.oost.nl/nieuws/vechtdal'},
   'RTV Vechtdal': {url:'https://rtvvechtdal.nl/feed/', homepage:'https://rtvvechtdal.nl/'},
   'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/', fallback:'https://www.vechtdalcentraal.nl/'},
 };
@@ -100,22 +100,46 @@ async function enrichVechtdalWithDetail(arts){
 }
 
 
+function getOostPollCache(){try{return JSON.parse(localStorage.getItem('ommen_oost_poll')||'{}');}catch{return {};}}
+function setOostPollCache(c){try{localStorage.setItem('ommen_oost_poll', JSON.stringify(c));}catch{}}
 function parseRTVOostECHT(html){
   const items=[]; let m;
-  const re=/publishedAt="([^"]+)"[\s\S]{0,900}?href="(\/nieuws\/[^"]+)"[\s\S]{0,900}?<h3[^>]*>([^<]+)<\/h3>/gi;
-  while((m=re.exec(html))!==null && items.length<20){
-    const pd=new Date(m[1]); const link='https://www.rtvoost.nl'+m[2]; const title=m[3].trim();
-    if(!items.find(x=>x.link===link)) items.push({title, link, pubDate:pd, description:title+' [...]'});
+  console.log('[RTV Oost vechtdal] HTML len', html.length);
+  const reReal = new RegExp('<div[^>]*publishedAt=["\']([^"\']+)["\'][^>]*>[\\s\\S]*?<a[^>]+href=["\'](\\/nieuws\\/(?!zwolle|twente|enschede|vechtdal|salland|kop-van-overijssel)[^"\']{10,150})["\'][^>]*>[\\s\\S]*?<div[^>]*class="[^"]*name-label[^"]*"[^>]*>([^<]{2,20})<\\/div>[\\s\\S]*?<h3[^>]*>([^<]{12,200})<\\/h3>', 'gi');
+  while((m=reReal.exec(html))!==null && items.length<25){
+    let dateStr=m[1]; let link=m[2]; if(link.startsWith('/')) link='https://www.oost.nl'+link;
+    let category=m[3].trim().toUpperCase(); let title=m[4].trim();
+    if(['ALLE NIEUWS','ZWOLLE','TWENTE'].includes(title.toUpperCase())) continue;
+    let pd=new Date(dateStr); if(isNaN(pd.getTime())) pd=new Date();
+    let finalTitle = ['NIEUWS','112','ECONOMIE','SPORT'].includes(category) ? category+': '+title : title;
+    if(!items.find(x=>x.link===link)) items.push({title:finalTitle, link, pubDate:pd, description:title+' [...]'});
   }
   if(items.length===0){
-    const re2=/<a href="(\/nieuws\/[^"]+)"[^>]*>[\s\S]*?<h3[^>]*>([^<]+)<\/h3>/gi;
-    while((m=re2.exec(html))!==null && items.length<20){
-      const link='https://www.rtvoost.nl'+m[1]; const title=m[2].trim();
-      if(!items.find(x=>x.link===link)) items.push({title, link, pubDate:new Date(), description:title+' [...]'});
+    const re2 = new RegExp('<div[^>]*publishedAt=["\']([^"\']+)["\'][^>]*>[\\s\\S]*?<a[^>]+href=["\'](\\/nieuws\\/[^"\']{10,150})["\'][^>]*>[\\s\\S]*?<h3[^>]*>([^<]{12,200})<\\/h3>', 'gi');
+    while((m=re2.exec(html))!==null && items.length<25){
+      let dateStr=m[1]; let link=m[2]; if(link.startsWith('/')) link='https://www.oost.nl'+link;
+      let title=m[3].trim(); if(title.toLowerCase().includes('alle nieuws')) continue;
+      let pd=new Date(dateStr); if(isNaN(pd.getTime())) continue;
+      if(!items.find(x=>x.link===link)) items.push({title, link, pubDate:pd, description:title+' [...]'});
     }
   }
+  if(items.length>0){ items.sort((a,b)=>b.pubDate-a.pubDate); console.log('[RTV Oost] gevonden', items.length, 'met echte publishedAt'); return items; }
+  const pollCache=getOostPollCache(); let dirty=false; const now=new Date();
+  function getPoll(link){ if(pollCache[link]){const d=new Date(pollCache[link]); if(!isNaN(d.getTime())) return d;} const d=new Date(now); pollCache[link]=d.toISOString(); dirty=true; return d; }
+  const reBlock = new RegExp('<a[^>]+href=["\'](\\/nieuws\\/(?!zwolle|twente|enschede|vechtdal|salland|kop-van-overijssel)[^"\']{10,150})["\'][^>]*>([\\s\\S]*?)<\\/a>', 'gi');
+  let blockMatch; while((blockMatch=reBlock.exec(html))!==null && items.length<20){
+    let link=blockMatch[1]; if(link.startsWith('/')) link='https://www.oost.nl'+link;
+    let inner=blockMatch[2]; let catMatch=inner.match(/<(?:span|div)[^>]*>\s*(NIEUWS|112|ECONOMIE|SPORT)\s*<\/(?:span|div)>/i); let category=catMatch?catMatch[1].toUpperCase():''; let titleMatch=inner.match(/<h[23][^>]*>([^<]{12,180})<\/h[23]>/i); let title=titleMatch?titleMatch[1].trim():''; if(!title||title.length<12) continue;
+    if(['alle nieuws','zwolle','twente','enschede','vechtdal','salland','kop van overijssel'].includes(title.toLowerCase())) continue;
+    let finalTitle=category?category+': '+title:title;
+    if(!items.find(x=>x.link===link)) items.push({title:finalTitle, link, pubDate:getPoll(link), description:title+' [...]'});
+  }
+  if(dirty) setOostPollCache(pollCache);
+  items.sort((a,b)=>b.pubDate-a.pubDate);
+  console.log('[RTV Oost] gevonden', items.length, 'met fallback');
   return items;
 }
+
 function parseOostFull_OLD(html){
   const max = MAX_PER_BRON['RTV Oost'];
   const patterns = [
