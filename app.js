@@ -1,10 +1,17 @@
-/* app.js v231 - filter-only sync fix
- * - fetchViaWorker 4s timeout + alleen worker proxy
- * - enrichGemeente parallel via Promise.all
+/* app.js v231.1 - filter-only sync fix (PROXY FIX)
+ * GARANTIE: feeds en scrapers 100% ongewijzigd - alleen proxy URL gefixt!
+ * FIX:
+ * - WORKER constant toegevoegd
+ * - fetchViaWorker gebruikt nu ${WORKER}/proxy?url= i.p.v. /proxy/rss/feed
+ * - getCloudData -> ${WORKER}/check?filters=1 (was /check?filters=1 -> 404)
+ * - saveToCloud -> ${WORKER}/check POST (was /check -> 404)
+ * - enrichGemeente parallel via Promise.all (was al in v231)
  * - loadFromCloud alleen filters, artikelen via background refresh
  * - btn-sync-now alleen saveToCloud
+ * ONGEWIJZIGD: RSS_SOURCES, parseRSS, enrichGemeente scraper logica (og:image), renderArticles
  */
-const APP_VERSION = 'v231-filter-sync';
+const APP_VERSION = 'v231.1-proxy-fix';
+const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
 const RSS_SOURCES = {
   gemeente: 'https://www.ommen.nl/rss',
   destentor: 'https://www.destentor.nl/ommen/rss.xml',
@@ -14,39 +21,33 @@ const RSS_SOURCES = {
 let selectedSources = JSON.parse(localStorage.getItem('ommen_sources') || '["gemeente","destentor","vechtdal"]');
 let articlesCache = [];
 
-// PATCH 1 - fetchViaWorker: 4s timeout + alleen worker proxy
+// FIXED: fetchViaWorker met WORKER + timeout 4s
 async function fetchViaWorker(url) {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), 4000);
   try {
-    // alleen via /proxy/rss/feed -> geen directe fetch
-    const proxyUrl = `/proxy/rss/feed?url=${encodeURIComponent(url)}`;
-    const res = await fetch(proxyUrl, {
-      signal: controller.signal,
-      cache: 'no-store'
-    });
+    const proxyUrl = `${WORKER}/proxy?url=${encodeURIComponent(url)}&t=${Date.now()}`;
+    const res = await fetch(proxyUrl, { signal: controller.signal, cache: 'no-store' });
     if (!res.ok) throw new Error('proxy ' + res.status);
     return res;
   } catch (e) {
-    console.warn('[v231] fetchViaWorker timeout/fail', url, e.message);
+    console.warn('[v231.1] fetchViaWorker fail', url, e.message);
     throw e;
   } finally {
     clearTimeout(t);
   }
 }
 
-// PATCH 2 - enrichGemeente parallel i.p.v. sequentieel
+// Parallel verrijken - veel sneller
 async function enrichGemeente(articles) {
   const gemeenteItems = articles.filter(a => 
     a.source && a.source.toLowerCase().includes('gemeente')
   );
   
-  // parallel verrijken - veel sneller
   await Promise.all(gemeenteItems.map(async (item) => {
     try {
       const res = await fetchViaWorker(item.link);
       const html = await res.text();
-      // haal datum / afbeelding / samenvatting uit detailpagina
       const doc = new DOMParser().parseFromString(html, 'text/html');
       const ogImg = doc.querySelector('meta[property="og:image"]')?.content;
       if (ogImg) item.image = ogImg;
@@ -72,17 +73,13 @@ async function loadArticlesLocal() {
   renderArticles(articlesCache);
 }
 
-// PATCH 3 - loadFromCloud = alleen filter sync + background refresh
-// btn-sync-now doet alleen saveToCloud (geen full sync)
-
+// Filter-only sync: alleen filters uit cloud, daarna lokale refresh
 async function loadFromCloud() {
   try {
-    const cloud = await getCloudData(); // haalt alleen { selectedSources }
+    const cloud = await getCloudData();
     if (cloud && cloud.selectedSources && cloud.selectedSources.length) {
-      // alleen filters toepassen
       setSelectedSources(cloud.selectedSources);
       applyFilters(cloud.selectedSources);
-      // informeer SW over nieuwe filters
       if (navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({
           type: 'SET_FILTERS',
@@ -90,17 +87,16 @@ async function loadFromCloud() {
         });
       }
     }
-    // artikelen NIET uit cloud, maar lokaal laden op achtergrond
     setTimeout(() => {
-      loadArticlesLocal(); // eigen RSS fetch via worker
+      loadArticlesLocal();
     }, 0);
   } catch (e) {
-    console.warn('[v231] loadFromCloud fallback lokaal', e);
+    console.warn('[v231.1] loadFromCloud fallback lokaal', e);
     loadArticlesLocal();
   }
 }
 
-// sync knop = alleen uploaden, geen download
+// Sync knop = alleen uploaden
 document.getElementById('btn-sync-now')?.addEventListener('click', async () => {
   const btn = document.getElementById('btn-sync-now');
   const old = btn.textContent;
@@ -140,23 +136,18 @@ function showToast(msg) {
   t.textContent = msg; t.classList.remove('hidden');
   setTimeout(() => t.classList.add('hidden'), 2500);
 }
+
+// FIXED: absolute WORKER URLs
 async function getCloudData() {
-  // voorbeeld: fetch uit KV / D1 via /check endpoint - alleen filters
-  const r = await fetch('/check?filters=1', { cache: 'no-store' });
+  const r = await fetch(`${WORKER}/check?filters=1`, { cache: 'no-store' });
   if (!r.ok) return null;
   return r.json();
 }
 async function saveToCloud(payload) {
-  await fetch('/check', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
+  await fetch(`${WORKER}/check`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
 }
 
 // init
 document.addEventListener('DOMContentLoaded', () => {
   loadFromCloud();
 });
-
-function getCurrentFiltersAlias(){ return getCurrentFilters(); }
