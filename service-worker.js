@@ -3,7 +3,7 @@
  * - Focus mode: klik op notificatie toont alleen dat artikel met button "Toon alle artikelen"
  * - Cache v238 forceert update
  */
-const CACHE_NAME = 'ommen-v240-fix';
+const CACHE_NAME = 'ommen-v241-syncfix';
 const ICON_192 = '/icons/icon-192x192.png';
 const ICON_512 = '/icons/icon-512x512.png';
 const ICON_96 = '/icons/icon-96x96.png';
@@ -35,7 +35,8 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-  if (url.pathname.includes('app.js') || url.pathname.includes('push.js') || url.pathname.includes('informatie.html')) {
+  // Alles wat met sync te maken heeft moet network-first
+  if (url.pathname.includes('app.js') || url.pathname.includes('push.js') || url.pathname.includes('informatie.html') || url.pathname.includes('/proxy') || url.pathname.includes('/check') || url.pathname.includes('/last') || url.pathname.includes('/debug') || url.href.includes('rss') || url.href.includes('feed') || url.href.includes('.xml')) {
     event.respondWith(
       fetch(event.request).then(r => {
         const clone = r.clone();
