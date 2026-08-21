@@ -632,6 +632,28 @@ function renderArticles(){
   });
   if(search) filtered = filtered.filter(a=> (a.title+' '+a.description+' '+a.source).toLowerCase().includes(search));
   filtered = filtered.sort((a,b)=>b.pubDate - a.pubDate);
+
+  // ===== FOCUS MODE CHECK =====
+  if(_focusArticle){
+    const focused = findFocusedArticle(filtered.length?filtered:allArticles, _focusArticle);
+    if(focused){
+      const cleanTitle = focused.title.replace(/^\[[^\]]+\]\s*/,'').trim() || focused.title;
+      const banner = `<div style="background:#fff7ed;border:2px solid #fb923c;border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <div><strong style="color:#9a3412">🔔 Nieuw artikel via melding</strong><br><small style="color:#666">${_focusArticle.source||focused.source} - ${formatDate(focused.pubDate, focused.id)}</small></div>
+        <button onclick="window.exitFocusMode()" style="padding:8px 14px;border-radius:20px;border:0;background:#0b5bd3;color:white;font-weight:600;cursor:pointer;white-space:nowrap">Toon alle artikelen</button>
+      </div>`;
+      const htmlSingle = `<div class="article" data-source="${focused.id}" style="border:2px solid #f97316;box-shadow:0 0 0 4px rgba(251,146,60,0.2);animation:ommenPulse 2s ease-in-out 2">
+        <h2><a href="${focused.link}" target="_blank">${cleanTitle}</a></h2>
+        <small>${focused.source} - ${formatDate(focused.pubDate, focused.id)}</small>
+        ${focused.description?`<div style="margin-top:10px;color:#333;font-size:15px;line-height:1.5">${focused.description}</div>`:''}
+        <div style="margin-top:16px"><a href="${focused.link}" target="_blank" style="display:inline-block;padding:10px 18px;background:#0b5bd3;color:white;border-radius:8px;text-decoration:none;font-weight:600">Lees volledig artikel →</a></div>
+      </div><style>@keyframes ommenPulse{0%{box-shadow:0 0 0 0 rgba(251,146,60,0.6)}50%{box-shadow:0 0 0 12px rgba(251,146,60,0)}100%{box-shadow:0 0 0 4px rgba(251,146,60,0.2)}}</style>`;
+      container.innerHTML = banner + htmlSingle;
+      window.getAllArticles = ()=> [focused];
+      return;
+    }
+  }
+
   const realCount = filtered.filter(a=>!a.isFallback).length;
   const vandaagActive = Object.values(state).some(s=>s.aan && s.vandaag);
   const gemeenteActive = Object.values(state).some(s=>s.aan && s.scope==='gemeente');
@@ -640,6 +662,10 @@ function renderArticles(){
   if(gemeenteActive) filterLabel += vandaagActive ? ' + gemeente' : ' (alleen gemeente Ommen)';
   const countHtml = `<div class="articles-count">${realCount} artikelen${filterLabel} - ${loadedSources.size} v/d ${BRONNEN.length} bronnen geladen</div>`;
   if(filtered.length===0){
+    if(_focusArticle){
+      container.innerHTML = `<div style="background:#fff7ed;border:2px solid #fb923c;border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center"><div>Artikel wordt geladen...</div><button onclick="window.exitFocusMode()" style="padding:8px 14px;border-radius:20px;border:0;background:#0b5bd3;color:white;font-weight:600;cursor:pointer">Toon alle artikelen</button></div>` + countHtml + '<div class="article" style="color:#666;padding:20px;text-align:center;">Artikel nog niet gevonden, even wachten tot alle bronnen geladen zijn...</div>';
+      return;
+    }
     if(vandaagActive || gemeenteActive) container.innerHTML = countHtml + '<div class="article" style="color:#666;padding:20px;text-align:center;">Geen artikelen gevonden met dit filter.<br>Zet op REGIO of MEER om meer te zien.</div>';
     else container.innerHTML = countHtml + '<div class="article">Geen artikelen</div>';
     return;
@@ -654,7 +680,77 @@ function renderArticles(){
   container.innerHTML = countHtml + html;
   window.getAllArticles = ()=> filtered;
 }
-function filterNews(){ renderArticles(); }
+// ===== v228 FOCUS MODE - notificatie klik toont alleen dat artikel =====
+let _focusArticle = null; // {id, url, source}
+function getHighlightFromUrl(){
+  try{
+    const p=new URLSearchParams(location.search);
+    const id=p.get('highlight');
+    const src=p.get('src');
+    const url=p.get('url'); // fallback
+    if(id || url) return {id:id||'', source:src||'', url:url||''};
+  }catch{}
+  return null;
+}
+function enterFocusMode(data){
+  _focusArticle = data;
+  // URL netjes houden
+  try{
+    const u=new URL(location.href);
+    if(data.id) u.searchParams.set('highlight', data.id);
+    if(data.source) u.searchParams.set('src', data.source);
+    if(data.url) u.searchParams.set('url', data.url);
+    history.replaceState(null,'',u.toString());
+  }catch{}
+  renderArticles();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function exitFocusMode(){
+  _focusArticle = null;
+  try{
+    const u=new URL(location.href);
+    u.searchParams.delete('highlight');
+    u.searchParams.delete('src');
+    u.searchParams.delete('url');
+    history.replaceState(null,'',u.toString());
+  }catch{}
+  renderArticles();
+}
+window.exitFocusMode = exitFocusMode;
+
+function findFocusedArticle(all, focus){
+  if(!focus) return null;
+  // 1. match op exacte link (beste)
+  if(focus.url){
+    try{
+      const decoded = decodeURIComponent(focus.url);
+      const found = all.find(a=>a.link===decoded || a.link===focus.url);
+      if(found) return found;
+    }catch{
+      const found = all.find(a=>a.link===focus.url);
+      if(found) return found;
+    }
+  }
+  // 2. fallback op source
+  if(focus.source){
+    const bySource = all.filter(a=>a.id===focus.source || a.source===focus.source);
+    if(bySource.length>=1){
+      // als url ook matcht gedeeltelijk
+      if(focus.url){
+        const partial = bySource.find(a=>focus.url.includes(a.link) || a.link.includes(focus.url));
+        if(partial) return partial;
+      }
+      // pak nieuwste van die bron
+      return bySource.sort((a,b)=>b.pubDate-a.pubDate)[0];
+    }
+  }
+  // 3. als alleen id
+  if(focus.id && all.length>0){
+    return all[0];
+  }
+  return null;
+}
+
 async function refreshNews(){
   const c=document.getElementById('news-container'); 
   if(c) c.innerHTML='<div class="article">Bezig met laden... (9 bronnen)</div>';
@@ -684,7 +780,23 @@ async function refreshNews(){
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); closePanel(); setupFilterHeader();
   document.getElementById('search-input')?.addEventListener('input', filterNews);
+  // check highlight uit URL meteen
+  const hl = getHighlightFromUrl();
+  if(hl){ _focusArticle = hl; }
   setTimeout(()=>refreshNews(), 200);
+  // luister naar SW notification click message
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.addEventListener('message', (e)=>{
+      if(e.data && e.data.type==='NOTIFICATION_CLICK'){
+        enterFocusMode({id:e.data.id, url:e.data.url, source:e.data.source});
+      }
+    });
+  }
+  // ook check na laden (als artikelen binnen zijn)
+  setTimeout(()=>{
+    const hl2 = getHighlightFromUrl();
+    if(hl2 && !_focusArticle) { _focusArticle = hl2; renderArticles(); }
+  }, 1500);
 });
 window.closePanel=closePanel; window.resetFilters=resetFilters; window.BRONNEN=BRONNEN; window.getAppState=()=>state;
 window.filterNews=filterNews; window.refreshNews=refreshNews;
