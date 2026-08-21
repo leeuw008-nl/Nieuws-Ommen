@@ -1,5 +1,5 @@
-// app.js v228 - FOCUS MODE + FIX Gemeente + FILTER BRIDGE v231
-// Nieuw: bij notificatie klik alleen dat artikel tonen met button "Toon alle artikelen"
+// app.js v229 - FOCUS MODE FIX + FILTER BRIDGE
+// Bij klik op notificatie: alleen dat artikel + knop "Toon alle artikelen"
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -19,10 +19,14 @@ const BRON_URLS = {
   'Ommen City': {url:'https://ommencity.nl/feed/', homepage:'https://ommencity.nl/'},
   'OudOmmen': {url:'https://weblog.oudommen.nl/feed/', homepage:'https://weblog.oudommen.nl/'},
   'RondOmmen': {url:'https://www.rondommen.nl/feed/', homepage:'https://www.rondommen.nl/'},
-  'RTV Oost': {url:'https://www.oost.nl/nieuws/vechtdal', homepage:'https://www.oost.nl/nieuws/vechtdal', type:'oost', fallback:'https://www.oost.nl/nieuws/vechtdal'},
+  'RTV Oost': {url:'https://www.rtvoost.nl/nieuws/ommen', homepage:'https://www.rtvoost.nl/nieuws/ommen', type:'oost'},
   'RTV Vechtdal': {url:'https://rtvvechtdal.nl/feed/', homepage:'https://rtvvechtdal.nl/'},
   'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/', fallback:'https://www.vechtdalcentraal.nl/'},
 };
+
+// ===== v229 FOCUS GLOBALS - moet VOOR renderArticles staan =====
+let _focusArticle = null; // {id, url, source}
+
 // PLAATSEN FILTER - HERSTELD: alle kernen en buurtschappen gemeente Ommen
 
 // ===== v238 DEFINITIEF - ECHTE HTML PARSERS =====
@@ -37,11 +41,9 @@ function parseVechtdalCentraalECHT(html){
   }
   return items;
 }
-function getVechtdalCache(){try{return JSON.parse(localStorage.getItem('ommen_vechtdal_poll')||'{}');}catch{return {};}}
-function setVechtdalCache(c){try{localStorage.setItem('ommen_vechtdal_poll',JSON.stringify(c));}catch{}}
 function parseRTVVechtdalECHT(html){
   const items=[];
-  const now = new Date(); const pollCache=getVechtdalCache(); let dirty=false; const pollingMoment=now;
+  const pollingMoment = new Date();
   const today = new Date();
   today.setHours(0,0,0,0);
   const reFull=/<div class="allmode_date">([^<]+)<\/div>[\s\S]{0,600}?<h3 class="allmode_title"><a href="([^"]+)">([^<]+)<\/a>[\s\S]{0,800}?<div class="allmode_(?:intro|text|introtext)[^>]*>([\s\S]*?)<\/div>/gi;
@@ -65,7 +67,7 @@ function parseRTVVechtdalECHT(html){
     let link=m[2].replace(/&amp;/g,'&'); if(!link.startsWith('http')) link='https://www.rtvvechtdal.nl'+link;
     let intro=m[4].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
     if(intro.length>200) intro=intro.slice(0,200)+' [...]'; else if(intro) intro=intro+' [...]'; else intro=m[3].trim()+' [...]';
-    if(pollCache[link]==null){pollCache[link]=pd.toISOString(); dirty=true;} else if(pd.getHours()!=0 || pd.getMinutes()!=0){pd=new Date(pollCache[link]);} if(dirty) setVechtdalCache(pollCache); items.push({title:m[3].trim(), link, pubDate:pd, description:intro});
+    items.push({title:m[3].trim(), link, pubDate:pd, description:intro});
   }
   if(items.length===0){
     const re=/<div class="allmode_date">([^<]+)<\/div>[\s\S]{0,500}?<h3 class="allmode_title"><a href="([^"]+)">([^<]+)<\/a>/gi;
@@ -98,46 +100,22 @@ async function enrichVechtdalWithDetail(arts){
 }
 
 
-function getOostPollCache(){try{return JSON.parse(localStorage.getItem('ommen_oost_poll')||'{}');}catch{return {};}}
-function setOostPollCache(c){try{localStorage.setItem('ommen_oost_poll', JSON.stringify(c));}catch{}}
 function parseRTVOostECHT(html){
   const items=[]; let m;
-  console.log('[RTV Oost vechtdal] HTML len', html.length);
-  const reReal = /<div[^>]*publishedAt=["']([^"']+)["'][^>]*>[\s\S]*?<a[^>]+href=["'](\/nieuws\/(?!zwolle|twente|enschede|vechtdal|salland|kop-van-overijssel)[^"']{10,150})["'][^>]*>[\s\S]*?<div[^>]*class="[^"]*name-label[^"]*"[^>]*>([^<]{2,20})<\/div>[\s\S]*?<h3[^>]*>([^<]{12,200})<\/h3>/gi;
-  while((m=reReal.exec(html))!==null && items.length<25){
-    let dateStr=m[1]; let link=m[2]; if(link.startsWith('/')) link='https://www.oost.nl'+link;
-    let category=m[3].trim().toUpperCase(); let title=m[4].trim();
-    if(['ALLE NIEUWS','ZWOLLE','TWENTE'].includes(title.toUpperCase())) continue;
-    let pd=new Date(dateStr); if(isNaN(pd.getTime())) pd=new Date();
-    let finalTitle = ['NIEUWS','112','ECONOMIE','SPORT'].includes(category) ? category+': '+title : title;
-    if(!items.find(x=>x.link===link)) items.push({title:finalTitle, link, pubDate:pd, description:title+' [...]'});
+  const re=/publishedAt="([^"]+)"[\s\S]{0,900}?href="(\/nieuws\/[^"]+)"[\s\S]{0,900}?<h3[^>]*>([^<]+)<\/h3>/gi;
+  while((m=re.exec(html))!==null && items.length<20){
+    const pd=new Date(m[1]); const link='https://www.rtvoost.nl'+m[2]; const title=m[3].trim();
+    if(!items.find(x=>x.link===link)) items.push({title, link, pubDate:pd, description:title+' [...]'});
   }
   if(items.length===0){
-    const re2 = /<div[^>]*publishedAt=["']([^"']+)["'][^>]*>[\s\S]*?<a[^>]+href=["'](\/nieuws\/[^"']{10,150})["'][^>]*>[\s\S]*?<h3[^>]*>([^<]{12,200})<\/h3>/gi;
-    while((m=re2.exec(html))!==null && items.length<25){
-      let dateStr=m[1]; let link=m[2]; if(link.startsWith('/')) link='https://www.oost.nl'+link;
-      let title=m[3].trim(); if(title.toLowerCase().includes('alle nieuws')) continue;
-      let pd=new Date(dateStr); if(isNaN(pd.getTime())) continue;
-      if(!items.find(x=>x.link===link)) items.push({title, link, pubDate:pd, description:title+' [...]'});
+    const re2=/<a href="(\/nieuws\/[^"]+)"[^>]*>[\s\S]*?<h3[^>]*>([^<]+)<\/h3>/gi;
+    while((m=re2.exec(html))!==null && items.length<20){
+      const link='https://www.rtvoost.nl'+m[1]; const title=m[2].trim();
+      if(!items.find(x=>x.link===link)) items.push({title, link, pubDate:new Date(), description:title+' [...]'});
     }
   }
-  if(items.length>0){ items.sort((a,b)=>b.pubDate-a.pubDate); console.log('[RTV Oost] gevonden', items.length, 'met echte publishedAt'); return items; }
-  const pollCache=getOostPollCache(); let dirty=false; const now=new Date();
-  function getPoll(link){ if(pollCache[link]){const d=new Date(pollCache[link]); if(!isNaN(d.getTime())) return d;} const d=new Date(now); pollCache[link]=d.toISOString(); dirty=true; return d; }
-  const reBlock = /<a[^>]+href=["'](\/nieuws\/(?!zwolle|twente|enschede|vechtdal|salland|kop-van-overijssel)[^"']{10,150})["'][^>]*>([\s\S]*?)<\/a>/gi;
-  let blockMatch; while((blockMatch=reBlock.exec(html))!==null && items.length<20){
-    let link=blockMatch[1]; if(link.startsWith('/')) link='https://www.oost.nl'+link;
-    let inner=blockMatch[2]; let catMatch=inner.match(/<(?:span|div)[^>]*>\s*(NIEUWS|112|ECONOMIE|SPORT)\s*<\/(?:span|div)>/i); let category=catMatch?catMatch[1].toUpperCase():''; let titleMatch=inner.match(/<h[23][^>]*>([^<]{12,180})<\/h[23]>/i); let title=titleMatch?titleMatch[1].trim():''; if(!title||title.length<12) continue;
-    if(['alle nieuws','zwolle','twente','enschede','vechtdal','salland','kop van overijssel'].includes(title.toLowerCase())) continue;
-    let finalTitle=category?category+': '+title:title;
-    if(!items.find(x=>x.link===link)) items.push({title:finalTitle, link, pubDate:getPoll(link), description:title+' [...]'});
-  }
-  if(dirty) setOostPollCache(pollCache);
-  items.sort((a,b)=>b.pubDate-a.pubDate);
-  console.log('[RTV Oost] gevonden', items.length, 'met fallback');
   return items;
 }
-
 function parseOostFull_OLD(html){
   const max = MAX_PER_BRON['RTV Oost'];
   const patterns = [
@@ -289,7 +267,7 @@ async function fetchViaWorker(url){
   const isOost = url.includes('rtvoost.nl') || url.includes('oost.nl');
   if(isVC || isOost){
     try{
-      const rssUrl = isVC ? 'https://www.vechtdalcentraal.nl/feed/' : 'https://www.oost.nl/nieuws/vechtdal';
+      const rssUrl = isVC ? 'https://www.vechtdalcentraal.nl/feed/' : 'https://www.rtvoost.nl/nieuws/ommen';
       if(isVC){
         const rss2jsonUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&t=${Date.now()}`;
         const rRss = await fetch(rss2jsonUrl, {cache:'no-store'});
@@ -633,7 +611,7 @@ function renderArticles(){
   if(search) filtered = filtered.filter(a=> (a.title+' '+a.description+' '+a.source).toLowerCase().includes(search));
   filtered = filtered.sort((a,b)=>b.pubDate - a.pubDate);
 
-  // ===== FOCUS MODE CHECK =====
+  // ===== FOCUS MODE CHECK v229 =====
   if(_focusArticle){
     const focused = findFocusedArticle(filtered.length?filtered:allArticles, _focusArticle);
     if(focused){
@@ -662,10 +640,6 @@ function renderArticles(){
   if(gemeenteActive) filterLabel += vandaagActive ? ' + gemeente' : ' (alleen gemeente Ommen)';
   const countHtml = `<div class="articles-count">${realCount} artikelen${filterLabel} - ${loadedSources.size} v/d ${BRONNEN.length} bronnen geladen</div>`;
   if(filtered.length===0){
-    if(_focusArticle){
-      container.innerHTML = `<div style="background:#fff7ed;border:2px solid #fb923c;border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center"><div>Artikel wordt geladen...</div><button onclick="window.exitFocusMode()" style="padding:8px 14px;border-radius:20px;border:0;background:#0b5bd3;color:white;font-weight:600;cursor:pointer">Toon alle artikelen</button></div>` + countHtml + '<div class="article" style="color:#666;padding:20px;text-align:center;">Artikel nog niet gevonden, even wachten tot alle bronnen geladen zijn...</div>';
-      return;
-    }
     if(vandaagActive || gemeenteActive) container.innerHTML = countHtml + '<div class="article" style="color:#666;padding:20px;text-align:center;">Geen artikelen gevonden met dit filter.<br>Zet op REGIO of MEER om meer te zien.</div>';
     else container.innerHTML = countHtml + '<div class="article">Geen artikelen</div>';
     return;
@@ -681,21 +655,20 @@ function renderArticles(){
   window.getAllArticles = ()=> filtered;
 }
 function filterNews(){ renderArticles(); }
-// ===== v228 FOCUS MODE - notificatie klik toont alleen dat artikel =====
-let _focusArticle = null; // {id, url, source}
+
+// ===== v229 FOCUS HELPERS =====
 function getHighlightFromUrl(){
   try{
     const p=new URLSearchParams(location.search);
     const id=p.get('highlight');
     const src=p.get('src');
-    const url=p.get('url'); // fallback
+    const url=p.get('url');
     if(id || url) return {id:id||'', source:src||'', url:url||''};
   }catch{}
   return null;
 }
 function enterFocusMode(data){
   _focusArticle = data;
-  // URL netjes houden
   try{
     const u=new URL(location.href);
     if(data.id) u.searchParams.set('highlight', data.id);
@@ -721,7 +694,6 @@ window.exitFocusMode = exitFocusMode;
 
 function findFocusedArticle(all, focus){
   if(!focus) return null;
-  // 1. match op exacte link (beste)
   if(focus.url){
     try{
       const decoded = decodeURIComponent(focus.url);
@@ -732,20 +704,16 @@ function findFocusedArticle(all, focus){
       if(found) return found;
     }
   }
-  // 2. fallback op source
   if(focus.source){
     const bySource = all.filter(a=>a.id===focus.source || a.source===focus.source);
     if(bySource.length>=1){
-      // als url ook matcht gedeeltelijk
       if(focus.url){
         const partial = bySource.find(a=>focus.url.includes(a.link) || a.link.includes(focus.url));
         if(partial) return partial;
       }
-      // pak nieuwste van die bron
       return bySource.sort((a,b)=>b.pubDate-a.pubDate)[0];
     }
   }
-  // 3. als alleen id
   if(focus.id && all.length>0){
     return all[0];
   }
@@ -781,11 +749,11 @@ async function refreshNews(){
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); closePanel(); setupFilterHeader();
   document.getElementById('search-input')?.addEventListener('input', filterNews);
-  // check highlight uit URL meteen
+  // v229 focus: check URL meteen
   const hl = getHighlightFromUrl();
   if(hl){ _focusArticle = hl; }
   setTimeout(()=>refreshNews(), 200);
-  // luister naar SW notification click message
+  // luister naar SW notification click
   if('serviceWorker' in navigator){
     navigator.serviceWorker.addEventListener('message', (e)=>{
       if(e.data && e.data.type==='NOTIFICATION_CLICK'){
@@ -793,7 +761,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       }
     });
   }
-  // ook check na laden (als artikelen binnen zijn)
   setTimeout(()=>{
     const hl2 = getHighlightFromUrl();
     if(hl2 && !_focusArticle) { _focusArticle = hl2; renderArticles(); }
