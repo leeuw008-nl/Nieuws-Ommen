@@ -1,85 +1,87 @@
-const CACHE_NAME = 'ommen-v243-nocache';
+const CACHE_NAME='ommen-v244-nocors-fix';
+const WORKER='https://ommen-push-v2.leeuw008.workers.dev';
 
-// === INSTALL: meteen actief worden ===
-self.addEventListener('install', e => {
+self.addEventListener('install', e=>{
   self.skipWaiting();
 });
 
-// === ACTIVATE: ALLE oude caches slopen ===
-self.addEventListener('activate', e => {
+self.addEventListener('activate', e=>{
   e.waitUntil(
-    caches.keys().then(keys => 
-      Promise.all(keys.map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
-// === FETCH: app.js en data NOOIT cachen ===
-self.addEventListener('fetch', e => {
+self.addEventListener('fetch', e=>{
   const url = e.request.url;
-  
-  const isNoCache = 
-    url.includes('app.js') || 
-    url.includes('push.js') || 
-    url.includes('/proxy') || 
-    url.includes('/check') || 
-    url.includes('rss') || 
-    url.includes('feed') || 
-    url.includes('.xml');
 
-  if (isNoCache) {
-    // ALTIJD netwerk, no-store, nooit in cache zetten
+  // === FIX v244: BYPASS ALLES WAT PROXY / API / RSS IS ===
+  // Laat browser direct fetchen, niet via SW. Voorkomt cache-control header issue.
+  if (
+    url.includes('/proxy') ||
+    url.includes('/check') ||
+    url.includes('/sync') ||
+    url.includes('/last') ||
+    url.includes('rss') ||
+    url.includes('feed') ||
+    url.includes('.xml') ||
+    url.includes(WORKER) ||
+    url.includes('allorigins') ||
+    url.includes('corsproxy') ||
+    url.includes('thingproxy') ||
+    url.includes('rss2json')
+  ) {
+    return; // bypass service worker completely
+  }
+
+  // Alleen statische app assets cachen
+  if (
+    url.includes('app.js') ||
+    url.includes('push.js') ||
+    url.includes('informatie.html') ||
+    url.includes('index.html')
+  ) {
     e.respondWith(
-      fetch(e.request, {
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
-      }).catch(err => {
-        // Alleen als echt offline: geen cache fallback voor app.js
-        console.warn('[SW v243] network fail for', url, err);
-        return new Response('Offline - geen netwerk', { status: 503 });
-      })
+      fetch(e.request, { cache: 'no-store' })
+        .then(r => {
+          const clone = r.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+          return r;
+        })
+        .catch(() => caches.match(e.request))
     );
     return;
   }
 
-  // Voor overige assets (icons, index.html): netwerk eerst, fallback cache
+  // Overige: cache-first fallback
   e.respondWith(
-    fetch(e.request).then(res => {
-      // Niet cachen als het app.js was (extra check)
-      if (url.includes('app.js')) return res;
-      const clone = res.clone();
-      caches.open(CACHE_NAME).then(c => c.put(e.request, clone)).catch(()=>{});
-      return res;
-    }).catch(() => caches.match(e.request))
+    caches.match(e.request).then(cached => cached || fetch(e.request))
   );
 });
 
-// === PUSH - zelfde als v240 ===
-self.addEventListener('push', e => {
-  let data = {};
-  try {
-    data = e.data ? e.data.json() : {};
-  } catch {
-    data = { title: 'Nieuws Ommen', body: e.data ? e.data.text() : 'Nieuw bericht' };
-  }
+// === PUSH HANDLING (same as v240) ===
+self.addEventListener('push', event => {
+  const data = event.data ? event.data.json() : {};
   const title = data.title || 'Nieuws Ommen';
   const options = {
-    body: data.body || data.message || 'Er is nieuw lokaal nieuws',
-    icon: './icon-192.png',
-    badge: './icon-192.png',
+    body: data.body || 'Nieuw bericht',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     data: { url: data.url || '/' }
   };
-  e.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
-self.addEventListener('notificationclick', e => {
-  e.notification.close();
-  e.waitUntil(
-    clients.matchAll({ type: 'window' }).then(list => {
-      for (const c of list) {
-        if (c.url.includes(self.location.origin) && 'focus' in c) return c.focus();
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window' }).then(clientList => {
+      for (const client of clientList) {
+        if (client.url === url && 'focus' in client) return client.focus();
       }
-      if (clients.openWindow) return clients.openWindow(e.notification.data.url || '/');
+      if (clients.openWindow) return clients.openWindow(url);
     })
   );
 });
