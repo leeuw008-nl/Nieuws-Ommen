@@ -1,39 +1,176 @@
-/* service-worker v236 - FIX DUBBEL + CLICK NAAR APP + GEEN FILTER BLOKKADE + SNEL
- * - Fix dubbel: zelfde id = zelfde tag, renotify false
- * - Fix click: gaat naar app met ?highlight=id
- * - Geen client-side filter blokkade meer (performance)
+/* service-worker v239 - Nieuw(s)Ommen + FOCUS MODE + ICON FIX
+ * - Icon paden gefixed: /icons/icon-192x192.png
+ * - Focus mode: klik op notificatie toont alleen dat artikel met button "Toon alle artikelen"
+ * - Cache v238 forceert update
  */
-const CACHE_NAME='ommen-v236-final';
-const STATIC_ASSETS=['./','./index.html','./icon-192.png','./icon-512.png'];
-self.addEventListener('install', e=>{self.skipWaiting(); e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(STATIC_ASSETS.map(u=>new Request(u,{cache:'no-cache'}))).catch(()=>{})));});
-self.addEventListener('activate', e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
-self.addEventListener('fetch', e=>{
-  const u=new URL(e.request.url);
-  if(u.pathname.includes('app.js')||u.pathname.includes('push.js')||u.pathname.includes('informatie.html')){
-    e.respondWith(fetch(e.request).then(r=>{const clone=r.clone();caches.open(CACHE_NAME).then(ca=>ca.put(e.request,clone));return r;}).catch(()=>caches.match(e.request)));
+const CACHE_NAME = 'ommen-v239-focus';
+const ICON_192 = '/icons/icon-192x192.png';
+const ICON_512 = '/icons/icon-512x512.png';
+const ICON_96 = '/icons/icon-96x96.png';
+const BADGE = '/icons/badge-simple-N-96.png';
+
+const STATIC_ASSETS = [
+  './',
+  './index.html',
+  ICON_192,
+  ICON_512,
+  ICON_96
+];
+
+self.addEventListener('install', event => {
+  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.addAll(STATIC_ASSETS.map(url => new Request(url, {cache: 'no-cache'}))).catch(()=>{});
+    })
+  );
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
+  if (url.pathname.includes('app.js') || url.pathname.includes('push.js') || url.pathname.includes('informatie.html')) {
+    event.respondWith(
+      fetch(event.request).then(r => {
+        const clone = r.clone();
+        caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
+        return r;
+      }).catch(() => caches.match(event.request))
+    );
     return;
   }
-  e.respondWith(caches.match(e.request).then(cached=>cached||fetch(e.request)));
+  event.respondWith(
+    caches.match(event.request).then(cached => cached || fetch(event.request))
+  );
 });
-const PUSH_WORKER_URL='https://ommen-push-v2.leeuw008.workers.dev';
-self.addEventListener('push', e=>{
-  e.waitUntil((async()=>{
-    let title='Nieuws Ommen', body='Er is nieuw nieuws uit Ommen', link='/', source='', id='';
-    if(e.data){try{const d=e.data.json();title=d.title||title;body=d.body||d.title||body;link=d.link||d.url||link;source=d.source||'';id=d.id||d.articleId||'';if(source)body=`${source}: ${title}`;}catch{try{const txt=e.data.text();if(txt)body=txt;}catch{}}}
-    else{try{const r=await fetch(`${PUSH_WORKER_URL}/last`,{cache:'no-store'});if(r.ok){const j=await r.json();title=j.title||title;link=j.link||link;source=j.source||'';id=j.id||'';body=source?`${source}: ${j.title}`:j.title;}}catch{}}
-    const tag = id ? `ommen-${id}` : `ommen-${(source||'algemeen').toLowerCase().replace(/\s+/g,'-')}`;
-    const options={body, icon:'./icon-192.png', badge:'./icon-192.png', data:{url:link, source, id}, tag, renotify:false, vibrate:[100,50,100]};
-    return self.registration.showNotification(title, options);
+
+const PUSH_WORKER_URL = 'https://ommen-push-v2.leeuw008.workers.dev';
+
+async function getFiltersFromClients() {
+  try {
+    const allClients = await self.clients.matchAll({type: 'window', includeUncontrolled: true});
+    for (const client of allClients) {
+      const filters = await new Promise(resolve => {
+        const channel = new MessageChannel();
+        let done = false;
+        channel.port1.onmessage = (e) => { if (!done) { done = true; resolve(e.data); } };
+        try { client.postMessage({type: 'GET_FILTERS'}, [channel.port2]); } catch { resolve(null); }
+        setTimeout(() => { if (!done) { done = true; resolve(null); } }, 300);
+      });
+      if (filters && filters.sources && filters.sources.length > 0) return filters.sources;
+    }
+    return null;
+  } catch { return null; }
+}
+
+async function getFiltersFromIDB() {
+  try {
+    const dbNames = ['nieuws-ommen', 'ommen-news', 'ommen-nieuws'];
+    for (const dbName of dbNames) {
+      try {
+        const db = await new Promise((resolve, reject) => { const req = indexedDB.open(dbName); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
+        if (!db.objectStoreNames.contains('settings')) { db.close(); continue; }
+        const tx = db.transaction('settings', 'readonly'); const store = tx.objectStore('settings');
+        const result = await new Promise(res => { const q = store.get('selectedSources'); q.onsuccess = () => res(q.result); q.onerror = () => res(null); });
+        db.close();
+        if (result && Array.isArray(result) && result.length > 0) return result;
+        if (result && result.sources) return result.sources;
+      } catch {}
+    }
+    return null;
+  } catch { return null; }
+}
+
+async function getAllowedSources() {
+  const fromClients = await getFiltersFromClients();
+  if (fromClients && fromClients.length > 0) return fromClients;
+  const fromIDB = await getFiltersFromIDB();
+  if (fromIDB && fromIDB.length > 0) return fromIDB;
+  return null;
+}
+
+self.addEventListener('push', event => {
+  event.waitUntil((async () => {
+    let title = 'Nieuw(s)Ommen';
+    let body = 'Er is nieuw nieuws uit Ommen';
+    let link = '/';
+    let source = '';
+    let articleId = '';
+
+    if (event.data) {
+      try {
+        const data = event.data.json();
+        title = data.title || title;
+        body = data.body || data.title || body;
+        link = data.link || data.url || link;
+        source = data.source || '';
+        articleId = data.id || data.articleId || '';
+        if (source) body = `${source}: ${title}`;
+      } catch {
+        try { const txt = event.data.text(); if (txt) body = txt; } catch {}
+      }
+    } else {
+      try {
+        const r = await fetch(`${PUSH_WORKER_URL}/last`, { cache: 'no-store' });
+        if (r.ok) {
+          const j = await r.json();
+          title = j.title || title;
+          link = j.link || link;
+          source = j.source || '';
+          articleId = j.id || '';
+          body = source ? `${source}: ${j.title}` : j.title;
+        }
+      } catch(e) { console.log('last fetch failed', e); }
+    }
+
+    try {
+      const allowedSources = await getAllowedSources();
+      if (allowedSources && allowedSources.length > 0 && source) {
+        const normAllowed = allowedSources.map(s => String(s).toLowerCase());
+        const normSource = String(source).toLowerCase();
+        const isAllowed = normAllowed.some(a => normSource.includes(a) || a.includes(normSource) || normSource === a);
+        if (!isAllowed) {
+          console.log(`[v239] Push geblokkeerd door filter: "${source}" niet in [${allowedSources.join(', ')}]`);
+          return;
+        }
+      }
+    } catch {}
+
+    const options = {
+      body: body,
+      icon: ICON_192,
+      badge: ICON_96,
+      data: { url: link, source: source, id: articleId },
+      tag: articleId ? `ommen-${articleId}` : `ommen-${source || 'algemeen'}-${Date.now()}`,
+      renotify: false,
+      vibrate: [100, 50, 100]
+    };
+
+    try {
+      return await self.registration.showNotification(title, options);
+    } catch (e) {
+      console.log('Icon fail, retry zonder icon', e);
+      delete options.icon;
+      delete options.badge;
+      return await self.registration.showNotification(title, options);
+    }
   })());
 });
-self.addEventListener('notificationclick', e=>{
-  e.notification.close();
-  const data=e.notification.data||{};
-  const id=data.id||'';
-  const externalUrl=data.url||'/';
-  const source=data.source||'';
-  const appUrl = id ? `/?highlight=${encodeURIComponent(id)}&src=${encodeURIComponent(source)}` : '/';
-  e.waitUntil((async()=>{
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const data = event.notification.data||{};
+  const id = data.id||'';
+  const externalUrl = data.url||'/';
+  const source = data.source||'';
+  const appUrl = `/?highlight=${encodeURIComponent(id)}&src=${encodeURIComponent(source)}&url=${encodeURIComponent(externalUrl)}`;
+  event.waitUntil((async()=>{
     try{
       const all=await clients.matchAll({type:'window', includeUncontrolled:true});
       for(const c of all){
@@ -49,4 +186,9 @@ self.addEventListener('notificationclick', e=>{
     }
   })());
 });
-self.addEventListener('message', e=>{if(e.data && e.data.type==='SET_FILTERS'){console.log('[v236] Filters:', e.data.sources);}});
+
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SET_FILTERS') {
+    console.log('[v238] Filters ontvangen:', event.data.sources);
+  }
+});
