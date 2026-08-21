@@ -1,5 +1,5 @@
-// app.js v227 - FIX Gemeente filter hersteld + FILTER BRIDGE voor SW v231
-// Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
+// app.js v228 - FOCUS MODE + FIX Gemeente + FILTER BRIDGE v231
+// Nieuw: bij notificatie klik alleen dat artikel tonen met button "Toon alle artikelen"
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -680,6 +680,7 @@ function renderArticles(){
   container.innerHTML = countHtml + html;
   window.getAllArticles = ()=> filtered;
 }
+function filterNews(){ renderArticles(); }
 // ===== v228 FOCUS MODE - notificatie klik toont alleen dat artikel =====
 let _focusArticle = null; // {id, url, source}
 function getHighlightFromUrl(){
