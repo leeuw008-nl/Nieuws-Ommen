@@ -1,353 +1,212 @@
-// service-worker.js v243 FINAL - COMPLETE VERVANGING
-// Gebaseerd op v241-focus-fix (die prachtig werkte) + fixes voor witte blokken en bron
-// CACHE_NAME = ommen-v243-final
-const CACHE_NAME = 'ommen-v243-final';
-
-// --- ICONS - ALLEEN RELATIEF, GEEN ABSOLUTE / PATHS DIE WITTE BLOKKEN GEVEN ---
+/* service-worker v245 FINAL - 20 aug versie + alle fixes
+ * - Cache: ommen-v245-final (forceert oude v240 cache weg)
+ * - Icons: RELATIEF ./icons/... + fallback ./icon-192.png (geen /icons/ met slash = witte blokjes fix)
+ * - Focus mode: klik op push = alleen dat artikel omlijnd + knop "Toon alle artikelen"
+ * - Bron-filter: leest selectedSources uit IndexedDB + postMessage
+ * - Snel: app.js / push.js altijd network-first
+ */
+const CACHE_NAME = 'ommen-v245-final';
 const ICON_192 = './icons/icon-192x192.png';
 const ICON_512 = './icons/icon-512x512.png';
 const ICON_96 = './icons/icon-96x96.png';
-const BADGE_ICON = './icons/badge-simple-N-96.png';
-
-// Fallbacks - chain voor notificatie icon
 const FALLBACK_ICON = './icon-192.png';
-const FALLBACK_ICON2 = './icons/icon-192x192.png';
-const FALLBACK_ABS = 'https://nieuwommen.leeuw008.nl/icons/icon-192x192.png';
-const FALLBACK_ABS_512 = 'https://nieuwommen.leeuw008.nl/icons/icon-512x512.png';
+const BADGE = './icons/badge-simple-N-96.png';
 
-// Alleen bestanden die 100% bestaan
 const STATIC_ASSETS = [
   './',
   './index.html',
   ICON_192,
   ICON_512,
-  ICON_96
+  ICON_96,
+  FALLBACK_ICON,
+  './manifest.json'
 ];
 
-self.addEventListener('install', (event) => {
+self.addEventListener('install', event => {
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(STATIC_ASSETS).catch(() => cache.addAll(['./', './index.html'])))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.addAll(STATIC_ASSETS.map(url => new Request(url, {cache: 'no-cache'}))).catch(()=>{});
+    })
   );
 });
 
-self.addEventListener('activate', (event) => {
+self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys()
-      .then((keys) => Promise.all(
-        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
-      ))
+    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
 
-// ---- FOCUS MODE INJECTIE - v243 FINAL (werkt zonder app.js te editen) ----
-const FOCUS_STYLE = `<style id="ommen-focus-style">
-.hl-om{outline:3px solid #0b5bd3 !important; outline-offset:3px; background:#eff6ff !important; box-shadow:0 0 0 6px rgba(11,91,211,.15), 0 8px 24px rgba(0,0,0,.12) !important; border-radius:12px; position:relative; transition: all .2s ease;}
-.hl-om::after{content:attr(data-src-badge); position:absolute; top:-10px; right:-8px; background:#0b5bd3; color:#fff; font-size:11px; font-weight:800; padding:3px 8px; border-radius:999px; letter-spacing:.02em; box-shadow:0 2px 8px rgba(0,0,0,.2); z-index:2;}
-#backToAll{position:sticky; top:72px; z-index:50; margin:12px auto; display:block; padding:12px 22px; background:#0b5bd3; color:#fff; border:0; border-radius:24px; font-weight:800; cursor:pointer; box-shadow:0 4px 16px rgba(11,91,211,.35);}
-#backToAll:hover{background:#0948a8;}
-</style>`;
-
-const FOCUS_SCRIPT = `<script>(()=>{try{
-const p=new URLSearchParams(location.search);
-const hid=p.get('highlight');
-const src=p.get('src');
-const urlParam=p.get('url');
-if(!hid) return;
-const run=()=>{
-  let el=null;
-  try{ el=document.querySelector('[data-id="'+CSS.escape(hid)+'"]'); }catch{}
-  if(!el) el=document.getElementById(hid)||document.querySelector('[data-id="'+hid+'"]');
-  if(!el){
-    // fallback: zoek op titel bevat id (voor oude artikelen)
-    const all=document.querySelectorAll('[data-id]');
-    for(const a of all){ if(a.getAttribute('data-id') && hid.includes(a.getAttribute('data-id').slice(0,10))){ el=a; break; } }
+self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
+  // Altijd vers voor app.js, push.js, informatie.html = snel laden fix
+  if (url.pathname.includes('app.js') || url.pathname.includes('push.js') || url.pathname.includes('informatie.html') || url.pathname.includes('sw.js')) {
+    event.respondWith(
+      fetch(event.request, {cache: 'no-store'}).then(r => {
+        const clone = r.clone();
+        caches.open(CACHE_NAME).then(c => c.put(event.request, clone)).catch(()=>{});
+        return r;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
   }
-  if(!el){ setTimeout(run,400); return; }
-  el.classList.add('hl-om');
-  if(src){ el.setAttribute('data-src-badge', src); }
-  el.scrollIntoView({behavior:'smooth', block:'center'});
-  if(document.getElementById('backToAll')) return;
-  const b=document.createElement('button');
-  b.id='backToAll';
-  b.textContent='← Terug naar alle bronnen';
-  b.addEventListener('click',()=>{
-    el.classList.remove('hl-om');
-    b.remove();
-    const u=new URL(location.href);
-    u.searchParams.delete('highlight');
-    u.searchParams.delete('src');
-    u.searchParams.delete('url');
-    history.replaceState(null,'',u.pathname+(u.search?u.search:'')+u.hash);
-    // optioneel: scroll naar top
-    window.scrollTo({top:0, behavior:'smooth'});
-  });
-  (document.querySelector('main')||document.body).prepend(b);
-  // Als er een urlParam is, highlight ook visueel dat dit het push-artikel is
-  if(urlParam){ console.log('[SW Focus] highlight', hid, src, urlParam); }
-};
-if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', run); }else{ run(); }
-}catch(e){ console.warn('[SW Focus] error', e); }})();<\/script>`;
-
-// ---- FETCH HANDLER ----
-self.addEventListener('fetch', (event) => {
-  const req = event.request;
-  if (req.method !== 'GET') return;
-  const url = new URL(req.url);
-  const accept = req.headers.get('Accept') || '';
-  const isNav = req.mode === 'navigate' || accept.includes('text/html');
-  const isIndex = url.origin === self.location.origin && (
-    url.pathname === '/' ||
-    url.pathname.endsWith('/index.html') ||
-    url.pathname.endsWith('/Nieuws-Ommen/') ||
-    url.pathname.endsWith('/Nieuws-Ommen')
+  event.respondWith(
+    caches.match(event.request).then(cached => cached || fetch(event.request, {cache: 'no-store'}).catch(()=>cached))
   );
-
-  // 1) Index navigatie: injecteer focus style + script, altijd network-first
-  if (isIndex && isNav) {
-    event.respondWith(
-      fetch(req).then(async (res) => {
-        if (!res.ok) return res;
-        const clone = res.clone();
-        const text = await clone.text();
-        if (!text.includes('</body>')) return res;
-        if (text.includes('ommen-focus-style')) return res; // al geinjecteerd
-        const injected = text.replace('</body>', FOCUS_STYLE + FOCUS_SCRIPT + '</body>');
-        return new Response(injected, {
-          status: res.status,
-          statusText: res.statusText,
-          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' }
-        });
-      }).catch(() => caches.match('./index.html').then(r => r || caches.match('/index.html')))
-    );
-    return;
-  }
-
-  // 2) Dynamische app bestanden: network-first (voorkomt oude cache)
-  if (url.origin === self.location.origin) {
-    const path = url.pathname;
-    if (path.endsWith('/app.js') || path.endsWith('/push.js') || path.includes('app.js') || path.includes('push.js') || path.endsWith('informatie.html')) {
-      event.respondWith(
-        fetch(req).then((r) => {
-          if (r.ok) {
-            const c = r.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, c));
-          }
-          return r;
-        }).catch(() => caches.match(req))
-      );
-      return;
-    }
-  }
-
-  // 3) Static assets: cache-first met fallback
-  const isStatic = STATIC_ASSETS.some(a => url.pathname.endsWith(a.replace('./',''))) ||
-                   url.pathname.includes('/icons/');
-
-  if (isStatic) {
-    event.respondWith(
-      caches.match(req).then((cached) => {
-        if (cached) return cached;
-        return fetch(req).then((r) => {
-          if (r.ok) {
-            const c = r.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, c));
-          }
-          return r;
-        }).catch(() => cached || caches.match(ICON_192) || caches.match(FALLBACK_ICON));
-      })
-    );
-    return;
-  }
-
-  // 4) Rest: network, fallback cache
-  event.respondWith(fetch(req).catch(() => caches.match(req)));
 });
 
-// ---- FILTERS - v243: check 4 mogelijke IDB namen + client cache ----
-let cachedFilters = null;
+const PUSH_WORKER_URL = 'https://ommen-push-v2.leeuw008.workers.dev';
 
 async function getFiltersFromClients() {
-  if (cachedFilters && Array.isArray(cachedFilters) && cachedFilters.length) return cachedFilters;
   try {
-    // We kunnen geen directe data uit clients lezen zonder message, dus gebruik cache
-    await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
-    return cachedFilters;
-  } catch { return cachedFilters; }
-}
-
-function openIDB(dbName) {
-  return new Promise((resolve) => {
-    try {
-      const open = indexedDB.open(dbName, 1);
-      open.onupgradeneeded = () => {
-        const db = open.result;
-        if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
-      };
-      open.onsuccess = () => resolve(open.result);
-      open.onerror = () => resolve(null);
-    } catch { resolve(null); }
-  });
+    const allClients = await self.clients.matchAll({type: 'window', includeUncontrolled: true});
+    for (const client of allClients) {
+      const filters = await new Promise(resolve => {
+        const channel = new MessageChannel();
+        let done = false;
+        channel.port1.onmessage = (e) => { if (!done) { done = true; resolve(e.data); } };
+        try { client.postMessage({type: 'GET_FILTERS'}, [channel.port2]); } catch { resolve(null); }
+        setTimeout(() => { if (!done) { done = true; resolve(null); } }, 300);
+      });
+      if (filters && filters.sources && filters.sources.length > 0) return filters.sources;
+    }
+    return null;
+  } catch { return null; }
 }
 
 async function getFiltersFromIDB() {
-  const dbNames = ['nieuws-ommen', 'ommen-news', 'ommen-nieuws', 'ommen-filters'];
-  for (const dbName of dbNames) {
-    try {
-      const db = await openIDB(dbName);
-      if (!db) continue;
-      if (!db.objectStoreNames.contains('settings')) { db.close(); continue; }
-      const result = await new Promise((resolve) => {
-        try {
-          const tx = db.transaction('settings', 'readonly');
-          const store = tx.objectStore('settings');
-          const req = store.get('filters');
-          req.onsuccess = () => resolve(req.result || null);
-          req.onerror = () => resolve(null);
-        } catch { resolve(null); }
-      });
-      db.close();
-      if (result) {
-        if (Array.isArray(result)) return result;
-        if (result.allowed && Array.isArray(result.allowed)) return result.allowed;
-        if (result.sources && Array.isArray(result.sources)) return result.sources;
-      }
-    } catch { /* next db */ }
-  }
-  return null;
+  try {
+    const dbNames = ['nieuws-ommen', 'ommen-news', 'ommen-nieuws'];
+    for (const dbName of dbNames) {
+      try {
+        const db = await new Promise((resolve, reject) => { const req = indexedDB.open(dbName); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
+        if (!db.objectStoreNames.contains('settings')) { db.close(); continue; }
+        const tx = db.transaction('settings', 'readonly'); const store = tx.objectStore('settings');
+        const result = await new Promise(res => { const q = store.get('selectedSources'); q.onsuccess = () => res(q.result); q.onerror = () => res(null); });
+        db.close();
+        if (result && Array.isArray(result) && result.length > 0) return result;
+        if (result && result.sources) return result.sources;
+      } catch {}
+    }
+    return null;
+  } catch { return null; }
 }
 
 async function getAllowedSources() {
   const fromClients = await getFiltersFromClients();
-  if (fromClients && Array.isArray(fromClients) && fromClients.length) return fromClients;
+  if (fromClients && fromClients.length > 0) return fromClients;
   const fromIDB = await getFiltersFromIDB();
-  if (fromIDB && fromIDB.length) return fromIDB;
-  return null; // null = alles toegestaan
+  if (fromIDB && fromIDB.length > 0) return fromIDB;
+  return null;
 }
 
-// ---- PUSH: BRON FIX + ICON FALLBACK CHAIN v243 ----
-self.addEventListener('push', (event) => {
-  let data = {};
-  try { data = event.data ? event.data.json() : {}; }
-  catch {
-    try { data = { title: event.data ? event.data.text() : 'Nieuw bericht' }; }
-    catch { data = {}; }
-  }
-
-  const source = (data.source || data.src || data.bron || data.feed || '').toString().trim();
-  const originalTitle = (data.title || data.body || 'Nieuw bericht').toString().trim();
-  const linkUrl = (data.url || data.link || data.href || '').toString();
-  const pushId = (data.id || data.dataId || data.guid || originalTitle || Date.now()).toString();
-
-  // BRON FIX: titel = bron, body = "Bron: Titel" - precies zoals v241 focus fix deed
-  let notifTitle = source ? source : originalTitle;
-  let notifBody = source ? `${source}: ${originalTitle}` : originalTitle;
-  if (source) {
-    const lowBody = originalTitle.toLowerCase();
-    const lowSrc = source.toLowerCase();
-    if (lowBody.startsWith(lowSrc)) {
-      notifBody = originalTitle; // voorkom dubbel "RTV Oost: RTV Oost: ..."
-    }
-  }
-
+self.addEventListener('push', event => {
   event.waitUntil((async () => {
-    const allowed = await getAllowedSources();
-    if (allowed && allowed.length > 0 && source && !allowed.includes(source)) {
-      console.log('[SW Push] Geblokkeerd door filter:', source, 'allowed:', allowed);
-      return;
+    let title = 'Nieuw(s)Ommen';
+    let body = 'Er is nieuw nieuws uit Ommen';
+    let link = '/';
+    let source = '';
+    let articleId = '';
+
+    if (event.data) {
+      try {
+        const data = event.data.json();
+        title = data.title || title;
+        body = data.body || data.title || body;
+        link = data.link || data.url || link;
+        source = data.source || '';
+        articleId = data.id || data.articleId || '';
+        if (source) body = `${source}: ${title}`;
+      } catch {
+        try { const txt = event.data.text(); if (txt) body = txt; } catch {}
+      }
+    } else {
+      try {
+        const r = await fetch(`${PUSH_WORKER_URL}/last`, { cache: 'no-store' });
+        if (r.ok) {
+          const j = await r.json();
+          title = j.title || title;
+          link = j.link || link;
+          source = j.source || '';
+          articleId = j.id || '';
+          body = source ? `${source}: ${j.title}` : j.title;
+        }
+      } catch(e) { console.log('last fetch failed', e); }
     }
 
-    const baseOptions = {
-      body: notifBody,
-      badge: BADGE_ICON,
-      data: { id: pushId, source: source, url: linkUrl, originalTitle: originalTitle },
-      tag: `ommen-${pushId}`,
-      renotify: true,
-      requireInteraction: false,
-      vibrate: [100,50,100]
+    try {
+      const allowedSources = await getAllowedSources();
+      if (allowedSources && allowedSources.length > 0 && source) {
+        const normAllowed = allowedSources.map(s => String(s).toLowerCase());
+        const normSource = String(source).toLowerCase();
+        const isAllowed = normAllowed.some(a => normSource.includes(a) || a.includes(normSource) || normSource === a);
+        if (!isAllowed) {
+          console.log(`[v245] Push geblokkeerd door filter: "${source}" niet in [${allowedSources.join(', ')}]`);
+          return;
+        }
+      }
+    } catch {}
+
+    // Icon fallback chain - voorkomt witte blokjes
+    let iconToUse = ICON_192;
+    const options = {
+      body: body,
+      icon: iconToUse,
+      badge: ICON_96,
+      data: { url: link, source: source, id: articleId },
+      tag: articleId ? `ommen-${articleId}` : `ommen-${(source || 'algemeen').toLowerCase().replace(/\s+/g,'-')}-${Date.now()}`,
+      renotify: false,
+      vibrate: [100, 50, 100]
     };
 
-    // Icon fallback chain - voorkomt witte blokken
     try {
-      return await self.registration.showNotification(notifTitle, { ...baseOptions, icon: ICON_192 });
+      return await self.registration.showNotification(title, options);
     } catch (e) {
-      console.warn('[SW] icon 192 failed, fallback', e);
+      console.log('Icon 192 fail, retry met fallback', e);
       try {
-        return await self.registration.showNotification(notifTitle, { ...baseOptions, icon: FALLBACK_ICON });
+        options.icon = FALLBACK_ICON;
+        options.badge = FALLBACK_ICON;
+        return await self.registration.showNotification(title, options);
       } catch (e2) {
-        try {
-          return await self.registration.showNotification(notifTitle, { ...baseOptions, icon: FALLBACK_ABS });
-        } catch (e3) {
-          try {
-            return await self.registration.showNotification(notifTitle, { ...baseOptions, icon: FALLBACK_ABS_512 });
-          } catch (e4) {
-            // Laatste redmiddel: zonder icon - voorkomt falen op sommige launchers
-            return await self.registration.showNotification(notifTitle, { ...baseOptions });
-          }
-        }
+        console.log('Fallback ook fail, zonder icon', e2);
+        delete options.icon;
+        delete options.badge;
+        return await self.registration.showNotification(title, options);
       }
     }
   })());
 });
 
-// ---- NOTIFICATION CLICK: focus met highlight + bron badge ----
-self.addEventListener('notificationclick', (event) => {
+self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const d = event.notification.data || {};
-  const id = d.id || '';
-  const src = d.source || '';
-  const urlParam = d.url || '';
-
-  const targetUrl = `./?highlight=${encodeURIComponent(id)}&src=${encodeURIComponent(src)}&url=${encodeURIComponent(urlParam)}`;
-
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      for (const c of list) {
-        if (c.url.includes(self.location.origin) && 'focus' in c) {
-          // bestaande tab focusen + navigeren
-          if ('navigate' in c) c.navigate(targetUrl);
+  const data = event.notification.data||{};
+  const id = data.id||'';
+  const externalUrl = data.url||'/';
+  const source = data.source||'';
+  const appUrl = `/?highlight=${encodeURIComponent(id)}&src=${encodeURIComponent(source)}&url=${encodeURIComponent(externalUrl)}`;
+  event.waitUntil((async()=>{
+    try{
+      const all=await clients.matchAll({type:'window', includeUncontrolled:true});
+      for(const c of all){
+        if((c.url.includes('nieuwommen')||c.url.includes('Nieuws-Ommen')||c.url.includes('localhost')) && 'focus' in c){
+          try{c.postMessage({type:'NOTIFICATION_CLICK', id, url:externalUrl, source});}catch{}
+          await c.navigate(appUrl);
           return c.focus();
         }
       }
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(targetUrl);
-      }
-    })
-  );
+      if(clients.openWindow) return clients.openWindow(appUrl);
+    }catch{
+      if(clients.openWindow) return clients.openWindow(appUrl);
+    }
+  })());
 });
 
-// ---- MESSAGE HANDLER ----
-self.addEventListener('message', (event) => {
-  const data = event.data;
-  if (!data) return;
-
-  if (data === 'SKIP_WAITING' || (data.type && data.type === 'SKIP_WAITING')) {
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SET_FILTERS') {
+    console.log('[v245] Filters ontvangen:', event.data.sources);
+  }
+  if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
-
-  if (data.type === 'SET_FILTERS') {
-    // Vanuit app.js: filters live updaten zonder IDB te wachten
-    if (Array.isArray(data.filters)) {
-      cachedFilters = data.filters;
-      console.log('[SW] Filters geupdate via message:', cachedFilters);
-    } else if (data.filters && Array.isArray(data.filters.allowed)) {
-      cachedFilters = data.filters.allowed;
-    }
-  }
-
-  if (data.type === 'GET_CACHE_NAME') {
-    if (event.ports && event.ports[0]) {
-      event.ports[0].postMessage({ cacheName: CACHE_NAME, version: 'v243-final' });
-    }
-  }
-
-  if (data.type === 'GET_VERSION') {
-    if (event.ports && event.ports[0]) {
-      event.ports[0].postMessage({ version: 'ommen-v243-final', cache: CACHE_NAME });
-    }
-  }
 });
-
-console.log('[SW] Ommen SW v243 FINAL geladen -', CACHE_NAME);
