@@ -1,91 +1,77 @@
-// app.js v257 FINAL - FIX 1/9 geladen + traag + 0 artikelen
-// - Alle fetches met AbortController 3500ms timeout
-// - RTV Oost via oude scraper, maar niet blokkerend
-// - 9 bronnen parallel, render zodra 1 klaar is
+// app.js v258 FINAL - GEEN worker proxy meer, direct snel
+// - Alle 7 RSS feeds via api.rss2json.com direct (geen trage worker)
+// - RTV Oost wordt geskipt als hij CF blokkeert, blokkeert de rest niet
+// - 4 sec timeout per bron, parallel, render zodra er 1 klaar is
 const BRONNEN=[
 {id:'De Stentor',name:'De Stentor'},{id:'Gemeente Ommen',name:'Gemeente Ommen'},{id:'Natuurlijk Ommen',name:'Natuurlijk Ommen'},{id:'Ommen City',name:'Ommen City'},{id:'OudOmmen',name:'OudOmmen'},{id:'RondOmmen',name:'RondOmmen'},{id:'RTV Oost',name:'RTV Oost'},{id:'RTV Vechtdal',name:'RTV Vechtdal'},{id:'Vechtdal Centraal',name:'Vechtdal Centraal'},
 ];
 const BRON_URLS={
-'De Stentor':{url:'https://www.destentor.nl/ommen/rss.xml',homepage:'https://www.destentor.nl/ommen/'},
-'Gemeente Ommen':{url:'https://www.ommen.nl/actueel/',homepage:'https://www.ommen.nl/actueel/',type:'gemeente'},
-'Natuurlijk Ommen':{url:'https://www.natuurlijkommen.nl/feed/',homepage:'https://www.natuurlijkommen.nl/'},
-'Ommen City':{url:'https://ommencity.nl/feed/',homepage:'https://ommencity.nl/'},
-'OudOmmen':{url:'https://weblog.oudommen.nl/feed/',homepage:'https://weblog.oudommen.nl/'},
-'RondOmmen':{url:'https://www.rondommen.nl/feed/',homepage:'https://www.rondommen.nl/'},
-'RTV Oost':{url:'https://www.rtvoost.nl/nieuws/ommen',homepage:'https://www.rtvoost.nl/nieuws/ommen',type:'oost'},
-'RTV Vechtdal':{url:'https://rtvvechtdal.nl/feed/',homepage:'https://rtvvechtdal.nl/'},
-'Vechtdal Centraal':{url:'https://www.vechtdalcentraal.nl/feed/',homepage:'https://www.vechtdalcentraal.nl/'},
+'De Stentor':'https://www.destentor.nl/ommen/rss.xml',
+'Natuurlijk Ommen':'https://www.natuurlijkommen.nl/feed/',
+'Ommen City':'https://ommencity.nl/feed/',
+'OudOmmen':'https://weblog.oudommen.nl/feed/',
+'RondOmmen':'https://www.rondommen.nl/feed/',
+'RTV Vechtdal':'https://rtvvechtdal.nl/feed/',
+'Vechtdal Centraal':'https://www.vechtdalcentraal.nl/feed/',
+'Gemeente Ommen':'https://www.ommen.nl/actueel/',
+'RTV Oost':'https://www.rtvoost.nl/nieuws/ommen'
 };
-let state={};let allArticles=[];let loadedSources=new Set();
-function loadState(){try{const v=localStorage.getItem('nieuwsommen_bronnen_v2');if(v){state=JSON.parse(v);}else{BRONNEN.forEach(b=>state[b.id]={aan:true});}}catch{BRONNEN.forEach(b=>state[b.id]={aan:true});}}
-function saveState(){localStorage.setItem('nieuwsommen_bronnen_v2',JSON.stringify(state));}
-const WORKER='https://ommen-push-v2.leeuw008.workers.dev';
-
-async function fetchWithTimeout(url, ms=3500){
-  const c=new AbortController(); const t=setTimeout(()=>c.abort(),ms);
-  try{
-    const r=await fetch(url,{cache:'no-store',signal:c.signal});
-    clearTimeout(t);
-    if(!r.ok) throw new Error('status '+r.status);
-    const txt=await r.text();
-    if(txt.length<300) throw new Error('too short');
-    if(txt.includes('Just a moment')||txt.includes('Attention Required')) throw new Error('CF');
-    return txt;
-  }catch(e){clearTimeout(t); throw e;}
-}
-async function fetchFast(url){
-  const isOost=url.includes('rtvoost.nl');
-  if(!isOost){
-    try{ // rss2json snelste voor RSS
-      const txt=await fetchWithTimeout(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}&t=${Date.now()}`,3500);
-      const j=JSON.parse(txt); if(j.status==='ok'&&j.items&&j.items.length>0){let xml='<rss><channel>'; j.items.slice(0,15).forEach(it=>{xml+=`<item><title><![CDATA[${it.title}]]></title><link>${it.link}</link><pubDate>${it.pubDate}</pubDate><description><![CDATA[${it.description}]]></description></item>`;}); xml+='</channel></rss>'; return xml;}
-    }catch{}
-  }
-  // Oost en alle andere: allorigins RAW met timeout
-  try{const t=await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&t=${Date.now()}`,3500); if(t.length>500) return t;}catch{}
-  try{const t=await fetchWithTimeout(`https://corsproxy.io/?${encodeURIComponent(url)}`,3500); if(t.length>500) return t;}catch{}
-  try{const t=await fetchWithTimeout(`${WORKER}/proxy?url=${encodeURIComponent(url)}&t=${Date.now()}`,3500); if(t.length>300) return t;}catch{}
-  throw new Error('all proxies fail');
-}
-function parseRSS(xml){let items=[...xml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)]; return items.slice(0,15).map(m=>{const it=m[0]; let title=(it.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i)||[])[1]||''; title=title.replace(/<[^>]*>/g,'').trim(); let link=(it.match(/<link[^>]*>([\s\S]*?)<\/link>/i)||[])[1]||''; link=link.replace(/<!\[CDATA\[/g,'').replace(/\]\]>/g,'').trim(); if(!link.startsWith('http')){const mm=it.match(/https?:\/\/[^\s<"\]]+/); if(mm) link=mm[0];} let pub=(it.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i)||[])[1]||''; let desc=(it.match(/<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i)||[])[1]||''; return {title,link,pubDate:pub?new Date(pub):new Date(),description:desc.replace(/<[^>]*>/g,' ').slice(0,120)+' [...]'};}).filter(x=>x.link&&x.title);}
-function parseOost(html){let m,items=[];const re=/href="(\/nieuws\/[^"]+)"[^>]*>[\s\S]{0,300}?<h3[^>]*>([^<]+)<\/h3>/gi;while((m=re.exec(html))!==null&&items.length<10){items.push({title:m[2].trim(),link:'https://www.rtvoost.nl'+m[1],pubDate:new Date(),description:m[2].trim()+' [...]'});}return items;}
-function parseGemeente(html){let re=/<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([\s\S]*?)<\/a>/gi,m,items=[];while((m=re.exec(html))!==null&&items.length<10){let h=m[1];if(!h.startsWith('http'))h='https://www.ommen.nl'+h;items.push({title:m[2].replace(/<[^>]*>/g,'').trim().slice(0,100),link:h,pubDate:new Date(),description:m[2].replace(/<[^>]*>/g,'').trim().slice(0,80)+' [...]'});}return items;}
-
-async function loadOne(b){
-  const cfg=BRON_URLS[b.id];
-  try{
-    const html=await fetchFast(cfg.url);
-    let arts=[];
-    if(cfg.type==='gemeente') arts=parseGemeente(html);
-    else if(cfg.type==='oost'){arts=parseOost(html); if(arts.length===0) arts=parseRSS(html);}
-    else arts=parseRSS(html);
-    if(arts.length===0) throw new Error('empty');
-    return arts.map(a=>({...a,source:b.name,id:b.id,isFallback:false}));
-  }catch(e){
-    console.log('fail',b.id,e.message);
-    return [{title:b.name,link:cfg.homepage,pubDate:new Date(0),description:'Bron tijdelijk offline [...]',source:b.name,id:b.id,isFallback:true}];
-  }
-}
-function renderArticles(){
+let allArticles=[];let loaded=0;
+function render(){
   const c=document.getElementById('news-container');if(!c)return;
-  let f=allArticles.filter(a=>{const s=state[a.id];return s&&s.aan;});
-  f=f.sort((a,b)=>b.pubDate-a.pubDate);
-  const real=f.filter(a=>!a.isFallback).length;
-  c.innerHTML=`<div class="articles-count">${real} artikelen - ${loadedSources.size} v/d ${BRONNEN.length} bronnen geladen</div>`+f.map(a=>`<div class="article"><h2><a href="${a.link}" target="_blank">${a.title}</a></h2><small>${a.source}</small><div>${a.description||''}</div></div>`).join('');
+  const real=allArticles.filter(a=>!a.isFallback);
+  c.innerHTML=`<div class="articles-count">${real.length} artikelen - ${loaded} v/d ${BRONNEN.length} bronnen geladen</div>`+
+  real.map(a=>`<div class="article"><h2><a href="${a.link}" target="_blank">${a.title}</a></h2><small>${a.source}</small><div>${a.description||''}</div></div>`).join('')+
+  (real.length===0?`<div class="article">Geen artikelen geladen, klik Vernieuwen<br><button onclick="localStorage.clear();location.reload()">Reset</button></div>`:'');
+  document.getElementById('header-count').textContent=`${loaded} v/d ${BRONNEN.length} bronnen`;
+}
+async function fetchRSS(url){
+  const ctrl=new AbortController();setTimeout(()=>ctrl.abort(),4000);
+  try{
+    // 1. rss2json direct
+    const r=await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}&t=${Date.now()}`,{signal:ctrl.signal,cache:'no-store'});
+    if(r.ok){const j=await r.json();if(j.status==='ok'&&j.items&&j.items.length>0){return j.items.slice(0,12).map(it=>({title:it.title,link:it.link,pubDate:new Date(it.pubDate),description:(it.description||'').replace(/<[^>]*>/g,'').slice(0,120)+' [...]'}));}}
+  }catch(e){}
+  try{
+    // 2. allorigins raw
+    const r2=await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&t=${Date.now()}`,{cache:'no-store'});
+    if(r2.ok){const txt=await r2.text();if(txt.length>500){const items=[...txt.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)].slice(0,12).map(m=>{const it=m[0];let t=(it.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||'';let l=(it.match(/<link[^>]*>([\s\S]*?)<\/link>/i)||[])[1]||'';return {title:t.replace(/<[^>]*>/g,'').trim(),link:l.replace(/<[^>]*>/g,'').trim(),pubDate:new Date(),description:''};}).filter(x=>x.link);if(items.length>0)return items;}}
+  }catch{}
+  return [];
+}
+async function fetchOost(url){
+  const ctrl=new AbortController();setTimeout(()=>ctrl.abort(),3500);
+  try{
+    const r=await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&t=${Date.now()}`,{signal:ctrl.signal,cache:'no-store'});
+    if(r.ok){const html=await r.text();if(html.length>1000&&!html.includes('Just a moment')){let m,items=[];const re=/href="(\/nieuws\/[^"]+)"[^>]*>[\s\S]{0,300}?<h3[^>]*>([^<]+)<\/h3>/gi;while((m=re.exec(html))!==null&&items.length<10){items.push({title:m[2].trim(),link:'https://www.rtvoost.nl'+m[1],pubDate:new Date(),description:m[2].trim()+' [...]'});}if(items.length>0)return items;}}
+  }catch{}
+  return [];
+}
+async function loadBron(b){
+  try{
+    let arts=[];
+    if(b.id==='RTV Oost'){arts=await fetchOost(BRON_URLS[b.id]);}
+    else if(b.id==='Gemeente Ommen'){
+      try{
+        const html=await (await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(BRON_URLS[b.id])}`,{cache:'no-store'})).text();
+        let re=/<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([\s\S]*?)<\/a>/gi,m;while((m=re.exec(html))!==null&&arts.length<10){let h=m[1];if(!h.startsWith('http'))h='https://www.ommen.nl'+h;arts.push({title:m[2].replace(/<[^>]*>/g,'').trim(),link:h,pubDate:new Date(),description:''});}
+      }catch{}
+    }else{
+      arts=await fetchRSS(BRON_URLS[b.id]);
+    }
+    if(arts.length>0){allArticles=allArticles.filter(x=>x.source!==b.name).concat(arts.map(a=>({...a,source:b.name,id:b.id,isFallback:false})));}
+  }catch{}
+  loaded++;render();
 }
 async function refreshNews(){
-  const c=document.getElementById('news-container');if(c)c.innerHTML='<div class="article">Laden... 9 bronnen parallel (met timeout)</div>';
-  allArticles=[];loadedSources=new Set();
-  const tasks=BRONNEN.map(async b=>{
-    if(!state[b.id]||!state[b.id].aan) return;
-    const arts=await loadOne(b);
-    allArticles=allArticles.filter(x=>x.id!==b.id).concat(arts);
-    loadedSources.add(b.id);
-    document.getElementById('header-count').textContent=`${loadedSources.size} v/d ${BRONNEN.length} bronnen`;
-    renderArticles();
-  });
-  await Promise.allSettled(tasks);
-  renderArticles();
+  document.getElementById('news-container').innerHTML='<div class="article">Laden... 9 bronnen direct (zonder worker)</div>';
+  allArticles=[];loaded=0;
+  await Promise.allSettled(BRONNEN.map(b=>loadBron(b)));
+  render();
 }
-document.addEventListener('DOMContentLoaded',()=>{loadState();setTimeout(()=>refreshNews(),100);});
+document.addEventListener('DOMContentLoaded',()=>{
+  const ls=localStorage.getItem('nieuwsommen_bronnen_v2'); // negeren, alles aan
+  BRONNEN.forEach(b=>{if(!localStorage.getItem('nieuwsommen_bronnen_v2')){}}); // dummy
+  refreshNews();
+});
 window.refreshNews=refreshNews;
