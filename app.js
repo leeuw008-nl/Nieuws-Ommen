@@ -1,4 +1,4 @@
-// app.js v260 FINAL - filter FIX: alleen RTV Oost als alleen Oost aan staat
+// app.js v262 FINAL - originele 3-toggle layout + Oost via worker proxy
 const BRONNEN=[
 {id:'De Stentor',name:'De Stentor',sub:'regionaal'},{id:'Gemeente Ommen',name:'Gemeente Ommen',sub:'officieel'},{id:'Natuurlijk Ommen',name:'Natuurlijk Ommen',sub:'evenementen'},{id:'Ommen City',name:'Ommen City',sub:'lokaal'},{id:'OudOmmen',name:'OudOmmen',sub:'historie'},{id:'RondOmmen',name:'RondOmmen',sub:'lokaal'},{id:'RTV Oost',name:'RTV Oost',sub:'Overijssel'},{id:'RTV Vechtdal',name:'RTV Vechtdal',sub:'Vechtdal'},{id:'Vechtdal Centraal',name:'Vechtdal Centraal',sub:'112'},
 ];
@@ -13,31 +13,39 @@ const BRON_URLS={
 'Gemeente Ommen':'https://www.ommen.nl/actueel/',
 'RTV Oost':'https://www.rtvoost.nl/nieuws/ommen'
 };
+const WORKER='https://ommen-push-v2.leeuw008.workers.dev';
 let state={};let allArticles=[];let loaded=0;
 function loadState(){
   try{
     const v=localStorage.getItem('nieuwsommen_bronnen_v2');
-    if(v){
-      const parsed=JSON.parse(v);
-      BRONNEN.forEach(b=>{if(parsed[b.id])state[b.id]=parsed[b.id];else state[b.id]={aan:false,vandaag:false,scope:'regio'};});
-    }else{
-      BRONNEN.forEach(b=>state[b.id]={aan:(b.id==='RTV Oost'),vandaag:false,scope:'regio'}); // default alleen Oost als je test
-    }
+    if(v){state=JSON.parse(v);BRONNEN.forEach(b=>{if(!state[b.id])state[b.id]={aan:true,vandaag:false,scope:'regio'};});}
+    else{BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,scope:'regio'});}
   }catch{BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,scope:'regio'});}
 }
 function saveState(){localStorage.setItem('nieuwsommen_bronnen_v2',JSON.stringify(state));}
 function renderFilters(){
   const l=document.getElementById('source-list');if(!l)return;l.innerHTML='';
   BRONNEN.forEach(b=>{
-    const s=state[b.id]||{aan:false};const row=document.createElement('div');row.className='source-row';
-    row.innerHTML=`<div class="source-meta"><div class="source-name">${b.name}</div></div>
-    <div class="toggles"><div class="toggle-col"><label class="mini-switch aan ${s.aan?'checked':''}"><input type="checkbox" ${s.aan?'checked':''} data-type="aan" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${s.aan?'AAN':'UIT'}</span></div></div>`;
+    const s=state[b.id]||{aan:true,vandaag:false,scope:'regio'};
+    const isGemeente=s.scope==='gemeente';
+    const row=document.createElement('div');row.className='source-row';
+    row.innerHTML=`
+      <div class="source-meta"><div class="source-name">${b.name}</div><div class="source-sub">${b.sub||''}</div></div>
+      <div class="toggles">
+        <div class="toggle-col"><label class="mini-switch vandaag ${s.vandaag?'checked':''}"><input type="checkbox" ${s.vandaag?'checked':''} data-type="vandaag" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">MEER</span></div>
+        <div class="toggle-col"><label class="mini-switch ${isGemeente?'checked':''}" style="background:${isGemeente?'#0b5bd3':'#7c3aed'}"><input type="checkbox" ${isGemeente?'checked':''} data-type="scope" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${isGemeente?'GEMEENTE':'REGIO'}</span></div>
+        <div class="toggle-col"><label class="mini-switch aan ${s.aan?'checked':''}"><input type="checkbox" ${s.aan?'checked':''} data-type="aan" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${s.aan?'AAN':'UIT'}</span></div>
+      </div>`;
     l.appendChild(row);
   });
   l.querySelectorAll('input').forEach(i=>{
     i.addEventListener('change',e=>{
-      const id=e.target.dataset.id;if(!state[id])state[id]={aan:false};
-      state[id].aan=e.target.checked;saveState();renderFilters();refreshNews();
+      const id=e.target.dataset.id;const t=e.target.dataset.type;
+      if(!state[id])state[id]={aan:true,vandaag:false,scope:'regio'};
+      if(t==='vandaag')state[id].vandaag=e.target.checked;
+      if(t==='scope')state[id].scope=e.target.checked?'gemeente':'regio';
+      if(t==='aan')state[id].aan=e.target.checked;
+      saveState();renderFilters();refreshNews();
     });
   });
 }
@@ -48,7 +56,7 @@ function setupHeader(){
     if(e.target.closest('#bell-slot'))return;
     if(e.target.id==='btn-all'||e.target.closest('#btn-all')){e.stopPropagation();const allOn=Object.values(state).every(s=>s.aan);BRONNEN.forEach(b=>state[b.id].aan=!allOn);saveState();renderFilters();refreshNews();return;}
     const p=document.getElementById('source-panel');
-    if(p.classList.contains('open'))closePanel();else{document.getElementById('filter-header')?.classList.add('open');document.getElementById('source-panel')?.classList.add('open');document.body.classList.add('panel-open');}
+    if(p.classList.contains('open'))closePanel();else{fh.classList.add('open');p.classList.add('open');document.body.classList.add('panel-open');}
   });
 }
 async function fetchWithTimeout(url,ms){
@@ -60,6 +68,16 @@ async function fetchRSS(url){
   return [];
 }
 async function fetchOost(url){
+  // WERKENDE oude methode: via eigen worker proxy (bypassed CF)
+  try{
+    const txt=await fetchWithTimeout(`${WORKER}/proxy?url=${encodeURIComponent(url)}&t=${Date.now()}`,4000);
+    if(txt.length>800&&!txt.includes('Just a moment')){
+      let m,items=[];const re=/href="(\/nieuws\/[^"]+)"[^>]*>[\s\S]{0,300}?<h3[^>]*>([^<]+)<\/h3>/gi;
+      while((m=re.exec(txt))!==null&&items.length<12){items.push({title:m[2].trim(),link:'https://www.rtvoost.nl'+m[1],pubDate:new Date(),description:m[2].trim()+' [...]'});}
+      if(items.length>0)return items;
+    }
+  }catch{}
+  // fallback allorigins
   try{
     const html=await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&t=${Date.now()}`,3000);
     if(html.length>800&&!html.includes('Just a moment')){let m,items=[];const re=/href="(\/nieuws\/[^"]+)"[^>]*>[\s\S]{0,300}?<h3[^>]*>([^<]+)<\/h3>/gi;while((m=re.exec(html))!==null&&items.length<10){items.push({title:m[2].trim(),link:'https://www.rtvoost.nl'+m[1],pubDate:new Date(),description:m[2].trim()+' [...]'});}return items;}
@@ -70,25 +88,25 @@ async function loadBron(b){
   try{
     let arts=[];
     if(b.id==='RTV Oost') arts=await fetchOost(BRON_URLS[b.id]);
-    else arts=await fetchRSS(BRON_URLS[b.id]);
+    else if(b.id==='Gemeente Ommen'){
+      try{const html=await fetchWithTimeout(`${WORKER}/proxy?url=${encodeURIComponent(BRON_URLS[b.id])}&t=${Date.now()}`,3500);let re=/<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([\s\S]*?)<\/a>/gi,m;while((m=re.exec(html))!==null&&arts.length<10){let h=m[1];if(!h.startsWith('http'))h='https://www.ommen.nl'+h;arts.push({title:m[2].replace(/<[^>]*>/g,'').trim(),link:h,pubDate:new Date(),description:''});}}catch{}
+    }else arts=await fetchRSS(BRON_URLS[b.id]);
     if(arts.length>0){allArticles=allArticles.filter(x=>x.id!==b.id).concat(arts.map(a=>({...a,source:b.name,id:b.id})));}
   }catch{}
   loaded++;
 }
 function renderArticles(){
   const c=document.getElementById('news-container');if(!c)return;
-  // RESPECTEER FILTER: alleen tonen waar aan=true
   const activeIds=Object.keys(state).filter(id=>state[id]&&state[id].aan);
   let f=allArticles.filter(a=>activeIds.includes(a.id));
   f=f.sort((a,b)=>b.pubDate-a.pubDate);
   const header=document.getElementById('header-count');if(header)header.textContent=`${activeIds.length} v/d ${BRONNEN.length} bronnen`;
-  c.innerHTML=`<div class="articles-count">${f.length} artikelen - ${loaded} v/d ${activeIds.length} bronnen geladen (filter: ${activeIds.join(', ')})</div>`+f.map(a=>`<div class="article"><h2><a href="${a.link}" target="_blank">${a.title}</a></h2><small>${a.source}</small><div>${a.description||''}</div></div>`).join('')+(f.length===0?`<div class="article">Geen artikelen voor filter ${activeIds.join(', ')}. Staat RTV Oost echt AAN? Dan is hij offline door Cloudflare.</div>`:'');
+  c.innerHTML=`<div class="articles-count">${f.length} artikelen - ${loaded} v/d ${activeIds.length} bronnen geladen (filter: ${activeIds.join(', ')})</div>`+f.map(a=>`<div class="article"><h2><a href="${a.link}" target="_blank">${a.title}</a></h2><small>${a.source}</small><div>${a.description||''}</div></div>`).join('')+(f.length===0?`<div class="article">Geen artikelen voor ${activeIds.join(', ')} gevonden. Probeer Vernieuwen.</div>`:'');
 }
 async function refreshNews(){
   const active=BRONNEN.filter(b=>state[b.id]&&state[b.id].aan);
-  document.getElementById('news-container').innerHTML=`<div class="article">Laden... alleen ${active.map(b=>b.name).join(', ')} (${active.length} bronnen)</div>`;
+  document.getElementById('news-container').innerHTML=`<div class="article">Laden... ${active.map(b=>b.name).join(', ')} (${active.length} bronnen)</div>`;
   allArticles=[];loaded=0;
-  // ALLEEN actieve bronnen fetchen, niet alle 9
   await Promise.allSettled(active.map(b=>loadBron(b)));
   renderArticles();
 }
