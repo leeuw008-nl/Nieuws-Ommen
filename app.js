@@ -11,7 +11,7 @@ const BRON_URLS={
 'RTV Vechtdal':'https://rtvvechtdal.nl/feed/',
 'Vechtdal Centraal':'https://www.vechtdalcentraal.nl/feed/',
 'Gemeente Ommen':'https://www.ommen.nl/actueel/',
-'RTV Oost':'https://www.rtvoost.nl/nieuws/ommen'
+'RTV Oost':'https://www.rtvoost.nl/nieuws/vechtdal'
 };
 const WORKER='https://ommen-push-v2.leeuw008.workers.dev';
 let state={};let allArticles=[];let loaded=0;
