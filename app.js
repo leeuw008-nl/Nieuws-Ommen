@@ -1,5 +1,5 @@
-// app.js v230 - FOCUS MODE + RTV OOST FIX (oost.nl/vechtdal werkend)
-// Bij klik op notificatie: alleen dat artikel + knop "Toon alle artikelen"
+// app.js v227 - FIX Gemeente filter hersteld + FILTER BRIDGE voor SW v231
+// Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -19,14 +19,10 @@ const BRON_URLS = {
   'Ommen City': {url:'https://ommencity.nl/feed/', homepage:'https://ommencity.nl/'},
   'OudOmmen': {url:'https://weblog.oudommen.nl/feed/', homepage:'https://weblog.oudommen.nl/'},
   'RondOmmen': {url:'https://www.rondommen.nl/feed/', homepage:'https://www.rondommen.nl/'},
-  'RTV Oost': {url:'https://www.oost.nl/nieuws/vechtdal', homepage:'https://www.oost.nl/nieuws/vechtdal', type:'oost', fallback:'https://www.oost.nl/nieuws/vechtdal'},
+  'RTV Oost': {url:'https://www.rtvoost.nl/nieuws/ommen', homepage:'https://www.rtvoost.nl/nieuws/ommen', type:'oost'},
   'RTV Vechtdal': {url:'https://rtvvechtdal.nl/feed/', homepage:'https://rtvvechtdal.nl/'},
   'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/', fallback:'https://www.vechtdalcentraal.nl/'},
 };
-
-// ===== v229 FOCUS GLOBALS - moet VOOR renderArticles staan =====
-let _focusArticle = null; // {id, url, source}
-
 // PLAATSEN FILTER - HERSTELD: alle kernen en buurtschappen gemeente Ommen
 
 // ===== v238 DEFINITIEF - ECHTE HTML PARSERS =====
@@ -100,46 +96,22 @@ async function enrichVechtdalWithDetail(arts){
 }
 
 
-function getOostPollCache(){try{return JSON.parse(localStorage.getItem('ommen_oost_poll')||'{}');}catch{return {};}}
-function setOostPollCache(c){try{localStorage.setItem('ommen_oost_poll', JSON.stringify(c));}catch{}}
 function parseRTVOostECHT(html){
   const items=[]; let m;
-  console.log('[RTV Oost vechtdal] HTML len', html.length);
-  const reReal = new RegExp('<div[^>]*publishedAt=["\']([^"\']+)["\'][^>]*>[\\s\\S]*?<a[^>]+href=["\'](\\/nieuws\\/(?!zwolle|twente|enschede|vechtdal|salland|kop-van-overijssel)[^"\']{10,150})["\'][^>]*>[\\s\\S]*?<div[^>]*class="[^"]*name-label[^"]*"[^>]*>([^<]{2,20})<\\/div>[\\s\\S]*?<h3[^>]*>([^<]{12,200})<\\/h3>', 'gi');
-  while((m=reReal.exec(html))!==null && items.length<25){
-    let dateStr=m[1]; let link=m[2]; if(link.startsWith('/')) link='https://www.oost.nl'+link;
-    let category=m[3].trim().toUpperCase(); let title=m[4].trim();
-    if(['ALLE NIEUWS','ZWOLLE','TWENTE'].includes(title.toUpperCase())) continue;
-    let pd=new Date(dateStr); if(isNaN(pd.getTime())) pd=new Date();
-    let finalTitle = ['NIEUWS','112','ECONOMIE','SPORT'].includes(category) ? category+': '+title : title;
-    if(!items.find(x=>x.link===link)) items.push({title:finalTitle, link, pubDate:pd, description:title+' [...]'});
+  const re=/publishedAt="([^"]+)"[\s\S]{0,900}?href="(\/nieuws\/[^"]+)"[\s\S]{0,900}?<h3[^>]*>([^<]+)<\/h3>/gi;
+  while((m=re.exec(html))!==null && items.length<20){
+    const pd=new Date(m[1]); const link='https://www.rtvoost.nl'+m[2]; const title=m[3].trim();
+    if(!items.find(x=>x.link===link)) items.push({title, link, pubDate:pd, description:title+' [...]'});
   }
   if(items.length===0){
-    const re2 = new RegExp('<div[^>]*publishedAt=["\']([^"\']+)["\'][^>]*>[\\s\\S]*?<a[^>]+href=["\'](\\/nieuws\\/[^"\']{10,150})["\'][^>]*>[\\s\\S]*?<h3[^>]*>([^<]{12,200})<\\/h3>', 'gi');
-    while((m=re2.exec(html))!==null && items.length<25){
-      let dateStr=m[1]; let link=m[2]; if(link.startsWith('/')) link='https://www.oost.nl'+link;
-      let title=m[3].trim(); if(title.toLowerCase().includes('alle nieuws')) continue;
-      let pd=new Date(dateStr); if(isNaN(pd.getTime())) continue;
-      if(!items.find(x=>x.link===link)) items.push({title, link, pubDate:pd, description:title+' [...]'});
+    const re2=/<a href="(\/nieuws\/[^"]+)"[^>]*>[\s\S]*?<h3[^>]*>([^<]+)<\/h3>/gi;
+    while((m=re2.exec(html))!==null && items.length<20){
+      const link='https://www.rtvoost.nl'+m[1]; const title=m[2].trim();
+      if(!items.find(x=>x.link===link)) items.push({title, link, pubDate:new Date(), description:title+' [...]'});
     }
   }
-  if(items.length>0){ items.sort((a,b)=>b.pubDate-a.pubDate); console.log('[RTV Oost] gevonden', items.length, 'met echte publishedAt'); return items; }
-  const pollCache=getOostPollCache(); let dirty=false; const now=new Date();
-  function getPoll(link){ if(pollCache[link]){const d=new Date(pollCache[link]); if(!isNaN(d.getTime())) return d;} const d=new Date(now); pollCache[link]=d.toISOString(); dirty=true; return d; }
-  const reBlock = new RegExp('<a[^>]+href=["\'](\\/nieuws\\/(?!zwolle|twente|enschede|vechtdal|salland|kop-van-overijssel)[^"\']{10,150})["\'][^>]*>([\\s\\S]*?)<\\/a>', 'gi');
-  let blockMatch; while((blockMatch=reBlock.exec(html))!==null && items.length<20){
-    let link=blockMatch[1]; if(link.startsWith('/')) link='https://www.oost.nl'+link;
-    let inner=blockMatch[2]; let catMatch=inner.match(/<(?:span|div)[^>]*>\s*(NIEUWS|112|ECONOMIE|SPORT)\s*<\/(?:span|div)>/i); let category=catMatch?catMatch[1].toUpperCase():''; let titleMatch=inner.match(/<h[23][^>]*>([^<]{12,180})<\/h[23]>/i); let title=titleMatch?titleMatch[1].trim():''; if(!title||title.length<12) continue;
-    if(['alle nieuws','zwolle','twente','enschede','vechtdal','salland','kop van overijssel'].includes(title.toLowerCase())) continue;
-    let finalTitle=category?category+': '+title:title;
-    if(!items.find(x=>x.link===link)) items.push({title:finalTitle, link, pubDate:getPoll(link), description:title+' [...]'});
-  }
-  if(dirty) setOostPollCache(pollCache);
-  items.sort((a,b)=>b.pubDate-a.pubDate);
-  console.log('[RTV Oost] gevonden', items.length, 'met fallback');
   return items;
 }
-
 function parseOostFull_OLD(html){
   const max = MAX_PER_BRON['RTV Oost'];
   const patterns = [
@@ -634,28 +606,6 @@ function renderArticles(){
   });
   if(search) filtered = filtered.filter(a=> (a.title+' '+a.description+' '+a.source).toLowerCase().includes(search));
   filtered = filtered.sort((a,b)=>b.pubDate - a.pubDate);
-
-  // ===== FOCUS MODE CHECK v229 =====
-  if(_focusArticle){
-    const focused = findFocusedArticle(filtered.length?filtered:allArticles, _focusArticle);
-    if(focused){
-      const cleanTitle = focused.title.replace(/^\[[^\]]+\]\s*/,'').trim() || focused.title;
-      const banner = `<div style="background:#fff7ed;border:2px solid #fb923c;border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:12px">
-        <div><strong style="color:#9a3412">🔔 Nieuw artikel via melding</strong><br><small style="color:#666">${_focusArticle.source||focused.source} - ${formatDate(focused.pubDate, focused.id)}</small></div>
-        <button onclick="window.exitFocusMode()" style="padding:8px 14px;border-radius:20px;border:0;background:#0b5bd3;color:white;font-weight:600;cursor:pointer;white-space:nowrap">Toon alle artikelen</button>
-      </div>`;
-      const htmlSingle = `<div class="article" data-source="${focused.id}" style="border:2px solid #f97316;box-shadow:0 0 0 4px rgba(251,146,60,0.2);animation:ommenPulse 2s ease-in-out 2">
-        <h2><a href="${focused.link}" target="_blank">${cleanTitle}</a></h2>
-        <small>${focused.source} - ${formatDate(focused.pubDate, focused.id)}</small>
-        ${focused.description?`<div style="margin-top:10px;color:#333;font-size:15px;line-height:1.5">${focused.description}</div>`:''}
-        <div style="margin-top:16px"><a href="${focused.link}" target="_blank" style="display:inline-block;padding:10px 18px;background:#0b5bd3;color:white;border-radius:8px;text-decoration:none;font-weight:600">Lees volledig artikel →</a></div>
-      </div><style>@keyframes ommenPulse{0%{box-shadow:0 0 0 0 rgba(251,146,60,0.6)}50%{box-shadow:0 0 0 12px rgba(251,146,60,0)}100%{box-shadow:0 0 0 4px rgba(251,146,60,0.2)}}</style>`;
-      container.innerHTML = banner + htmlSingle;
-      window.getAllArticles = ()=> [focused];
-      return;
-    }
-  }
-
   const realCount = filtered.filter(a=>!a.isFallback).length;
   const vandaagActive = Object.values(state).some(s=>s.aan && s.vandaag);
   const gemeenteActive = Object.values(state).some(s=>s.aan && s.scope==='gemeente');
@@ -679,71 +629,6 @@ function renderArticles(){
   window.getAllArticles = ()=> filtered;
 }
 function filterNews(){ renderArticles(); }
-
-// ===== v229 FOCUS HELPERS =====
-function getHighlightFromUrl(){
-  try{
-    const p=new URLSearchParams(location.search);
-    const id=p.get('highlight');
-    const src=p.get('src');
-    const url=p.get('url');
-    if(id || url) return {id:id||'', source:src||'', url:url||''};
-  }catch{}
-  return null;
-}
-function enterFocusMode(data){
-  _focusArticle = data;
-  try{
-    const u=new URL(location.href);
-    if(data.id) u.searchParams.set('highlight', data.id);
-    if(data.source) u.searchParams.set('src', data.source);
-    if(data.url) u.searchParams.set('url', data.url);
-    history.replaceState(null,'',u.toString());
-  }catch{}
-  renderArticles();
-  window.scrollTo({top:0, behavior:'smooth'});
-}
-function exitFocusMode(){
-  _focusArticle = null;
-  try{
-    const u=new URL(location.href);
-    u.searchParams.delete('highlight');
-    u.searchParams.delete('src');
-    u.searchParams.delete('url');
-    history.replaceState(null,'',u.toString());
-  }catch{}
-  renderArticles();
-}
-window.exitFocusMode = exitFocusMode;
-
-function findFocusedArticle(all, focus){
-  if(!focus) return null;
-  if(focus.url){
-    try{
-      const decoded = decodeURIComponent(focus.url);
-      const found = all.find(a=>a.link===decoded || a.link===focus.url);
-      if(found) return found;
-    }catch{
-      const found = all.find(a=>a.link===focus.url);
-      if(found) return found;
-    }
-  }
-  if(focus.source){
-    const bySource = all.filter(a=>a.id===focus.source || a.source===focus.source);
-    if(bySource.length>=1){
-      if(focus.url){
-        const partial = bySource.find(a=>focus.url.includes(a.link) || a.link.includes(focus.url));
-        if(partial) return partial;
-      }
-      return bySource.sort((a,b)=>b.pubDate-a.pubDate)[0];
-    }
-  }
-  if(focus.id && all.length>0){
-    return all[0];
-  }
-  return null;
-}
-
 async function refreshNews(){
   const c=document.getElementById('news-container'); 
   if(c) c.innerHTML='<div class="article">Bezig met laden... (9 bronnen)</div>';
@@ -773,22 +658,7 @@ async function refreshNews(){
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); closePanel(); setupFilterHeader();
   document.getElementById('search-input')?.addEventListener('input', filterNews);
-  // v229 focus: check URL meteen
-  const hl = getHighlightFromUrl();
-  if(hl){ _focusArticle = hl; }
   setTimeout(()=>refreshNews(), 200);
-  // luister naar SW notification click
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.addEventListener('message', (e)=>{
-      if(e.data && e.data.type==='NOTIFICATION_CLICK'){
-        enterFocusMode({id:e.data.id, url:e.data.url, source:e.data.source});
-      }
-    });
-  }
-  setTimeout(()=>{
-    const hl2 = getHighlightFromUrl();
-    if(hl2 && !_focusArticle) { _focusArticle = hl2; renderArticles(); }
-  }, 1500);
 });
 window.closePanel=closePanel; window.resetFilters=resetFilters; window.BRONNEN=BRONNEN; window.getAppState=()=>state;
 window.filterNews=filterNews; window.refreshNews=refreshNews;
@@ -819,12 +689,14 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
   }
 
   window.loginOmmen = async function(email, password){
-    const r = await fetch(WORKER+'/auth/login', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password})});
+    // stuur zowel email als username zodat worker (username) en nieuwe worker (email) allebei werken
+    const r = await fetch(WORKER+'/auth/login', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, username: email, password})});
     const j = await r.json();
     if(!r.ok) throw new Error(j.error||'Login mislukt');
     authToken = j.token;
     localStorage.setItem('ommen_auth_token', authToken);
-    currentUser = {id:j.id||j.user?.id, email:j.email||j.user?.email};
+    // worker geeft username terug, app verwacht email -> ondersteun allebei
+    currentUser = {id:j.id||j.user?.id, email:j.email||j.username||j.user?.email||j.user?.username||email, username:j.username||j.email||email};
     await loadFromCloud(true);
     updateAuthUI();
     startLiveSync();
@@ -833,12 +705,12 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
   };
 
   window.registerOmmen = async function(email, password){
-    const r = await fetch(WORKER+'/auth/register', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password})});
+    const r = await fetch(WORKER+'/auth/register', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, username: email, password})});
     const j = await r.json();
     if(!r.ok) throw new Error(j.error||'Registratie mislukt');
     authToken = j.token;
     localStorage.setItem('ommen_auth_token', authToken);
-    currentUser = {id:j.id||j.user?.id, email:j.email||j.user?.email};
+    currentUser = {id:j.id||j.user?.id, email:j.email||j.username||j.user?.email||j.user?.username||email, username:j.username||j.email||email};
     await saveToCloud();
     updateAuthUI();
     startLiveSync();
@@ -958,7 +830,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     if(currentUser){
       btn.classList.add('logged-in');
       btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" style="display:block;flex-shrink:0"><path fill-rule="evenodd" d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" clip-rule="evenodd"/></svg>';
-      btn.title = currentUser.email + ' - ingelogd (● live)';
+      btn.title = (currentUser.email || currentUser.username || 'ingelogd') + ' - ingelogd (● live)';
       btn.onclick = function(){
         const old = document.getElementById('login-modal'); if(old) old.remove();
         const overlay = document.createElement('div');
@@ -966,7 +838,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
         overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
         const box = document.createElement('div');
         box.style.cssText='background:white;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.2);color:#111';
-        const emailSafe = (currentUser.email || currentUser.user?.email || '').replace(/</g,'&lt;');
+        const emailSafe = (currentUser.email || currentUser.username || currentUser.user?.email || currentUser.user?.username || '').replace(/</g,'&lt;');
         box.innerHTML = `<h3 style="margin:0 0 8px;font-size:18px">Ingelogd als</h3>
           <p style="margin:0 0 16px;color:#374151;font-size:13px;word-break:break-all">${emailSafe}<br><span style="font-size:11px;color:#059669;font-weight:700">● live sync elke 30 sec</span></p>
           <div style="display:flex;gap:8px"><button id="btn-sync-now" style="flex:1;padding:10px;background:#0b5bd3;color:white;border:0;border-radius:8px;font-weight:600;cursor:pointer">Sync nu</button><button id="btn-logout-now" style="flex:1;padding:10px;background:#fee2e2;color:#991b1b;border:0;border-radius:8px;font-weight:600;cursor:pointer">Uitloggen</button></div>
