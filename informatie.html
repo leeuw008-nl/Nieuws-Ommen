@@ -40,7 +40,7 @@ li{margin-bottom:6px}
 </head>
 <body>
 <header>
-<a href="javascript:void(0)" onclick="if(history.length>1){history.back()}else{location.href='./'}" style="cursor:pointer">←</a>
+<a href="./">←</a>
 <h1>Nieuw(s)Ommen - Info</h1>
 </header>
 
@@ -181,7 +181,6 @@ async function checkAdmin(){
   const adminEmailEl=document.getElementById('adminEmail');
   const adminStatus=document.getElementById('adminStatus');
   let email=getEmail();
-  // probeer ook via worker /auth/me
   try{
     const token=localStorage.getItem('ommen_auth_token')||localStorage.getItem('auth_token')||localStorage.getItem('token')||'';
     if(token){
