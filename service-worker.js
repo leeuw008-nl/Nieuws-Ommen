@@ -18,7 +18,7 @@ self.addEventListener('fetch', e=>{
 const PUSH_WORKER_URL='https://ommen-push-v2.leeuw008.workers.dev';
 self.addEventListener('push', e=>{
   e.waitUntil((async()=>{
-    let title='Nieuws Ommen', body='Er is nieuw nieuws uit Ommen', link='/', source='', id='';
+    let title='Nieuw(s)Ommen', body='Er is nieuw nieuws uit Ommen', link='/', source='', id='';
     if(e.data){try{const d=e.data.json();title=d.title||title;body=d.body||d.title||body;link=d.link||d.url||link;source=d.source||'';id=d.id||d.articleId||'';if(source)body=`${source}: ${title}`;}catch{try{const txt=e.data.text();if(txt)body=txt;}catch{}}}
     else{try{const r=await fetch(`${PUSH_WORKER_URL}/last`,{cache:'no-store'});if(r.ok){const j=await r.json();title=j.title||title;link=j.link||link;source=j.source||'';id=j.id||'';body=source?`${source}: ${j.title}`:j.title;}}catch{}}
     const tag = id ? `ommen-${id}` : `ommen-${(source||'algemeen').toLowerCase().replace(/\s+/g,'-')}`;
