@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Informatie - Nieuws Ommen</title>
+<title>Informatie - Nieuw(s)Ommen</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f5f7fb;color:#1a1a1a;line-height:1.6}
@@ -41,7 +41,7 @@ li{margin-bottom:6px}
 <body>
 <header>
 <a href="javascript:void(0)" onclick="if(history.length>1){history.back()}else{location.href='./'}" style="cursor:pointer">←</a>
-<h1>Nieuws Ommen - Info</h1>
+<h1>Nieuw(s)Ommen - Info</h1>
 </header>
 
 <div class="tabs" id="tabs">
@@ -56,8 +56,8 @@ li{margin-bottom:6px}
 <div class="content">
 <!-- OVER -->
 <div class="panel active" id="panel-over">
-<h2>Over Nieuws Ommen</h2>
-<p>Nieuws Ommen bundelt al het lokale nieuws uit Ommen en omgeving op één plek. Geen losse sites meer afstruinen, alles overzichtelijk bij elkaar.</p>
+<h2>Over Nieuw(s)Ommen</h2>
+<p>Nieuw(s)Ommen bundelt al het lokale nieuws uit Ommen en omgeving op één plek. Geen losse sites meer afstruinen, alles overzichtelijk bij elkaar.</p>
 <p>De app ververst automatisch en toont de laatste artikelen bovenaan. Je kunt filteren op bron en zoeken op onderwerp.</p>
 <h3>Hoe werkt het?</h3>
 <ul>
@@ -114,14 +114,14 @@ li{margin-bottom:6px}
 <h3>9/9 bronnen aan?</h3>
 <p>Als je alle bronnen aan hebt staan, zie je al het nieuws. De app onthoudt je keuze, ook na het sluiten.</p>
 <h3>Installeren als app</h3>
-<p>Op je telefoon: open het menu van je browser en kies "Toevoegen aan beginscherm" of "Installeren". Dan werkt Nieuws Ommen als een echte app, ook offline.</p>
+<p>Op je telefoon: open het menu van je browser en kies "Toevoegen aan beginscherm" of "Installeren". Dan werkt Nieuw(s)Ommen als een echte app, ook offline.</p>
 </div>
 
 <!-- PRIVACY -->
 <div class="panel" id="panel-privacy">
 <h2>Privacy & Contact</h2>
 <h3>Privacy</h3>
-<p>Nieuws Ommen plaatst geen tracking cookies, volgt je niet en verkoopt geen data. We slaan alleen je filter voorkeur lokaal op je eigen apparaat op (in je browser). Push abonnementen worden alleen gebruikt om je meldingen te sturen.</p>
+<p>Nieuw(s)Ommen plaatst geen tracking cookies, volgt je niet en verkoopt geen data. We slaan alleen je filter voorkeur lokaal op je eigen apparaat op (in je browser). Push abonnementen worden alleen gebruikt om je meldingen te sturen.</p>
 <h3>Disclaimer</h3>
 <p>Artikelen zijn afkomstig van externe bronnen. Wij zijn niet verantwoordelijk voor de inhoud van die bronnen.</p>
 <h3>Contact & Ideeën</h3>
@@ -220,7 +220,7 @@ function initAdmin(){
   document.getElementById('btnLocal').onclick=async()=>{
     try{
       const reg=await navigator.serviceWorker.ready;
-      await reg.showNotification('Nieuws Ommen - Test',{body:'Lokale test melding werkt! ✓',icon:'/icons/icon-192x192.png',badge:'/icons/icon-96x96.png'});
+      await reg.showNotification('Nieuw(s)Ommen - Test',{body:'Lokale test melding werkt! ✓',icon:'/icons/icon-192x192.png',badge:'/icons/icon-96x96.png'});
       result.textContent='Lokale notificatie verstuurd ✓\n(Als je niets ziet, check browser toestemming)';
     }catch(e){result.textContent='Fout lokale notificatie: '+e.message;}
   };
