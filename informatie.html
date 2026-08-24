@@ -3,17 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Informatie - Nieuw(s)Ommen</title>
+<title>Informatie - Nieuws Ommen</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f5f7fb;color:#1a1a1a;line-height:1.6;max-width:800px;margin:0 auto}
-header{background:#0b5bd3;color:white;position:sticky;top:0;z-index:10;max-width:800px;margin:0 auto;width:100%;border-radius:0 0 14px 14px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
-.header-inner{position:relative;display:flex;align-items:center;justify-content:center;padding:14px 16px;min-height:56px}
-header a.back-btn{position:absolute;left:10px;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;background:#ffffff;color:#0b5bd3;text-decoration:none;line-height:1;padding:0;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.22);width:40px;height:40px;min-width:40px;min-height:40px;border:2px solid #ffffff}
-header a.back-btn:hover{background:#eef4ff}
-header h1{font-size:18px;font-weight:700;text-align:center;flex:1}
-.tabs-wrap{background:white;border-bottom:1px solid #e5e7eb;position:sticky;top:62px;z-index:9;max-width:800px;margin:8px auto 0;width:100%;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.tabs{display:flex;gap:8px;padding:12px 16px;overflow-x:auto;white-space:nowrap}
+body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f5f7fb;color:#1a1a1a;line-height:1.6}
+header{background:#0b5bd3;color:white;padding:14px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10}
+header a{color:white;text-decoration:none;font-size:20px;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,.15)}
+header h1{font-size:18px;font-weight:700}
+.tabs{display:flex;gap:8px;padding:12px 16px;background:white;border-bottom:1px solid #e5e7eb;overflow-x:auto;white-space:nowrap;position:sticky;top:52px;z-index:9}
 .tabs button{padding:8px 14px;border-radius:20px;border:1px solid #d1d5db;background:white;font-size:14px;cursor:pointer;flex-shrink:0}
 .tabs button.active{background:#0b5bd3;color:white;border-color:#0b5bd3}
 .tabs button.admin-tab{background:#fff7ed;border-color:#fb923c;color:#9a3412;display:none}
@@ -43,29 +40,24 @@ li{margin-bottom:6px}
 </head>
 <body>
 <header>
-<div class="header-inner">
-<a href="javascript:void(0)" onclick="if(history.length>1){history.back()}else{location.href='./'}" class="back-btn" title="Terug" aria-label="Terug">
-<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:block">
-<path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
-</svg>
-</a>
-<h1>Nieuw(s)Ommen - Info</h1>
-</div>
+<a href="javascript:void(0)" onclick="if(history.length>1){history.back()}else{location.href='./'}" style="cursor:pointer">←</a>
+<h1>Nieuws Ommen - Info</h1>
 </header>
 
-<div class="tabs-wrap"><div class="tabs" id="tabs">
+<div class="tabs" id="tabs">
 <button data-tab="over" class="active">Over</button>
 <button data-tab="bronnen">Bronnen</button>
 <button data-tab="meldingen">Meldingen</button>
 <button data-tab="tips">Filters & Tips</button>
 <button data-tab="privacy">Privacy & Contact</button>
-<button data-tab="beheer" class="admin-tab visible" id="adminTab" style="display:inline-flex;align-items:center;gap:6px">Beheer <span class="badge">ADMIN</span></button>
-</div></div>
+<button data-tab="beheer" class="admin-tab" id="adminTab">Beheer <span class="badge">ADMIN</span></button>
+</div>
 
 <div class="content">
+<!-- OVER -->
 <div class="panel active" id="panel-over">
-<h2>Over Nieuw(s)Ommen</h2>
-<p>Nieuw(s)Ommen bundelt al het lokale nieuws uit Ommen en omgeving op één plek. Geen losse sites meer afstruinen, alles overzichtelijk bij elkaar.</p>
+<h2>Over Nieuws Ommen</h2>
+<p>Nieuws Ommen bundelt al het lokale nieuws uit Ommen en omgeving op één plek. Geen losse sites meer afstruinen, alles overzichtelijk bij elkaar.</p>
 <p>De app ververst automatisch en toont de laatste artikelen bovenaan. Je kunt filteren op bron en zoeken op onderwerp.</p>
 <h3>Hoe werkt het?</h3>
 <ul>
@@ -77,6 +69,7 @@ li{margin-bottom:6px}
 </ul>
 </div>
 
+<!-- BRONNEN -->
 <div class="panel" id="panel-bronnen">
 <h2>Bronnen</h2>
 <p>We verzamelen nieuws uit deze 9 betrouwbare lokale bronnen:</p>
@@ -94,6 +87,7 @@ li{margin-bottom:6px}
 <p style="margin-top:16px">Tip: via Filters kun je bronnen aan/uit zetten. Sta je alles aan (9/9) dan zie je alles.</p>
 </div>
 
+<!-- MELDINGEN -->
 <div class="panel" id="panel-meldingen">
 <h2>Meldingen instellen</h2>
 <p>Wil je direct weten als er nieuws is? Zet meldingen aan via het belletje rechtsboven in de app.</p>
@@ -112,6 +106,7 @@ li{margin-bottom:6px}
 </ul>
 </div>
 
+<!-- TIPS -->
 <div class="panel" id="panel-tips">
 <h2>Filters & Tips</h2>
 <h3>Filteren op bron</h3>
@@ -119,13 +114,14 @@ li{margin-bottom:6px}
 <h3>9/9 bronnen aan?</h3>
 <p>Als je alle bronnen aan hebt staan, zie je al het nieuws. De app onthoudt je keuze, ook na het sluiten.</p>
 <h3>Installeren als app</h3>
-<p>Op je telefoon: open het menu van je browser en kies "Toevoegen aan beginscherm" of "Installeren". Dan werkt Nieuw(s)Ommen als een echte app, ook offline.</p>
+<p>Op je telefoon: open het menu van je browser en kies "Toevoegen aan beginscherm" of "Installeren". Dan werkt Nieuws Ommen als een echte app, ook offline.</p>
 </div>
 
+<!-- PRIVACY -->
 <div class="panel" id="panel-privacy">
 <h2>Privacy & Contact</h2>
 <h3>Privacy</h3>
-<p>Nieuw(s)Ommen plaatst geen tracking cookies, volgt je niet en verkoopt geen data. We slaan alleen je filter voorkeur lokaal op je eigen apparaat op (in je browser). Push abonnementen worden alleen gebruikt om je meldingen te sturen.</p>
+<p>Nieuws Ommen plaatst geen tracking cookies, volgt je niet en verkoopt geen data. We slaan alleen je filter voorkeur lokaal op je eigen apparaat op (in je browser). Push abonnementen worden alleen gebruikt om je meldingen te sturen.</p>
 <h3>Disclaimer</h3>
 <p>Artikelen zijn afkomstig van externe bronnen. Wij zijn niet verantwoordelijk voor de inhoud van die bronnen.</p>
 <h3>Contact & Ideeën</h3>
@@ -133,18 +129,22 @@ li{margin-bottom:6px}
 <p>We horen graag van je!</p>
 </div>
 
+<!-- BEHEER - ALLEEN ADMIN -->
 <div class="panel" id="panel-beheer">
 <h2>Beheer & Diagnose <span class="badge">ALLEEN VOOR ADMIN</span></h2>
 <div class="admin-only">
 <p><strong>Ingelogd als admin:</strong> <span id="adminEmail">-</span></p>
 <p id="adminStatus" style="font-size:13px;color:#6b7280">Controleren...</p>
+
 <h3>1. Push status</h3>
 <p id="pushStatus">Controleren...</p>
 <button class="btn" id="btnLocal">Test lokale melding</button>
 <button class="btn orange" id="btnPush">Test echte push via worker</button>
 <button class="btn secondary" id="btnCheckDebug">Check /debug</button>
+
 <h3 style="margin-top:20px">2. Service Worker</h3>
 <p id="swStatus">Controleren...</p>
+
 <h3>Resultaat</h3>
 <div class="result" id="result">Nog geen test uitgevoerd.</div>
 </div>
@@ -163,6 +163,7 @@ tabs.forEach(btn=>{
     document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
   });
 });
+
 function getEmail(){
   try{
     const keys=['ommen_current_user_email','user_email','email','auth_email','leeuw008_email'];
@@ -174,37 +175,34 @@ function getEmail(){
   }catch(e){}
   return null;
 }
-let authFailCount = 0;
+
 async function checkAdmin(){
   const adminTab=document.getElementById('adminTab');
   const adminEmailEl=document.getElementById('adminEmail');
   const adminStatus=document.getElementById('adminStatus');
-  // FIX 2: altijd zichtbaar maken voor debug, niet verstoppen
-  adminTab.classList.add('visible');
-  adminTab.style.display='inline-flex';
   let email=getEmail();
-  if(authFailCount < 3){
-    try{
-      const token=localStorage.getItem('ommen_auth_token')||localStorage.getItem('auth_token')||localStorage.getItem('token')||'';
-      if(token){
-        const r=await fetch('https://ommen-push-v2.leeuw008.workers.dev/auth/me',{headers:{'Authorization':'Bearer '+token}});
-        if(r.status===401){authFailCount++;} 
-        else if(r.ok){
-          const j=await r.json();
-          if(j.email) email=j.email;
-          authFailCount=0;
-        }
+  // probeer ook via worker /auth/me
+  try{
+    const token=localStorage.getItem('ommen_auth_token')||localStorage.getItem('auth_token')||localStorage.getItem('token')||'';
+    if(token){
+      const r=await fetch('https://ommen-push-v2.leeuw008.workers.dev/auth/me',{headers:{'Authorization':'Bearer '+token}});
+      if(r.ok){
+        const j=await r.json();
+        if(j.email) email=j.email;
       }
-    }catch(e){ authFailCount++; }
-  }
-  adminEmailEl.textContent=email||'(geen email gevonden)';
+    }
+  }catch(e){}
   if(email && email.toLowerCase()==='leeuw008@gmail.com'){
+    adminTab.classList.add('visible');
+    adminEmailEl.textContent=email;
     adminStatus.textContent='Admin toegang verleend ✓';
+    initAdmin();
   }else{
-    adminStatus.textContent='Tab blijft zichtbaar voor debug (email: '+(email||'onbekend')+') - auth fails: '+authFailCount;
+    adminTab.classList.remove('visible');
+    adminStatus.textContent='Niet ingelogd als admin ('+(email||'geen email gevonden')+')';
   }
-  initAdmin();
 }
+
 function initAdmin(){
   const pushStatus=document.getElementById('pushStatus');
   const swStatus=document.getElementById('swStatus');
@@ -218,10 +216,11 @@ function initAdmin(){
     swStatus.textContent='Service Worker: controleren...';
     navigator.serviceWorker.ready.then(()=>{swStatus.textContent='Service Worker actief ✓';}).catch(()=>{swStatus.textContent='Service Worker niet actief';});
   }
+
   document.getElementById('btnLocal').onclick=async()=>{
     try{
       const reg=await navigator.serviceWorker.ready;
-      await reg.showNotification('Nieuw(s)Ommen - Test',{body:'Lokale test melding werkt! ✓',icon:'/icons/icon-192x192.png',badge:'/icons/icon-96x96.png'});
+      await reg.showNotification('Nieuws Ommen - Test',{body:'Lokale test melding werkt! ✓',icon:'/icons/icon-192x192.png',badge:'/icons/icon-96x96.png'});
       result.textContent='Lokale notificatie verstuurd ✓\n(Als je niets ziet, check browser toestemming)';
     }catch(e){result.textContent='Fout lokale notificatie: '+e.message;}
   };
@@ -242,11 +241,9 @@ function initAdmin(){
     }catch(e){result.textContent='Fout debug: '+e.message;}
   };
 }
-// FIX 3: geen spam polling meer, alleen 1x + 1x na 1 seconde
-document.addEventListener('DOMContentLoaded',()=>{
-  checkAdmin();
-  setTimeout(checkAdmin,1000);
-});
+
+document.addEventListener('DOMContentLoaded',checkAdmin);
+setInterval(checkAdmin,3000);
 </script>
 </body>
 </html>
