@@ -219,6 +219,57 @@ function isGemeenteArtikel(art){
 }
 
 let state = {}; let allArticles = []; let loadedSources = new Set();
+
+// LED STATUS CSS - injected via JS zodat styles.css niet vervangen hoeft te worden
+(function injectLedStyles(){
+  const css = `
+  .source-row{position:relative}
+  .source-led{width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0;margin-right:6px;vertical-align:middle;transition:all .25s}
+  .source-led.loading{background:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,.25);animation:pulse-red 1.2s infinite}
+  .source-led.ok{background:#16a34a;box-shadow:0 0 0 2px rgba(22,163,74,.22)}
+  .source-led.fail{background:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,.2)}
+  .source-led.empty{background:#f59e0b;box-shadow:0 0 0 2px rgba(245,158,11,.2)}
+  @keyframes pulse-red{0%{transform:scale(1);opacity:1}50%{transform:scale(1.25);opacity:.7}100%{transform:scale(1);opacity:1}}
+  .source-meta{display:flex;flex-direction:row;align-items:center;gap:0}
+  .source-meta-text{display:flex;flex-direction:column;min-width:0}
+  .source-led-wrap{display:flex;align-items:center;justify-content:center;width:18px}
+  `;
+  const el=document.createElement('style');
+  el.id='led-status-style';
+  el.textContent=css;
+  if(!document.getElementById('led-status-style')) document.head.appendChild(el);
+})();
+function updateSourceLeds(){
+  try{
+    BRONNEN.forEach(b=>{
+      const led=document.querySelector(`.source-led[data-id="${CSS.escape(b.id)}"]`);
+      if(!led) return;
+      const realArts = allArticles.filter(a=>a.id===b.id && !a.isFallback);
+      const isLoaded = loadedSources.has(b.id);
+      led.classList.remove('loading','ok','fail','empty');
+      if(!isLoaded){
+        led.classList.add('loading');
+        led.title='Laden...';
+      } else if(realArts.length>0){
+        led.classList.add('ok');
+        led.title=realArts.length+' artikel(en) geladen';
+      } else {
+        // loaded maar geen echte artikelen -> check of fallback
+        const hasFallback = allArticles.some(a=>a.id===b.id && a.isFallback);
+        if(hasFallback){
+          led.classList.add('fail');
+          led.title='Bron offline';
+        } else {
+          led.classList.add('empty');
+          led.title='Geen artikelen (filter?)';
+        }
+      }
+    });
+    // update header count also
+    if(typeof updateHeaderCount==='function') updateHeaderCount();
+  }catch(e){ console.log('led update fail', e.message); }
+}
+
 function loadState(){
   try{
     const v2 = localStorage.getItem('nieuwsommen_bronnen_v2');
@@ -252,7 +303,7 @@ function renderFilters(){
     const row = document.createElement('div');
     row.className='source-row'+(s.aan?'':' off');
     const scopeIsGemeente = s.scope==='gemeente';
-    row.innerHTML = `<div class="source-meta"><div class="source-name">${b.name}</div><div class="source-sub">${b.sub}</div></div>
+    row.innerHTML = `<div class="source-meta"><div class="source-led-wrap"><span class="source-led loading" data-id="${b.id}" title="Laden..."></span></div><div class="source-meta-text"><div class="source-name">${b.name}</div><div class="source-sub">${b.sub}</div></div></div></div>
       <div class="toggles">
         <div class="toggle-col"><label class="mini-switch vandaag ${s.vandaag?'checked':''}"><input type="checkbox" ${s.vandaag?'checked':''} data-type="vandaag" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${s.vandaag?'VANDAAG':'MEER'}</span></div>
         <div class="toggle-col"><label class="mini-switch ${scopeIsGemeente?'checked':''} ${scopeIsGemeente?'scope-gemeente':'scope-regio'}" style="background:${scopeIsGemeente?'#0b5bd3':'#7c3aed'}"><input type="checkbox" ${scopeIsGemeente?'checked':''} data-type="scope" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${scopeIsGemeente?'GEMEENTE':'REGIO'}</span></div>
@@ -267,7 +318,7 @@ function renderFilters(){
       if(type==='vandaag') state[id].vandaag = e.target.checked;
       if(type==='scope') state[id].scope = e.target.checked?'gemeente':'regio';
       if(type==='aan') state[id].aan = e.target.checked;
-      saveState(); renderFilters(); filterNews();
+      saveState(); renderFilters(); filterNews(); updateSourceLeds();
     });
   });
 }
@@ -297,7 +348,7 @@ function setupFilterHeader(){
       e.stopPropagation();
       const allOn = Object.values(state).every(s=>s.aan);
       BRONNEN.forEach(b=>state[b.id].aan = !allOn);
-      saveState(); renderFilters(); filterNews(); return;
+      saveState(); renderFilters(); filterNews(); updateSourceLeds(); return;
     }
     const p = document.getElementById('source-panel');
     if(p.classList.contains('open')) closePanel(); else openPanel();
@@ -556,7 +607,7 @@ async function loadOneSource(b){
       if(overview.length){
         const tempArts=overview.map(a=>({...a, source:b.name, id:b.id, isFallback:false, pubDate:a.pubDate||new Date()}));
         allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts);
-        loadedSources.add(b.id); updateHeaderCount(); renderArticles();
+        loadedSources.add(b.id); updateHeaderCount(); renderArticles(); updateSourceLeds();
       }
       arts = await enrichGemeenteWithDetail(overview);
     }
@@ -696,6 +747,7 @@ function renderArticles(){
   }).join('');
   container.innerHTML = countHtml + html;
   window.getAllArticles = ()=> filtered;
+  try{ if(typeof updateSourceLeds==='function') setTimeout(()=>updateSourceLeds(), 20); }catch{}
 }
 function filterNews(){ renderArticles(); }
 async function refreshNews(){
@@ -722,6 +774,7 @@ async function refreshNews(){
   });
   updateHeaderCount();
   renderArticles();
+  updateSourceLeds();
   console.log('refreshNews klaar,', allArticles.length, 'artikelen');
 }
 document.addEventListener('DOMContentLoaded', ()=>{
