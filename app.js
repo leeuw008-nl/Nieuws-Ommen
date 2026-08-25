@@ -28,12 +28,32 @@ const BRON_URLS = {
 // ===== v238 DEFINITIEF - ECHTE HTML PARSERS =====
 function parseVechtdalCentraalECHT(html){
   const items=[]; const seen=new Set();
+  // Originele parser - behouden
   let re=/<h3 class="entry-title[^>]*>\s*<a href="([^"]+)"[^>]*>([^<]+)<\/a>/gi; let m;
   while((m=re.exec(html))!==null && items.length<25){
     let link=m[1]; if(link.startsWith('/')) link='https://www.vechtdalcentraal.nl'+link;
     if(seen.has(link)) continue; seen.add(link);
     const title=m[2].replace(/&#8217;/g,"'").replace(/&amp;/g,"&").trim();
     if(title.length>4) items.push({title, link, pubDate:new Date(), description:title+' [...]'});
+  }
+  if(items.length>0) return items;
+  // FIX 25-08-2026: nieuwe thema varianten - vechtdalcentraal gebruikt nu ook <h2><a> en article
+  const patterns=[
+    /<h2[^>]*>\s*<a href="([^"]+)"[^>]*>([^<]{8,200})<\/a>\s*<\/h2>/gi,
+    /<article[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>([\s\S]{0,300}?)<\/a>[\s\S]*?<h[23]/gi,
+    /<a[^>]+href="(https:\/\/www\.vechtdalcentraal\.nl\/[^"']{5,150})"[^>]*class="[^"]*entry-title[^"]*"[^>]*>([^<]+)</gi,
+    /<a href="(\/[^"']{5,150})"[^>]*>[^<]*<h3[^>]*>([^<]{8,200})<\/h3>/gi
+  ];
+  for(const pat of patterns){
+    let mm;
+    while((mm=pat.exec(html))!==null && items.length<25){
+      let link=mm[1]; let title=mm[2].replace(/<[^>]*>/g,'').replace(/&#8217;/g,"'").replace(/&amp;/g,"&").trim();
+      if(link.startsWith('/')) link='https://www.vechtdalcentraal.nl'+link;
+      if(!link.includes('vechtdalcentraal.nl')) continue;
+      if(seen.has(link)) continue; seen.add(link);
+      if(title.length>8) items.push({title, link, pubDate:new Date(), description:title+' [...]'});
+    }
+    if(items.length>5) break;
   }
   return items;
 }
@@ -563,19 +583,42 @@ async function loadOneSource(b){
       }
     }
     else if(b.id==='Vechtdal Centraal'){
+      // ROBUUSTE FIX: probeer feed, daarna homepage, daarna direct rss2json als laatste redmiddel
       try{
         const xml=await fetchViaWorker(cfg.url);
         if(xml.includes('<rss')||xml.includes('<feed')||xml.includes('<item')){
           arts=parseRSSFull(xml,b.id);
+          console.log('[Vechtdal] RSS OK', arts.length);
         } else {
           arts=parseVechtdalCentraalFallback(xml);
+          console.log('[Vechtdal] HTML fallback parser', arts.length);
         }
       }catch(e){ console.log('vc feed fail', e.message); }
       if(arts.length===0){
         try{
           const html=await fetchViaWorker(cfg.fallback || cfg.homepage);
           arts=parseVechtdalCentraalFallback(html);
+          console.log('[Vechtdal] homepage parser', arts.length);
         }catch(e){ console.log('vc html fail', e.message); }
+      }
+      if(arts.length===0){
+        // LAATSTE REDMIDDEL: rss2json direct (om Cloudflare te omzeilen)
+        try{
+          const rss2jsonUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://www.vechtdalcentraal.nl/feed/')}&t=${Date.now()}`;
+          const rRss = await fetch(rss2jsonUrl, {cache:'no-store'});
+          if(rRss.ok){
+            const j = await rRss.json();
+            if(j.status==='ok' && j.items && j.items.length>0){
+              console.log('[Vechtdal] rss2json OK', j.items.length);
+              arts = j.items.slice(0,10).map(it=>({
+                title: it.title.replace(/<[^>]*>/g,'').trim(),
+                link: it.link,
+                pubDate: it.pubDate ? new Date(it.pubDate) : new Date(),
+                description: (it.description||'').replace(/<[^>]*>/g,' ').slice(0,180)+' [...]'
+              }));
+            }
+          }
+        }catch(e){ console.log('[Vechtdal] rss2json fail', e.message); }
       }
     }
     else {
