@@ -341,8 +341,24 @@ function updateHeaderCount(){
     else { btn.classList.add('some-on'); btn.textContent='Alles aan/uit'; }
   }
 }
-function openPanel(){ document.getElementById('filter-header')?.classList.add('open'); document.getElementById('source-panel')?.classList.add('open'); document.body.classList.add('panel-open'); }
-function closePanel(){ document.getElementById('filter-header')?.classList.remove('open'); document.getElementById('source-panel')?.classList.remove('open'); document.body.classList.remove('panel-open'); }
+function openPanel(){ 
+  document.getElementById('filter-header')?.classList.add('open'); 
+  document.getElementById('source-panel')?.classList.add('open'); 
+  document.body.classList.add('panel-open'); 
+  try{ localStorage.setItem('ommen_filter_panel_open','1'); }catch{}
+}
+function closePanel(){ 
+  document.getElementById('filter-header')?.classList.remove('open'); 
+  document.getElementById('source-panel')?.classList.remove('open'); 
+  document.body.classList.remove('panel-open'); 
+  try{ localStorage.setItem('ommen_filter_panel_open','0'); }catch{}
+}
+function restorePanelState(){
+  try{
+    const open = localStorage.getItem('ommen_filter_panel_open');
+    if(open==='1'){ openPanel(); } else { closePanel(); }
+  }catch{ closePanel(); }
+}
 function resetFilters(){ BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); saveState(); renderFilters(); filterNews(); }
 function setupFilterHeader(){
   const fh = document.getElementById('filter-header'); if(!fh) return;
@@ -782,7 +798,7 @@ async function refreshNews(){
   console.log('refreshNews klaar,', allArticles.length, 'artikelen');
 }
 document.addEventListener('DOMContentLoaded', ()=>{
-  loadState(); renderFilters(); saveState(); closePanel(); setupFilterHeader();
+  loadState(); renderFilters(); saveState(); restorePanelState(); setupFilterHeader();
   document.getElementById('search-input')?.addEventListener('input', filterNews);
   setTimeout(()=>refreshNews(), 200);
 });
