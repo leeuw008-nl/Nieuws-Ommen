@@ -307,7 +307,40 @@ function renderFilters(){
     const row = document.createElement('div');
     row.className='source-row'+(s.aan?'':' off');
     const scopeIsGemeente = s.scope==='gemeente';
-    row.innerHTML = `<div class="source-meta"><div class="source-led-wrap"><span class="source-led loading" data-id="${b.id}" title="Laden..."></span></div><div class="source-meta-text"><div class="source-name">${b.name}</div><div class="source-sub">${b.sub}</div></div></div></div>
+    // TEL per bron: ingeladen vs geselecteerd
+const allForBron = allArticles.filter(a=>a.id===b.id && !a.isFallback);
+const loadedCount = allForBron.length;
+
+// geselecteerd = na vandaag/gemeente filter
+let selectedCount = allForBron.length;
+if(s.vandaag){
+  const today = new Date();
+  selectedCount = allForBron.filter(a=>a.pubDate && isSameDay(a.pubDate, today)).length;
+}
+if(s.scope==='gemeente'){
+  selectedCount = allForBron.filter(a=>isGemeenteArtikel(a)).length;
+  if(s.vandaag){
+    const today = new Date();
+    selectedCount = allForBron.filter(a=>a.pubDate && isSameDay(a.pubDate, today) && isGemeenteArtikel(a)).length;
+  }
+}
+
+row.innerHTML = `
+  <div class="source-meta" style="display:flex;flex-direction:row;align-items:center;gap:10px;flex:1;">
+    <div class="source-meta-text" style="display:flex;flex-direction:column;flex:1;">
+      <div class="source-name" style="display:flex;align-items:center;gap:8px;">
+        ${b.name}
+        <span style="font-size:11px;font-weight:600;color:#6b7280;background:#f3f4f6;padding:2px 6px;border-radius:99px;white-space:nowrap;">
+          ${loadedCount} / ${selectedCount}
+        </span>
+        <span class="source-led loading" data-id="${b.id}" title="Laden..." 
+          style="width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block;flex-shrink:0;border:2px solid #fff;box-shadow:0 0 0 2px rgba(239,68,68,.3)">
+        </span>
+      </div>
+      <div class="source-sub">${b.sub}</div>
+    </div>
+  </div>
+  <div class="toggles">...` // <-- je bestaande toggles blijven ongewijzigd
       <div class="toggles">
         <div class="toggle-col"><label class="mini-switch vandaag ${s.vandaag?'checked':''}"><input type="checkbox" ${s.vandaag?'checked':''} data-type="vandaag" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${s.vandaag?'VANDAAG':'MEER'}</span></div>
         <div class="toggle-col"><label class="mini-switch ${scopeIsGemeente?'checked':''} ${scopeIsGemeente?'scope-gemeente':'scope-regio'}" style="background:${scopeIsGemeente?'#0b5bd3':'#7c3aed'}"><input type="checkbox" ${scopeIsGemeente?'checked':''} data-type="scope" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${scopeIsGemeente?'GEMEENTE':'REGIO'}</span></div>
