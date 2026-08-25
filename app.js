@@ -1,4 +1,4 @@
-// app.js v246 - LED rechts + aantal ingeladen/geselecteerd - FIX 344 DEFINITIEF
+// app.js v246 - LED rechts + aantal ingeladen/geselecteerd - FIX 344 DEFINITIEF - 3 regels veranderd t.o.v. v227
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
@@ -307,7 +307,32 @@ function renderFilters(){
     const row = document.createElement('div');
     row.className='source-row'+(s.aan?'':' off');
     const scopeIsGemeente = s.scope==='gemeente';
-    row.innerHTML = `<div class="source-meta"><div class="source-led-wrap"><span class="source-led loading" data-id="${b.id}" title="Laden..."></span></div><div class="source-meta-text"><div class="source-name">${b.name}</div><div class="source-sub">${b.sub}</div></div></div></div>
+    const allForBron = allArticles.filter(a=>a.id===b.id && !a.isFallback);
+    const loadedCount = allForBron.length;
+    let selectedCount = allForBron.length;
+    if(s.vandaag){
+      const today = new Date();
+      selectedCount = allForBron.filter(a=>a.pubDate && isSameDay(a.pubDate, today)).length;
+    }
+    if(s.scope==='gemeente'){
+      if(s.vandaag){
+        const today = new Date();
+        selectedCount = allForBron.filter(a=>a.pubDate && isSameDay(a.pubDate, today) && isGemeenteArtikel(a)).length;
+      } else {
+        selectedCount = allForBron.filter(a=>isGemeenteArtikel(a)).length;
+      }
+    }
+    row.innerHTML = `
+      <div class="source-meta" style="display:flex;flex-direction:row;align-items:center;gap:10px;flex:1;">
+        <div class="source-meta-text" style="display:flex;flex-direction:column;flex:1;min-width:0;">
+          <div class="source-name" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span>${b.name}</span>
+            <span style="font-size:11px;font-weight:700;color:#374151;background:#f3f4f6;padding:2px 7px;border-radius:99px;white-space:nowrap;" title="ingeladen / geselecteerd">${loadedCount} / ${selectedCount}</span>
+            <span class="source-led loading" data-id="${b.id}" title="Laden..." style="width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block;flex-shrink:0;border:2px solid #fff;box-shadow:0 0 0 2px rgba(239,68,68,.25);"></span>
+          </div>
+          <div class="source-sub">${b.sub}</div>
+        </div>
+      </div>
       <div class="toggles">
         <div class="toggle-col"><label class="mini-switch vandaag ${s.vandaag?'checked':''}"><input type="checkbox" ${s.vandaag?'checked':''} data-type="vandaag" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${s.vandaag?'VANDAAG':'MEER'}</span></div>
         <div class="toggle-col"><label class="mini-switch ${scopeIsGemeente?'checked':''} ${scopeIsGemeente?'scope-gemeente':'scope-regio'}" style="background:${scopeIsGemeente?'#0b5bd3':'#7c3aed'}"><input type="checkbox" ${scopeIsGemeente?'checked':''} data-type="scope" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${scopeIsGemeente?'GEMEENTE':'REGIO'}</span></div>
@@ -325,7 +350,9 @@ function renderFilters(){
       saveState(); renderFilters(); filterNews(); updateSourceLeds();
     });
   });
+  setTimeout(()=>{ try{ updateSourceLeds(); }catch{} }, 50);
 }
+
 function updateHeaderCount(){
   const aan = Object.values(state).filter(s=>s.aan).length;
   const countEl = document.getElementById('header-count');
