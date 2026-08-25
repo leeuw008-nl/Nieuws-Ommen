@@ -826,7 +826,7 @@ window.closePanel=closePanel; window.resetFilters=resetFilters; window.BRONNEN=B
 window.filterNews=filterNews; window.refreshNews=refreshNews;
 
 
-// ===== v240 LIVE SYNC + NOTIFICATIE - FAST NON-BLOCKING v240 =====
+// ===== v241 LIVE SYNC - FAST + DESKTOP CLICK FIX =====
 (function(){
   const SYNC_ENABLED = true;
   const SYNC_INTERVAL_MS = 30000;
@@ -837,24 +837,30 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
   let isSyncing = false;
   let notifPermissionAsked = false;
   let saveDebounceTimer = null;
-  function fetchWithTimeout(url, opts={}, timeout){
+
+  function fetchWithTimeout(url, opts, timeout){
     if(!timeout) timeout=SYNC_TIMEOUT_MS;
     const ctrl = new AbortController();
-    const to = setTimeout(()=>ctrl.abort(), timeout);
-    const merged = Object.assign({}, opts, {signal: ctrl.signal, cache: 'no-store'});
-    return fetch(url, merged).finally(()=>clearTimeout(to));
+    const to = setTimeout(function(){ ctrl.abort(); }, timeout);
+    const merged = Object.assign({}, opts||{}, {signal: ctrl.signal, cache: 'no-store'});
+    return fetch(url, merged).finally(function(){ clearTimeout(to); });
   }
-  function getAuthHeaders(){ return authToken ? {'Authorization': 'Bearer '+authToken, 'Content-Type':'application/json'} : {'Content-Type':'application/json'}; }
+
+  function getAuthHeaders(){
+    return authToken ? {'Authorization': 'Bearer '+authToken, 'Content-Type':'application/json'} : {'Content-Type':'application/json'};
+  }
+
   async function checkLogin(){
     if(!authToken) return null;
     try{
       const r = await fetchWithTimeout(WORKER+'/auth/me', {headers: getAuthHeaders()}, 3000);
-      if(!r.ok) return null;
+      if(!r.ok){ logout(); return null; }
       const u = await r.json();
       currentUser = u.user || u;
       return currentUser;
-    }catch(e){ console.log('[sync v240] checkLogin fast-fail', e.message); return null; }
+    }catch(e){ console.log('[sync v241] checkLogin fast-fail', e.message); return null; }
   }
+
   window.loginOmmen = async function(email, password){
     const r = await fetchWithTimeout(WORKER+'/auth/login', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password})}, 6000);
     const j = await r.json();
@@ -862,9 +868,13 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     authToken = j.token;
     localStorage.setItem('ommen_auth_token', authToken);
     currentUser = {id:j.id||j.user?.id, email:j.email||j.user?.email};
-    loadFromCloud(true).catch(()=>{});
-    updateAuthUI(); startLiveSync(); ensureNotificationPermission(); return j;
+    await loadFromCloud(true);
+    updateAuthUI();
+    startLiveSync();
+    ensureNotificationPermission();
+    return j;
   };
+
   window.registerOmmen = async function(email, password){
     const r = await fetchWithTimeout(WORKER+'/auth/register', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password})}, 6000);
     const j = await r.json();
@@ -872,29 +882,74 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     authToken = j.token;
     localStorage.setItem('ommen_auth_token', authToken);
     currentUser = {id:j.id||j.user?.id, email:j.email||j.user?.email};
-    saveToCloud(); updateAuthUI(); startLiveSync(); ensureNotificationPermission(); return j;
+    await saveToCloudImmediate();
+    updateAuthUI();
+    startLiveSync();
+    ensureNotificationPermission();
+    return j;
   };
+
   window.logoutOmmen = function(){
-    if(authToken) fetchWithTimeout(WORKER+'/auth/logout', {method:'POST', headers: getAuthHeaders(), body: JSON.stringify({token: authToken})}, 2000).catch(()=>{});
-    authToken = null; currentUser = null; localStorage.removeItem('ommen_auth_token'); localStorage.removeItem('ommen_last_sync'); lastRemoteUpdated = 0; stopLiveSync(); updateAuthUI();
+    if(authToken) fetchWithTimeout(WORKER+'/auth/logout', {method:'POST', headers: getAuthHeaders(), body: JSON.stringify({token: authToken})}, 2000).catch(function(){});
+    authToken = null;
+    currentUser = null;
+    localStorage.removeItem('ommen_auth_token');
+    localStorage.removeItem('ommen_last_sync');
+    lastRemoteUpdated = 0;
+    stopLiveSync();
+    updateAuthUI();
   };
-  async function ensureNotificationPermission(){ if(!('Notification' in window)) return; if(Notification.permission === 'default' && !notifPermissionAsked){ notifPermissionAsked = true; try{ await Notification.requestPermission(); }catch{} } }
+
+  function logout(){ window.logoutOmmen(); }
+
+  async function ensureNotificationPermission(){
+    if(!('Notification' in window)) return;
+    if(Notification.permission === 'default' && !notifPermissionAsked){
+      notifPermissionAsked = true;
+      try{ await Notification.requestPermission(); }catch{}
+    }
+  }
+
+  function showSyncNotification(isBackground){
+    try{
+      if(navigator.serviceWorker && navigator.serviceWorker.controller){
+        navigator.serviceWorker.controller.postMessage({type: 'SYNC_UPDATED'});
+      } else if(navigator.serviceWorker && navigator.serviceWorker.ready){
+        navigator.serviceWorker.ready.then(function(reg){ if(reg.active) reg.active.postMessage({type: 'SYNC_UPDATED'}); });
+      }
+    }catch{}
+    if(!isBackground){
+      const toast = document.createElement('div');
+      toast.textContent = '✓ Filters gesynchroniseerd';
+      toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#065f46;color:white;padding:10px 18px;border-radius:999px;font-size:13px;font-weight:600;z-index:99999;box-shadow:0 6px 20px rgba(0,0,0,0.2);opacity:0;transition:opacity 0.3s';
+      document.body.appendChild(toast);
+      setTimeout(function(){ toast.style.opacity='1'; }, 50);
+      setTimeout(function(){ toast.style.opacity='0'; setTimeout(function(){toast.remove();}, 400); }, 3000);
+    }
+  }
+
+  async function saveToCloudImmediate(){
+    if(!authToken || !SYNC_ENABLED) return;
+    try{
+      isSyncing = true;
+      const r = await fetchWithTimeout(WORKER+'/sync/save', {method:'POST', headers: getAuthHeaders(), body: JSON.stringify({state})}, 3500);
+      const j = await r.json().catch(function(){return {};});
+      if(j.updated){ lastRemoteUpdated = j.updated; localStorage.setItem('ommen_last_sync', String(j.updated)); }
+      else { const now = Date.now(); lastRemoteUpdated = now; localStorage.setItem('ommen_last_sync', String(now)); }
+    }catch(e){ console.log('Sync save fail', e.message); }
+    finally{ isSyncing = false; }
+  }
+
   async function saveToCloud(){
     if(!authToken || !SYNC_ENABLED) return;
     if(saveDebounceTimer) clearTimeout(saveDebounceTimer);
-    saveDebounceTimer = setTimeout(async ()=>{
-      if(isSyncing) return;
-      try{
-        isSyncing = true;
-        const r = await fetchWithTimeout(WORKER+'/sync/save', {method:'POST', headers: getAuthHeaders(), body: JSON.stringify({state})}, 3500);
-        const j = await r.json().catch(()=>({}));
-        if(j.updated){ lastRemoteUpdated = j.updated; localStorage.setItem('ommen_last_sync', String(j.updated)); } else { const now = Date.now(); lastRemoteUpdated = now; localStorage.setItem('ommen_last_sync', String(now)); }
-      }catch(e){ console.log('[sync v240] save fast-fail', e.message); } finally{ isSyncing = false; }
-    }, 800);
+    saveDebounceTimer = setTimeout(function(){ saveToCloudImmediate(); }, 800);
   }
+
   async function loadFromCloud(force){
     if(force===undefined) force=false;
     if(!authToken || isSyncing) return false;
+    let didUpdate = false;
     try{
       isSyncing = true;
       const r = await fetchWithTimeout(WORKER+'/sync/load', {headers: getAuthHeaders()}, 3500);
@@ -903,22 +958,92 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       if(!data.state) return false;
       const remoteUpdated = data.updated || 0;
       if(!force && remoteUpdated && remoteUpdated <= lastRemoteUpdated) return false;
-      const localStr = JSON.stringify(state); const remoteStr = JSON.stringify(data.state);
-      if(localStr === remoteStr){ if(remoteUpdated) { lastRemoteUpdated = remoteUpdated; localStorage.setItem('ommen_last_sync', String(remoteUpdated)); } return false; }
-      state = data.state; localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state)); lastRemoteUpdated = remoteUpdated || Date.now(); localStorage.setItem('ommen_last_sync', String(lastRemoteUpdated));
-      if(typeof renderFilters==='function'){ renderFilters(); } if(typeof filterNews==='function'){ filterNews(); } updateAuthUI(); if(typeof updateSourceLeds==='function') updateSourceLeds();
-      return true;
-    }catch(e){ console.log('[sync v240] load fast-fail', e.message); return false; } finally{ isSyncing = false; }
+      const localStr = JSON.stringify(state);
+      const remoteStr = JSON.stringify(data.state);
+      if(localStr === remoteStr){
+        if(remoteUpdated) { lastRemoteUpdated = remoteUpdated; localStorage.setItem('ommen_last_sync', String(remoteUpdated)); }
+        return false;
+      }
+      state = data.state;
+      localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
+      lastRemoteUpdated = remoteUpdated || Date.now();
+      localStorage.setItem('ommen_last_sync', String(lastRemoteUpdated));
+      if(typeof renderFilters==='function'){ renderFilters(); }
+      if(typeof filterNews==='function'){ filterNews(); }
+      updateAuthUI();
+      didUpdate = true;
+      const isBg = document.visibilityState !== 'visible';
+      if(!force){ showSyncNotification(isBg); }
+    }catch(e){ console.log('Sync load fail', e.message); }
+    finally{ isSyncing = false; }
+    return didUpdate;
   }
+
   let liveInterval = null;
   function startLiveSync(){ stopLiveSync(); if(!authToken) return; liveInterval = setInterval(function(){ loadFromCloud(false); }, SYNC_INTERVAL_MS); }
   function stopLiveSync(){ if(liveInterval){ clearInterval(liveInterval); liveInterval=null; } }
+
+  // === DEZE UI IS HERSTELD - WERKT WEER OP WIN11 CHROME/EDGE ===
   function updateAuthUI(){
-    const btn = document.getElementById('user-icon-btn'); if(!btn) return;
+    const btn = document.getElementById('user-icon-btn');
+    const oldSlot = document.getElementById('auth-slot');
+    if(oldSlot) oldSlot.remove();
+    if(!btn) return;
     if(currentUser){
-      btn.classList.add('logged-in'); btn.title = (currentUser.email || '') + ' - ingelogd (live)';
-    } else { btn.classList.remove('logged-in'); btn.title = 'Inloggen / Account maken'; btn.onclick = function(){ const ev = new Event('click'); }; }
+      btn.classList.add('logged-in');
+      btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" style="display:block;flex-shrink:0"><path fill-rule="evenodd" d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" clip-rule="evenodd"/></svg>';
+      btn.title = currentUser.email + ' - ingelogd (● live)';
+      btn.onclick = function(){
+        const old = document.getElementById('login-modal'); if(old) old.remove();
+        const overlay = document.createElement('div');
+        overlay.id='login-modal';
+        overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+        const box = document.createElement('div');
+        box.style.cssText='background:white;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.2);color:#111';
+        const emailSafe = (currentUser.email || currentUser.user?.email || '').replace(/</g,'&lt;');
+        box.innerHTML = '<h3 style="margin:0 0 8px;font-size:18px">Ingelogd als</h3><p style="margin:0 0 16px;color:#374151;font-size:13px;word-break:break-all">'+emailSafe+'<br><span style="font-size:11px;color:#059669;font-weight:700">● live sync elke 30 sec</span></p><div style="display:flex;gap:8px"><button id="btn-sync-now" style="flex:1;padding:10px;background:#0b5bd3;color:white;border:0;border-radius:8px;font-weight:600;cursor:pointer">Sync nu</button><button id="btn-logout-now" style="flex:1;padding:10px;background:#fee2e2;color:#991b1b;border:0;border-radius:8px;font-weight:600;cursor:pointer">Uitloggen</button></div><button id="btn-close-acc" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:0;color:#666;cursor:pointer">Sluiten</button>';
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+        document.getElementById('btn-close-acc').onclick=function(){ overlay.remove(); };
+        document.getElementById('btn-logout-now').onclick=function(){ overlay.remove(); window.logoutOmmen(); };
+        document.getElementById('btn-sync-now').onclick=function(){ saveToCloudImmediate(); loadFromCloud(true); overlay.remove(); };
+        overlay.onclick=function(e){ if(e.target===overlay) overlay.remove(); };
+      };
+    } else {
+      btn.classList.remove('logged-in');
+      btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" style="display:block;flex-shrink:0"><path fill-rule="evenodd" d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" clip-rule="evenodd"/></svg>';
+      btn.title = 'Inloggen / Account maken';
+      btn.onclick = openLoginModal;
+      // Fix voor Win11 Chrome/Edge: zorg dat knop echt clickable is
+      btn.style.pointerEvents='auto';
+      btn.style.cursor='pointer';
+    }
   }
+
+  function openLoginModal(){
+    const old = document.getElementById('login-modal'); if(old) old.remove();
+    const overlay = document.createElement('div');
+    overlay.id='login-modal';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    const box = document.createElement('div');
+    box.style.cssText='background:white;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.2)';
+    box.innerHTML = '<h3 style="margin:0 0 8px;font-size:18px">Inloggen voor sync & nieuwsbrief</h3><p style="margin:0 0 16px;color:#666;font-size:13px">Je filters worden live gesynchroniseerd én je ontvangt de nieuwsbrief met belangrijke updates (max 1-2 per maand).</p><input type="email" placeholder="Email" id="auth-email" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;box-sizing:border-box"><input type="password" placeholder="Wachtwoord (min 6 tekens)" id="auth-pass" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:16px;box-sizing:border-box"><div style="display:flex;gap:8px"><button id="btn-do-login" style="flex:1;padding:10px;background:#0b5bd3;color:white;border:0;border-radius:8px;font-weight:600;cursor:pointer">Inloggen</button><button id="btn-do-reg" style="flex:1;padding:10px;background:#e8eef8;color:#0b5bd3;border:0;border-radius:8px;font-weight:600;cursor:pointer">Account maken</button></div><button id="btn-do-close" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:0;color:#666;cursor:pointer">Annuleren</button><div id="auth-error" style="margin-top:10px;color:#c00;font-size:13px"></div>';
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    document.getElementById('btn-do-close').onclick=function(){ overlay.remove(); };
+    document.getElementById('btn-do-login').onclick=async function(){
+      const email=document.getElementById('auth-email').value.trim(); const pass=document.getElementById('auth-pass').value;
+      document.getElementById('auth-error').textContent='Bezig...';
+      try{ await window.loginOmmen(email, pass); overlay.remove(); }catch(e){ document.getElementById('auth-error').textContent=e.message; }
+    };
+    document.getElementById('btn-do-reg').onclick=async function(){
+      const email=document.getElementById('auth-email').value.trim(); const pass=document.getElementById('auth-pass').value;
+      document.getElementById('auth-error').textContent='Bezig...';
+      try{ await window.registerOmmen(email, pass); overlay.remove(); }catch(e){ document.getElementById('auth-error').textContent=e.message; }
+    };
+    overlay.onclick=function(e){ if(e.target===overlay) overlay.remove(); };
+  }
+
   if(typeof saveState === 'function'){
     const origSave = saveState;
     window.saveState = function(){
@@ -926,14 +1051,19 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
       try{ if(typeof updateHiddenCompat==='function') updateHiddenCompat(); }catch{}
       try{ if(typeof updateHeaderCount==='function') updateHeaderCount(); }catch{}
+      try{ if(window.updatePushBell) window.updatePushBell(); }catch{}
       if(authToken) saveToCloud();
     };
   }
+
   document.addEventListener('DOMContentLoaded', function(){
     setTimeout(async function(){
+      const oldAuthSlot = document.getElementById('auth-slot');
+      if(oldAuthSlot) oldAuthSlot.remove();
       if(authToken){
-        checkLogin().then(function(u){ if(u){ loadFromCloud(true).catch(function(){}); startLiveSync(); } updateAuthUI(); });
+        checkLogin().then(function(u){ if(u){ loadFromCloud(true).catch(function(){}); startLiveSync(); ensureNotificationPermission(); } updateAuthUI(); });
       } else { updateAuthUI(); }
+      document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible' && currentUser){ loadFromCloud(false); } });
     }, 1200);
   });
 })();
