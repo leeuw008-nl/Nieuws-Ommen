@@ -1021,6 +1021,9 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
   }
 
   function openLoginModal(){
+    console.log('[auth] openLoginModal called');
+    window.__openLoginModalForClick = openLoginModal;
+
     const old = document.getElementById('login-modal'); if(old) old.remove();
     const overlay = document.createElement('div');
     overlay.id='login-modal';
