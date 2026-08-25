@@ -1,4 +1,4 @@
-// app.js v245 - LED rechts + telling  ingeladen/geselecteerd + FIX 344 + v227/v239 basis intact
+// app.js v246 - LED rechts + aantal ingeladen/geselecteerd - FIX 344 DEFINITIEF
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
