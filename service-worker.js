@@ -1,5 +1,5 @@
-/* service-worker v238-LED-FORCE - forceert nieuwe app.js */
-const CACHE_NAME='ommen-v238-led-force';
+/* service-worker v239-PERF-FINAL - cache + led + panel open + snel */
+const CACHE_NAME='ommen-v239-perf-final';
 const STATIC_ASSETS=[
   './',
   './index.html',
@@ -13,30 +13,31 @@ self.addEventListener('install', e=>{
   e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(STATIC_ASSETS.map(u=>new Request(u,{cache:'no-store'}))).catch(()=>{})));
 });
 self.addEventListener('activate', e=>{
-  e.waitUntil(
-    caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))).then(()=>self.clients.claim())
-  );
+  e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
 });
 self.addEventListener('fetch', e=>{
   const u=new URL(e.request.url);
   if(u.hostname.includes('workers.dev') || u.hostname.includes('allorigins') || u.hostname.includes('rss2json') || u.pathname.includes('/proxy')){
     return;
   }
-  // CRITICAL: app.js NEVER from cache during fetch, always network
   if(u.pathname.includes('app.js')){
-    e.respondWith(fetch(e.request, {cache:'no-store'}).then(r=>{
-      const clone=r.clone();
-      caches.open(CACHE_NAME).then(ca=>ca.put(e.request,clone)).catch(()=>{});
-      return r;
-    }).catch(()=>caches.match(e.request)));
+    e.respondWith(
+      fetch(e.request, {cache:'no-store'}).then(r=>{
+        const clone=r.clone();
+        caches.open(CACHE_NAME).then(ca=>ca.put(e.request,clone)).catch(()=>{});
+        return r;
+      }).catch(()=>caches.match(e.request).then(c=>c||fetch(e.request)))
+    );
     return;
   }
   if(u.pathname.includes('push.js')||u.pathname.includes('article-focus.js')||u.pathname.includes('styles.css')){
-    e.respondWith(fetch(e.request, {cache:'no-store'}).then(r=>{const clone=r.clone(); caches.open(CACHE_NAME).then(ca=>ca.put(e.request,clone)).catch(()=>{}); return r;}).catch(()=>caches.match(e.request)));
+    e.respondWith(
+      fetch(e.request, {cache:'no-store'}).then(r=>{const clone=r.clone(); caches.open(CACHE_NAME).then(ca=>ca.put(e.request,clone)).catch(()=>{}); return r;}).catch(()=>caches.match(e.request))
+    );
     return;
   }
   if(STATIC_ASSETS.some(a=>u.pathname.endsWith(a.replace('./','')) ) || u.pathname.endsWith('/') || u.pathname.endsWith('index.html')){
-    e.respondWith(caches.match(e.request).then(cached=>cached||fetch(e.request)));
+    e.respondWith(caches.match(e.request).then(cached=>cached||fetch(e.request).then(r=>{const clone=r.clone(); caches.open(CACHE_NAME).then(ca=>ca.put(e.request,clone)); return r;})));
     return;
   }
 });
@@ -74,4 +75,4 @@ self.addEventListener('notificationclick', e=>{
     }
   })());
 });
-self.addEventListener('message', e=>{if(e.data && e.data.type==='SET_FILTERS'){console.log('[v238] Filters:', e.data.sources);}});
+self.addEventListener('message', e=>{if(e.data && e.data.type==='SET_FILTERS'){console.log('[v239] Filters:', e.data.sources);}});
