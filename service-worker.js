@@ -1,5 +1,5 @@
-/* service-worker v242-WIN-FIX - force update + click fix */
-const CACHE_NAME='ommen-v242-win-fix';
+/* service-worker v239-PERF-FINAL - cache + led + panel open + snel */
+const CACHE_NAME='ommen-v239-perf-final';
 const STATIC_ASSETS=[
   './',
   './index.html',
@@ -9,36 +9,35 @@ const STATIC_ASSETS=[
   './icons/icon-512x512.png'
 ];
 self.addEventListener('install', e=>{
-  console.log('[SW v242] install');
   self.skipWaiting(); 
   e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(STATIC_ASSETS.map(u=>new Request(u,{cache:'no-store'}))).catch(()=>{})));
 });
 self.addEventListener('activate', e=>{
-  console.log('[SW v242] activate, deleting old caches');
-  e.waitUntil(
-    caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>{ console.log('[SW] deleting',k); return caches.delete(k);}))).then(()=>self.clients.claim())
-  );
+  e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
 });
 self.addEventListener('fetch', e=>{
   const u=new URL(e.request.url);
   if(u.hostname.includes('workers.dev') || u.hostname.includes('allorigins') || u.hostname.includes('rss2json') || u.pathname.includes('/proxy')){
     return;
   }
-  // app.js and service-worker.js NEVER from cache
-  if(u.pathname.includes('app.js') || u.pathname.includes('service-worker.js')){
+  if(u.pathname.includes('app.js')){
     e.respondWith(
-      fetch(e.request, {cache:'no-store', headers:{'Cache-Control':'no-cache'}}).then(r=>{
+      fetch(e.request, {cache:'no-store'}).then(r=>{
+        const clone=r.clone();
+        caches.open(CACHE_NAME).then(ca=>ca.put(e.request,clone)).catch(()=>{});
         return r;
-      }).catch(()=>caches.match(e.request))
+      }).catch(()=>caches.match(e.request).then(c=>c||fetch(e.request)))
     );
     return;
   }
   if(u.pathname.includes('push.js')||u.pathname.includes('article-focus.js')||u.pathname.includes('styles.css')){
-    e.respondWith(fetch(e.request, {cache:'no-store'}).then(r=>{const clone=r.clone(); caches.open(CACHE_NAME).then(ca=>ca.put(e.request,clone)).catch(()=>{}); return r;}).catch(()=>caches.match(e.request)));
+    e.respondWith(
+      fetch(e.request, {cache:'no-store'}).then(r=>{const clone=r.clone(); caches.open(CACHE_NAME).then(ca=>ca.put(e.request,clone)).catch(()=>{}); return r;}).catch(()=>caches.match(e.request))
+    );
     return;
   }
   if(STATIC_ASSETS.some(a=>u.pathname.endsWith(a.replace('./','')) ) || u.pathname.endsWith('/') || u.pathname.endsWith('index.html')){
-    e.respondWith(caches.match(e.request).then(cached=>cached||fetch(e.request)));
+    e.respondWith(caches.match(e.request).then(cached=>cached||fetch(e.request).then(r=>{const clone=r.clone(); caches.open(CACHE_NAME).then(ca=>ca.put(e.request,clone)); return r;})));
     return;
   }
 });
@@ -56,12 +55,24 @@ self.addEventListener('push', e=>{
 self.addEventListener('notificationclick', e=>{
   e.notification.close();
   const data=e.notification.data||{};
-  const id=data.id||''; const source=data.source||'';
+  const id=data.id||'';
+  const externalUrl=data.url||'/';
+  const source=data.source||'';
   const appUrl = id ? `/?highlight=${encodeURIComponent(id)}&src=${encodeURIComponent(source)}` : '/';
   e.waitUntil((async()=>{
-    const all=await clients.matchAll({type:'window', includeUncontrolled:true});
-    for(const c of all){ if((c.url.includes('nieuwommen')||c.url.includes('Nieuws-Ommen')||c.url.includes('localhost')) && 'focus' in c){ try{c.postMessage({type:'NOTIFICATION_CLICK', id, url: data.url, source});}catch{} await c.navigate(appUrl); return c.focus(); } }
-    if(clients.openWindow) return clients.openWindow(appUrl);
+    try{
+      const all=await clients.matchAll({type:'window', includeUncontrolled:true});
+      for(const c of all){
+        if((c.url.includes('nieuwommen')||c.url.includes('Nieuws-Ommen')||c.url.includes('localhost')) && 'focus' in c){
+          try{c.postMessage({type:'NOTIFICATION_CLICK', id, url:externalUrl, source});}catch{}
+          await c.navigate(appUrl);
+          return c.focus();
+        }
+      }
+      if(clients.openWindow) return clients.openWindow(appUrl);
+    }catch{
+      if(clients.openWindow) return clients.openWindow(appUrl);
+    }
   })());
 });
-self.addEventListener('message', e=>{if(e.data && e.data.type==='SET_FILTERS'){console.log('[v242] Filters:', e.data.sources);}});
+self.addEventListener('message', e=>{if(e.data && e.data.type==='SET_FILTERS'){console.log('[v239] Filters:', e.data.sources);}});
