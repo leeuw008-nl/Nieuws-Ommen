@@ -1,4 +1,4 @@
-// app.js v227 - FIX Gemeente filter hersteld + FILTER BRIDGE voor SW v231
+// app.js v245 - LED rechts + telling  ingeladen/geselecteerd + FIX 344 + v227/v239 basis intact
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
