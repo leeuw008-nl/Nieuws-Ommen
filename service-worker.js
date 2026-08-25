@@ -1,5 +1,5 @@
-/* service-worker v239-PERF-FINAL - cache + led + panel open + snel */
-const CACHE_NAME='ommen-v239-perf-final';
+/* service-worker v247 - LED rechts + telling - CACHE BUST DEFINITIEF */
+const CACHE_NAME='ommen-v247-LED-rechts-telling';
 const STATIC_ASSETS=[
   './',
   './index.html',
@@ -13,14 +13,17 @@ self.addEventListener('install', e=>{
   e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(STATIC_ASSETS.map(u=>new Request(u,{cache:'no-store'}))).catch(()=>{})));
 });
 self.addEventListener('activate', e=>{
-  e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
+  e.waitUntil(
+    caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))).then(()=>self.clients.claim())
+  );
 });
 self.addEventListener('fetch', e=>{
   const u=new URL(e.request.url);
   if(u.hostname.includes('workers.dev') || u.hostname.includes('allorigins') || u.hostname.includes('rss2json') || u.pathname.includes('/proxy')){
     return;
   }
-  if(u.pathname.includes('app.js')){
+  // CRITICAL: app.js + index.html NEVER from old cache
+  if(u.pathname.includes('app.js') || u.pathname.includes('index.html')){
     e.respondWith(
       fetch(e.request, {cache:'no-store'}).then(r=>{
         const clone=r.clone();
@@ -75,4 +78,4 @@ self.addEventListener('notificationclick', e=>{
     }
   })());
 });
-self.addEventListener('message', e=>{if(e.data && e.data.type==='SET_FILTERS'){console.log('[v239] Filters:', e.data.sources);}});
+self.addEventListener('message', e=>{if(e.data && e.data.type==='SET_FILTERS'){console.log('[v247] Filters:', e.data.sources);}});

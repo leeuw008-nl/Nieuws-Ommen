@@ -1,4 +1,4 @@
-// app.js v246 - LED rechts + aantal ingeladen/geselecteerd - FIX 344 DEFINITIEF - 3 regels veranderd t.o.v. v227
+// app.js v247 - LED rechts + telling - CACHE BUST DEFINITIEF
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
