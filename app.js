@@ -239,36 +239,40 @@ let state = {}; let allArticles = []; let loadedSources = new Set();
   el.textContent=css;
   if(!document.getElementById('led-status-style')) document.head.appendChild(el);
 })();
+
 function updateSourceLeds(){
   try{
     BRONNEN.forEach(b=>{
-      const led=document.querySelector(`.source-led[data-id="${CSS.escape(b.id)}"]`);
+      const led=document.querySelector(`.source-led[data-id="${b.id}"]`);
       if(!led) return;
       const realArts = allArticles.filter(a=>a.id===b.id && !a.isFallback);
       const isLoaded = loadedSources.has(b.id);
       led.classList.remove('loading','ok','fail','empty');
+      led.style.animation='';
       if(!isLoaded){
         led.classList.add('loading');
+        led.style.background='#ef4444';
         led.title='Laden...';
       } else if(realArts.length>0){
         led.classList.add('ok');
-        led.title=realArts.length+' artikel(en) geladen';
+        led.style.background='#16a34a';
+        led.title=realArts.length+' artikel(en) geladen - OK';
       } else {
-        // loaded maar geen echte artikelen -> check of fallback
         const hasFallback = allArticles.some(a=>a.id===b.id && a.isFallback);
         if(hasFallback){
           led.classList.add('fail');
+          led.style.background='#ef4444';
           led.title='Bron offline';
         } else {
           led.classList.add('empty');
+          led.style.background='#f59e0b';
           led.title='Geen artikelen (filter?)';
         }
       }
     });
-    // update header count also
-    if(typeof updateHeaderCount==='function') updateHeaderCount();
   }catch(e){ console.log('led update fail', e.message); }
 }
+
 
 function loadState(){
   try{
