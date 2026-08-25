@@ -1,5 +1,5 @@
-/* service-worker v249 - LED rechts + telling - CACHE BUST DEFINITIEF */
-const CACHE_NAME='ommen-v249-LED-rondjes-strak';
+/* service-worker v250 - LED rechts + telling - CACHE BUST DEFINITIEF */
+const CACHE_NAME='ommen-v250-compact-knoppen';
 const STATIC_ASSETS=[
   './',
   './index.html',
@@ -78,4 +78,4 @@ self.addEventListener('notificationclick', e=>{
     }
   })());
 });
-self.addEventListener('message', e=>{if(e.data && e.data.type==='SET_FILTERS'){console.log('[v249] Filters:', e.data.sources);}});
+self.addEventListener('message', e=>{if(e.data && e.data.type==='SET_FILTERS'){console.log('[v250] Filters:', e.data.sources);}});

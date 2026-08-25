@@ -29,18 +29,18 @@ header h1{display:flex;align-items:center;gap:12px;justify-content:center;width:
 #source-panel.open{max-height:3000px;opacity:1;box-shadow:0 12px 24px rgba(15,23,42,0.12)}
 .panel-hint{background:#f8fafc;border-top:2px solid var(--brand);border-bottom:2px solid var(--brand);padding:6px 8px;font-size:11px;color:var(--muted);line-height:1.35}
 .source-list{display:flex;flex-direction:column}
-.source-row{display:grid;grid-template-columns:1fr 156px;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #dbeafe;transition:background .12s}
+.source-row{display:grid;grid-template-columns:1fr 132px;align-items:center;gap:6px;padding:6px 4px 6px 8px;border-bottom:1px solid #dbeafe;transition:background .12s}
 .source-row:last-child{border-bottom:0}
 .source-row:hover{background:#f8fafc}
 .source-row.off{background:#f9fafb;opacity:.6}
 .source-meta{display:flex;flex-direction:column;min-width:0;align-items:flex-start}
 .source-name{font-weight:700;font-size:14.5px;line-height:1.1;color:var(--brand-dark)}
 .source-sub{font-size:11px;color:var(--muted);line-height:1}
-.toggles{display:grid;grid-template-columns:48px 52px 52px;gap:3px;align-items:start;justify-content:end}
+.toggles{display:grid;grid-template-columns:40px 44px 44px;gap:2px;align-items:start;justify-content:end}
 .toggle-col{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:32px}
-.mini-switch{position:relative;width:32px;height:20px;background:#e5e7eb;border-radius:999px;cursor:pointer;transition:background .2s;border:0;padding:0;display:inline-flex;flex-shrink:0}
+.mini-switch{position:relative;width:30px;height:18px;background:#e5e7eb;border-radius:999px;cursor:pointer;transition:background .2s;border:0;padding:0;display:inline-flex;flex-shrink:0}
 .mini-switch input{display:none}
-.mini-slider{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .2s;transform:translateX(12px)}
+.mini-slider{position:absolute;top:2px;left:2px;width:14px;height:14px;background:#fff;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .2s;transform:translateX(10px)}
 .mini-switch input:checked + .mini-slider{transform:translateX(0px)}
 .mini-switch.checked.vandaag{background:var(--brand)}
 .mini-switch.checked.scope-gemeente{background:var(--brand)}
@@ -102,4 +102,4 @@ footer button{margin:5px;padding:10px 18px;font-size:14px;background:var(--brand
   text-decoration:none !important;
 }
 
-@media(max-width:400px){header h1{font-size:1.4em} .source-row{grid-template-columns:1fr 140px}}
+@media(max-width:400px){header h1{font-size:1.4em} .source-row{grid-template-columns:1fr 124px;gap:4px;padding:6px 2px 6px 6px} .toggles{grid-template-columns:38px 42px 42px;gap:1px}}
