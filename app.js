@@ -284,42 +284,32 @@ function setupFilterHeader(){
   });
 }
 const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
-// PERFORMANCE OPTIMALISATIE v2 - zonder RTV Oost te breken
-// - cache 5 min, stale-while-revalidate
-// - timeout 6s ipv 9s, max 1 fallback ipv 3
-// - geen rss2json extra call voor VC/Oost (was 1-2 sec extra)
-const SOURCE_CACHE_TTL = 1000 * 60 * 5; // 5 minuten
-const SOURCE_CACHE_KEY = 'ommen_source_cache_v1';
-function getSourceCache(){ try{return JSON.parse(localStorage.getItem(SOURCE_CACHE_KEY)||'{}');}catch{return {};}}
-function setSourceCache(cache){ try{localStorage.setItem(SOURCE_CACHE_KEY, JSON.stringify(cache));}catch{}}
-function getCachedSource(url){
-  const cache=getSourceCache();
-  const entry=cache[url];
-  if(!entry) return null;
-  if(Date.now() - entry.ts > SOURCE_CACHE_TTL) return null; // expired, maar we gebruiken hem wel als stale
-  return entry.data;
-}
-function getStaleSource(url){
-  const cache=getSourceCache();
-  const entry=cache[url];
-  if(!entry) return null;
-  // stale mag tot 60 min oud zijn voor directe weergave
-  if(Date.now() - entry.ts > 1000*60*60) return null;
-  return entry.data;
-}
-function putCachedSource(url, data){
-  if(!data || data.length<200) return;
-  const cache=getSourceCache();
-  cache[url]={data, ts:Date.now()};
-  // max 20 entries
-  const keys=Object.keys(cache);
-  if(keys.length>20){ const oldest=keys.sort((a,b)=>cache[a].ts-cache[b].ts)[0]; delete cache[oldest]; }
-  setSourceCache(cache);
-}
 async function fetchViaWorker(url){
-  // 1. Probeer cache eerst voor snelle stale check (wordt in loadOneSource afgehandeld)
+  const isVC = url.includes('vechtdalcentraal.nl');
+  const isOost = url.includes('rtvoost.nl') || url.includes('oost.nl');
+  if(isVC || isOost){
+    try{
+      const rssUrl = isVC ? 'https://www.vechtdalcentraal.nl/feed/' : 'https://www.oost.nl/nieuws/vechtdal';
+      if(isVC){
+        const rss2jsonUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&t=${Date.now()}`;
+        const rRss = await fetch(rss2jsonUrl, {cache:'no-store'});
+        if(rRss.ok){
+          const j = await rRss.json();
+          if(j.status==='ok' && j.items && j.items.length>0){
+            let xml = '<rss><channel>';
+            j.items.slice(0,20).forEach(it=>{
+              xml += `<item><title><![CDATA[${it.title}]]></title><link>${it.link}</link><pubDate>${it.pubDate}</pubDate><description><![CDATA[${it.description}]]></description></item>`;
+            });
+            xml += '</channel></rss>';
+            return xml;
+          }
+        }
+      }
+    }catch(eRss){ console.log('rss2json fail', eRss.message); }
+  }
+
   const controller = new AbortController();
-  const to = setTimeout(()=>controller.abort(), 6000);
+  const to = setTimeout(()=>controller.abort(), 9000);
   try{
     const r = await fetch(`${WORKER}/proxy?url=${encodeURIComponent(url)}&t=${Date.now()}`, {cache:'no-store', signal:controller.signal});
     clearTimeout(to);
@@ -328,27 +318,44 @@ async function fetchViaWorker(url){
     if(t.length<150) throw new Error('proxy empty len '+t.length);
     if(t.includes('Proxy blocked')||t.includes('Proxy error')||t.startsWith('Proxy err')) throw new Error(t.slice(0,200));
     if(t.includes('<title>Just a moment</title>')||t.includes('Attention Required')) throw new Error('cf challenge');
-    putCachedSource(url, t);
     return t;
   }catch(e1){
     clearTimeout(to);
-    console.log('[perf] worker fail, 1 fallback', url, e1.message);
-    // Alleen 1 snelle fallback, geen 3 trage achter elkaar
+    console.log('worker proxy fail, probeer fallback', url, e1.message);
     try{
-      const ctrl2=new AbortController();
-      const to2=setTimeout(()=>ctrl2.abort(), 5000);
       const fallbackUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&t=${Date.now()}`;
-      const r2 = await fetch(fallbackUrl, {cache:'no-store', signal:ctrl2.signal});
-      clearTimeout(to2);
+      const r2 = await fetch(fallbackUrl, {cache:'no-store'});
       if(r2.ok){
         const j = await r2.json();
-        if(j.contents && j.contents.length>200) {
-          putCachedSource(url, j.contents);
-          console.log('[perf] fallback allorigins OK', url);
+        if(j.contents && j.contents.length>500) {
+          console.log('fallback allorigins /get OK voor', url);
           return j.contents;
         }
       }
-    }catch(e2){ console.log('[perf] allorigins fail', e2.message); }
+    }catch(e2){ console.log('allorigins /get fail', e2.message); }
+    try{
+      const fallbackUrl2 = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+      const r3 = await fetch(fallbackUrl2, {cache:'no-store'});
+      if(r3.ok){
+        const t3 = await r3.text();
+        if(t3.length>500) {
+          console.log('fallback corsproxy.io OK voor', url);
+          return t3;
+        }
+      }
+    }catch(e3){ console.log('corsproxy fail', e3.message); }
+    try{
+      const fallbackUrl3 = `https://thingproxy.freeboard.io/fetch/${url}`;
+      const r4 = await fetch(fallbackUrl3, {cache:'no-store'});
+      if(r4.ok){
+        const t4 = await r4.text();
+        if(t4.length>500) {
+          console.log('fallback thingproxy OK voor', url);
+          return t4;
+        }
+      }
+    }catch(e4){ console.log('thingproxy fail', e4.message); }
+    
     throw e1;
   }
 }
@@ -440,35 +447,39 @@ async function enrichGemeenteWithDetail(arts){
   const cache=getGemeenteCache();
   const now=Date.now();
   const CACHE_TTL=1000*60*60*2;
-  // Alleen artikelen zonder goede tijd verrijken, max 3
-  const needEnrich=arts.filter(a=>{
-    const cached=cache[a.link];
-    if(cached && (now - cached.ts) < CACHE_TTL && cached.iso) return false;
-    if(a.pubDate && !isNaN(a.pubDate.getTime()) && a.pubDate.getHours()!==0) return false;
-    return true;
-  }).slice(0,3);
-  if(needEnrich.length===0){
-    // vul cache wel met bestaande datums
-    arts.forEach(a=>{ if(a.pubDate && !isNaN(a.pubDate.getTime()) && a.pubDate.getHours()!==0) cache[a.link]={iso:a.pubDate.toISOString(), ts:now}; });
-    setGemeenteCache(cache);
-    return arts;
-  }
   const results=[];
-  await Promise.allSettled(needEnrich.map(async (a)=>{
+  for(let a of arts){
+    const cached=cache[a.link];
+    if(cached && (now - cached.ts) < CACHE_TTL && cached.iso){
+      const d=new Date(cached.iso);
+      if(!isNaN(d.getTime())){ a.pubDate=d; results.push(a); continue; }
+    }
+    if(a.pubDate && !isNaN(a.pubDate.getTime()) && a.pubDate.getHours()!==0){
+      cache[a.link]={iso:a.pubDate.toISOString(), ts:now};
+      results.push(a);
+      continue;
+    }
     try{
+      await new Promise(r=>setTimeout(r, 400));
       const html = await fetchViaWorker(a.link);
       const realDate = extractGemeenteDate(html);
       if(realDate){
         a.pubDate=realDate;
         cache[a.link]={iso:realDate.toISOString(), ts:now};
+      } else if(!a.pubDate || isNaN(a.pubDate.getTime())){
+        a.pubDate=new Date();
       }
-    }catch(e){}
+    }catch(e){
+      if(!a.pubDate || isNaN(a.pubDate.getTime())) a.pubDate=new Date();
+    }
     results.push(a);
-  }));
-  // merge
-  arts.forEach(a=>{ if(a.pubDate && !isNaN(a.pubDate.getTime()) && a.pubDate.getHours()!==0) cache[a.link]={iso:a.pubDate.toISOString(), ts:now}; });
+    if(results.length % 2 ===0){
+      allArticles = allArticles.filter(x=>x.id!=='Gemeente Ommen').concat(results.map(r=>({...r, source:'Gemeente Ommen', id:'Gemeente Ommen', isFallback:false})));
+      renderArticles();
+    }
+  }
   setGemeenteCache(cache);
-  return arts;
+  return results;
 }
 function parseOostFull_OLD(html){
   const max = MAX_PER_BRON['RTV Oost'];
@@ -520,29 +531,14 @@ async function loadOneSource(b){
   try{
     let arts=[];
     if(cfg.type==='gemeente'){
-      // Probeer eerst cache voor instant load
-      let html=null;
-      const cached=getCachedSource(cfg.url);
-      const stale=getStaleSource(cfg.url);
-      if(cached){ html=cached; }
-      else if(stale){ html=stale; }
-      else { html=await fetchViaWorker(cfg.url); }
+      const html=await fetchViaWorker(cfg.url);
       let overview = parseGemeenteOverview(html);
       if(overview.length){
         const tempArts=overview.map(a=>({...a, source:b.name, id:b.id, isFallback:false, pubDate:a.pubDate||new Date()}));
         allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts);
         loadedSources.add(b.id); updateHeaderCount(); renderArticles();
       }
-      // Enrich op de achtergrond, niet blokkerend, max 3 parallel en alleen als geen datum
-      if(!cached){
-        // background enrich, fire and forget
-        enrichGemeenteWithDetail(overview).then(enriched=>{
-          const enrichedArts=enriched.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
-          allArticles = allArticles.filter(x=>x.id!==b.id).concat(enrichedArts);
-          renderArticles();
-        }).catch(()=>{});
-      }
-      arts = overview;
+      arts = await enrichGemeenteWithDetail(overview);
     }
     else if(cfg.type==='oost'){ 
       const html=await fetchViaWorker(cfg.url); 
@@ -661,75 +657,29 @@ function renderArticles(){
 function filterNews(){ renderArticles(); }
 async function refreshNews(){
   const c=document.getElementById('news-container'); 
-  // 1. Direct cache tonen als die er is -> <200ms eerste paint
-  const staleCache=getSourceCache();
-  let hasStale=false;
-  const initialArts=[];
-  for(const b of BRONNEN){
-    const cfg=BRON_URLS[b.id];
-    const cachedData=getCachedSource(cfg.url) || getStaleSource(cfg.url);
-    if(cachedData){
-      try{
-        let arts=[];
-        if(cfg.type==='gemeente') arts=parseGemeenteOverview(cachedData);
-        else if(cfg.type==='oost') arts=parseOostFull(cachedData);
-        else if(b.id==='RTV Vechtdal'){ 
-          try{ arts=parseRTVVechtdalFull(cachedData); }catch{}
-          if(arts.length===0) arts=parseRSSFull(cachedData,b.id);
-        }
-        else if(b.id==='Vechtdal Centraal'){
-          if(cachedData.includes('<rss')||cachedData.includes('<item')) arts=parseRSSFull(cachedData,b.id);
-          else arts=parseVechtdalCentraalFallback(cachedData);
-        }
-        else arts=parseRSSFull(cachedData,b.id);
-        if(arts.length>0){
-          initialArts.push(...arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false})));
-          hasStale=true;
-        }
-      }catch(e){}
-    }
-  }
-  if(hasStale){
-    allArticles=initialArts;
-    BRONNEN.forEach(b=>loadedSources.add(b.id));
-    updateHeaderCount();
-    renderArticles();
-    if(c) c.innerHTML = document.getElementById('news-container').innerHTML; // keep
-    console.log('[perf] stale cache getoond', initialArts.length);
-  } else {
-    if(c) c.innerHTML='<div class="article">Bezig met laden... (9 bronnen) - cache wordt opgebouwd</div>';
-  }
-  // 2. Daarna verse data op achtergrond parallel ophalen
-  allArticles = hasStale ? initialArts : [];
-  loadedSources = hasStale ? new Set(BRONNEN.map(b=>b.id)) : new Set();
-  if(!hasStale) updateHeaderCount();
+  if(c) c.innerHTML='<div class="article">Bezig met laden... (9 bronnen)</div>';
+  allArticles=[]; loadedSources=new Set(); updateHeaderCount();
   const loadWithTimeout = async (b) => {
     try {
-      const timeout = new Promise((_,rej)=> setTimeout(()=>rej(new Error('timeout '+b.id)), 8000));
+      const timeout = new Promise((_,rej)=> setTimeout(()=>rej(new Error('timeout '+b.id)), 12000));
       const arts = await Promise.race([loadOneSource(b), timeout]);
       return {b, arts};
     } catch(e){
       console.log('load timeout/fail', b.id, e.message);
-      // als we al stale hadden, toon geen fallback
-      if(hasStale) return {b, arts:[]};
       return {b, arts:[{title:b.name, link:BRON_URLS[b.id].homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - '+e.message.slice(0,80)+' [...]', source:b.name, id:b.id, isFallback:true}]};
     }
   };
   const results = await Promise.allSettled(BRONNEN.map(b=>loadWithTimeout(b)));
-  const freshArts=[];
   results.forEach(r=>{
     if(r.status==='fulfilled'){
       const {b, arts}=r.value;
-      if(arts.length>0) freshArts.push(...arts);
+      allArticles = allArticles.filter(x=>x.id!==b.id).concat(arts);
       loadedSources.add(b.id);
     }
   });
-  if(freshArts.length>0){
-    allArticles=freshArts;
-  }
   updateHeaderCount();
   renderArticles();
-  console.log('refreshNews klaar,', allArticles.length, 'artikelen (perf v2)');
+  console.log('refreshNews klaar,', allArticles.length, 'artikelen');
 }
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); closePanel(); setupFilterHeader();
