@@ -1,4 +1,4 @@
-// app.js v248 - LED kolom + telling rechts - rechte kolom
+// app.js v249 - LED rondjes strakke kolom onafhankelijk van telling
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
@@ -224,7 +224,7 @@ let state = {}; let allArticles = []; let loadedSources = new Set();
 (function injectLedStyles(){
   const css = `
   .source-row{position:relative}
-  .source-led{width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0;margin-right:6px;vertical-align:middle;transition:all .25s}
+  .source-led{width:12px;height:12px;border-radius:999px;display:block;flex-shrink:0;transition:all .25s}
   .source-led.loading{background:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,.25);animation:pulse-red 1.2s infinite}
   .source-led.ok{background:#16a34a;box-shadow:0 0 0 2px rgba(22,163,74,.22)}
   .source-led.fail{background:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,.2)}
@@ -323,14 +323,14 @@ function renderFilters(){
       }
     }
     row.innerHTML = `
-      <div class="source-meta" style="display:flex;flex-direction:row;align-items:center;gap:10px;flex:1;">
+      <div class="source-meta" style="display:flex;flex-direction:row;align-items:center;gap:8px;flex:1;min-width:0;">
         <div class="source-meta-text" style="display:flex;flex-direction:column;flex:1;min-width:0;">
-          <div class="source-name" style="display:flex;align-items:center;gap:0;">
+          <div class="source-name" style="display:flex;align-items:center;gap:8px;min-width:0;">
             <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.name}</span>
-            <span style="width:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-              <span class="source-led loading" data-id="${b.id}" title="Laden..." style="width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block;flex-shrink:0;border:2px solid #fff;box-shadow:0 0 0 2px rgba(239,68,68,.25);"></span>
+            <span class="led-col" style="width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <span class="source-led loading" data-id="${b.id}" title="Laden..." style="width:12px;height:12px;border-radius:999px;background:#ef4444;display:block;flex-shrink:0;box-shadow:0 0 0 2px rgba(239,68,68,.25);"></span>
             </span>
-            <span style="font-size:11px;font-weight:700;color:#374151;background:#f3f4f6;padding:2px 7px;border-radius:99px;white-space:nowrap;min-width:42px;text-align:center;" title="ingeladen / geselecteerd">${loadedCount} / ${selectedCount}</span>
+            <span class="count-col" style="font-size:11px;font-weight:700;color:#374151;background:#f3f4f6;padding:2px 7px;border-radius:99px;white-space:nowrap;min-width:52px;text-align:center;flex-shrink:0;" title="ingeladen / geselecteerd">${loadedCount} / ${selectedCount}</span>
           </div>
           <div class="source-sub">${b.sub}</div>
         </div>
@@ -354,6 +354,7 @@ function renderFilters(){
   });
   setTimeout(()=>{ try{ updateSourceLeds(); }catch{} }, 50);
 }
+
 
 function updateHeaderCount(){
   const aan = Object.values(state).filter(s=>s.aan).length;
@@ -788,7 +789,7 @@ function renderArticles(){
   container.innerHTML = countHtml + html;
   window.getAllArticles = ()=> filtered;
   try{ if(typeof updateSourceLeds==='function') setTimeout(()=>updateSourceLeds(), 20); }catch{}
-  // v248 fix 0/0 - update filter counts after articles filtered
+  // v249 fix 0/0 - update filter counts after articles filtered
   try{ const list=document.getElementById('source-list'); if(list && list.children.length>0){ /* counts will be updated on next renderFilters */ } }catch{}
 }
 function filterNews(){ renderArticles(); }
@@ -846,7 +847,7 @@ async function refreshNews(){
   });
   if(freshArts.length>0) allArticles=freshArts;
   updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds();
-  console.log('refreshNews klaar v248 FIX 0/0', allArticles.length, 'artikelen');
+  console.log('refreshNews klaar v249 FIX 0/0', allArticles.length, 'artikelen');
 }
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); restorePanelState(); setupFilterHeader();
