@@ -1,5 +1,5 @@
-/* service-worker v271 - LED rechts + telling - CACHE BUST DEFINITIEF */
-const CACHE_NAME='ommen-v271-sync-only';
+/* service-worker v272 - LED rechts + telling - CACHE BUST DEFINITIEF */
+const CACHE_NAME='ommen-v272-led-rechts';
 const STATIC_ASSETS=[
   './',
   './index.html',
@@ -78,4 +78,4 @@ self.addEventListener('notificationclick', e=>{
     }
   })());
 });
-self.addEventListener('message', e=>{if(e.data && e.data.type==='SET_FILTERS'){console.log('[v271] Filters:', e.data.sources);}});
+self.addEventListener('message', e=>{if(e.data && e.data.type==='SET_FILTERS'){console.log('[v272] Filters:', e.data.sources);}});
