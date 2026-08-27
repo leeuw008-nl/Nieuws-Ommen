@@ -1,5 +1,5 @@
-/* service-worker v262 - FIXED ICONS: proper badge + icon + no square block */
-const CACHE_NAME='ommen-v262-icons-fixed';
+/* service-worker v264 - LION BADGE PROPER FIX - witte leeuw silhouet, geen wit vierkant */
+const CACHE_NAME='ommen-v264-lion-proper';
 const STATIC_ASSETS=[
   './',
   './index.html',
@@ -7,8 +7,8 @@ const STATIC_ASSETS=[
   './manifest.json',
   './icons/icon-192x192.png',
   './icons/icon-512x512.png',
-  './icons/badge-simple-N-96.png',
-  './icons/notification-icon-solid-192.png'
+  './icons/badge-lion-96x96.png',
+  './icons/badge-lion-72x72.png'
 ];
 self.addEventListener('install', e=>{
   self.skipWaiting(); 
@@ -21,121 +21,56 @@ self.addEventListener('activate', e=>{
 });
 self.addEventListener('fetch', e=>{
   const u=new URL(e.request.url);
-  if(u.hostname.includes('workers.dev') || u.hostname.includes('allorigins') || u.hostname.includes('rss2json') || u.pathname.includes('/proxy')){
-    return;
-  }
+  if(u.hostname.includes('workers.dev') || u.hostname.includes('allorigins') || u.hostname.includes('rss2json') || u.pathname.includes('/proxy')) return;
   if(u.pathname.includes('app.js') || u.pathname.includes('index.html')){
-    e.respondWith(
-      fetch(e.request, {cache:'no-store'}).then(r=>{
-        const clone=r.clone();
-        caches.open(CACHE_NAME).then(ca=>ca.put(e.request,clone)).catch(()=>{});
-        return r;
-      }).catch(()=>caches.match(e.request).then(c=>c||fetch(e.request)))
-    );
+    e.respondWith(fetch(e.request,{cache:'no-store'}).then(r=>{const c=r.clone(); caches.open(CACHE_NAME).then(ca=>ca.put(e.request,c)).catch(()=>{}); return r;}).catch(()=>caches.match(e.request).then(c=>c||fetch(e.request))));
     return;
   }
   if(u.pathname.includes('push.js')||u.pathname.includes('article-focus.js')||u.pathname.includes('styles.css')){
-    e.respondWith(
-      fetch(e.request, {cache:'no-store'}).then(r=>{const clone=r.clone(); caches.open(CACHE_NAME).then(ca=>ca.put(e.request,clone)).catch(()=>{}); return r;}).catch(()=>caches.match(e.request))
-    );
+    e.respondWith(fetch(e.request,{cache:'no-store'}).then(r=>{const c=r.clone(); caches.open(CACHE_NAME).then(ca=>ca.put(e.request,c)).catch(()=>{}); return r;}).catch(()=>caches.match(e.request)));
     return;
   }
-  if(STATIC_ASSETS.some(a=>u.pathname.endsWith(a.replace('./','')) ) || u.pathname.endsWith('/') || u.pathname.endsWith('index.html')){
-    e.respondWith(caches.match(e.request).then(cached=>cached||fetch(e.request).then(r=>{const clone=r.clone(); caches.open(CACHE_NAME).then(ca=>ca.put(e.request,clone)); return r;})));
+  if(STATIC_ASSETS.some(a=>u.pathname.endsWith(a.replace('./',''))) || u.pathname.endsWith('/') || u.pathname.endsWith('index.html')){
+    e.respondWith(caches.match(e.request).then(cached=>cached||fetch(e.request).then(r=>{const c=r.clone(); caches.open(CACHE_NAME).then(ca=>ca.put(e.request,c)); return r;})));
     return;
   }
 });
-
 const PUSH_WORKER_URL='https://ommen-push-v2.leeuw008.workers.dev';
-
 self.addEventListener('push', e=>{
   e.waitUntil((async()=>{
     let title='Nieuw(s)Ommen', body='Er is nieuw nieuws uit Ommen', link='', source='', id='', image='';
-    try{
-      if(e.data){
-        const d = e.data.json();
-        title = d.title || title;
-        body = d.body || d.title || body;
-        link = d.link || d.url || '';
-        source = d.source || d.id || '';
-        id = d.articleId || d.id || '';
-        image = d.image || '';
-        if(source && title && !body.includes(source)){
-          body = `${source}: ${title}`;
-        }
-      }
-    }catch(err){
-      try{ 
-        const txt = e.data && e.data.text();
-        if(txt) body = txt;
-      }catch{}
-    }
-
-    // Fallback voor no-payload
-    if(!link){
-      try{
-        const r=await fetch(`${PUSH_WORKER_URL}/last`,{cache:'no-store'});
-        if(r.ok){
-          const j=await r.json();
-          title=j.title||title;
-          link=j.link||link;
-          source=j.source||source;
-          id=j.id||id;
-          body=source?`${source}: ${j.title}`:j.title;
-        }
-      }catch{}
-    }
-
+    try{ if(e.data){ const d=e.data.json(); title=d.title||title; body=d.body||d.title||body; link=d.link||d.url||''; source=d.source||d.id||''; id=d.articleId||d.id||''; image=d.image||''; if(source && title && !body.includes(source)) body=`${source}: ${title}`; } }catch{ try{ const txt=e.data && e.data.text(); if(txt) body=txt; }catch{} }
+    if(!link){ try{ const r=await fetch(`${PUSH_WORKER_URL}/last`,{cache:'no-store'}); if(r.ok){ const j=await r.json(); title=j.title||title; link=j.link||link; source=j.source||source; id=j.id||id; body=source?`${source}: ${j.title}`:j.title; } }catch{} }
     const tag = link ? `ommen-${btoa(link).slice(0,32)}` : (id ? `ommen-${id}` : `ommen-${Date.now()}`);
     const focusUrl = link ? `/?focus=${encodeURIComponent(link)}&src=${encodeURIComponent(source)}&id=${encodeURIComponent(id)}` : '/';
-    
-    // v262 FIX: icon = grote 192 (kleuren logo), badge = kleine witte N op transparant (geen vierkant blokje meer!)
     const options={
       body, 
-      icon:'./icons/icon-192x192.png', 
-      badge:'./icons/badge-simple-N-96.png', 
+      icon:'./icons/icon-192x192.png',      // GROOT blauw schild met leeuw - in notificatie
+      badge:'./icons/badge-lion-96x96.png', // KLEIN witte leeuw silhouet - bovenin statusbalk, geen wit vierkant!
       image: image || undefined,
       data:{url:link, focusUrl, source, id, link}, 
-      tag, 
-      renotify:true,
-      vibrate:[200,100,200],
-      requireInteraction:false
+      tag, renotify:true, vibrate:[200,100,200], requireInteraction:false
     };
     return self.registration.showNotification(title, options);
   })());
 });
-
 self.addEventListener('notificationclick', e=>{
   e.notification.close();
   const data=e.notification.data||{};
   const focusUrl = data.focusUrl || (data.url ? `/?focus=${encodeURIComponent(data.url)}&src=${encodeURIComponent(data.source||'')}&id=${encodeURIComponent(data.id||'')}` : '/');
-  const externalUrl = data.url || '/';
-  const source = data.source || '';
-  const id = data.id || '';
-  const link = data.link || data.url || '';
-
+  const externalUrl=data.url||'/'; const source=data.source||''; const id=data.id||''; const link=data.link||data.url||'';
   e.waitUntil((async()=>{
     try{
       const all=await clients.matchAll({type:'window', includeUncontrolled:true});
       for(const c of all){
         if((c.url.includes('nieuwommen')||c.url.includes('Nieuws-Ommen')||c.url.includes('localhost')) && 'focus' in c){
-          try{
-            c.postMessage({type:'NOTIFICATION_CLICK', id, url:externalUrl, source, link, focusUrl});
-          }catch{}
+          try{ c.postMessage({type:'NOTIFICATION_CLICK', id, url:externalUrl, source, link, focusUrl}); }catch{}
           try{ await c.navigate(focusUrl); }catch{ await c.navigate('/'); }
           return c.focus();
         }
       }
       if(clients.openWindow) return clients.openWindow(focusUrl);
-    }catch(err){
-      if(clients.openWindow) return clients.openWindow(focusUrl);
-    }
+    }catch{ if(clients.openWindow) return clients.openWindow(focusUrl); }
   })());
 });
-
-self.addEventListener('message', e=>{
-  if(e.data && e.data.type==='SET_FILTERS'){
-    console.log('[v262] Filters ontvangen:', e.data.sources);
-    try{ self._selectedSources = e.data.sources; }catch{}
-  }
-});
+self.addEventListener('message', e=>{ if(e.data && e.data.type==='SET_FILTERS'){ try{ self._selectedSources=e.data.sources; }catch{} } });
