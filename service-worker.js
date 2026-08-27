@@ -1,12 +1,14 @@
-/* service-worker v261 - CACHE BUST + safe fetch + push focus */
-const CACHE_NAME='ommen-v261-fixed';
+/* service-worker v262 - FIXED ICONS: proper badge + icon + no square block */
+const CACHE_NAME='ommen-v262-icons-fixed';
 const STATIC_ASSETS=[
   './',
   './index.html',
   './styles.css',
   './manifest.json',
   './icons/icon-192x192.png',
-  './icons/icon-512x512.png'
+  './icons/icon-512x512.png',
+  './icons/badge-simple-N-96.png',
+  './icons/notification-icon-solid-192.png'
 ];
 self.addEventListener('install', e=>{
   self.skipWaiting(); 
@@ -69,6 +71,7 @@ self.addEventListener('push', e=>{
       }catch{}
     }
 
+    // Fallback voor no-payload
     if(!link){
       try{
         const r=await fetch(`${PUSH_WORKER_URL}/last`,{cache:'no-store'});
@@ -86,15 +89,16 @@ self.addEventListener('push', e=>{
     const tag = link ? `ommen-${btoa(link).slice(0,32)}` : (id ? `ommen-${id}` : `ommen-${Date.now()}`);
     const focusUrl = link ? `/?focus=${encodeURIComponent(link)}&src=${encodeURIComponent(source)}&id=${encodeURIComponent(id)}` : '/';
     
+    // v262 FIX: icon = grote 192 (kleuren logo), badge = kleine witte N op transparant (geen vierkant blokje meer!)
     const options={
       body, 
       icon:'./icons/icon-192x192.png', 
-      badge:'./icons/icon-192x192.png', 
+      badge:'./icons/badge-simple-N-96.png', 
       image: image || undefined,
       data:{url:link, focusUrl, source, id, link}, 
       tag, 
       renotify:true,
-      vibrate:[100,50,100],
+      vibrate:[200,100,200],
       requireInteraction:false
     };
     return self.registration.showNotification(title, options);
@@ -131,10 +135,7 @@ self.addEventListener('notificationclick', e=>{
 
 self.addEventListener('message', e=>{
   if(e.data && e.data.type==='SET_FILTERS'){
-    console.log('[v261] Filters ontvangen voor push:', e.data.sources);
+    console.log('[v262] Filters ontvangen:', e.data.sources);
     try{ self._selectedSources = e.data.sources; }catch{}
-  }
-  if(e.data && e.data.type==='SYNC_UPDATED'){
-    console.log('[v261] Sync updated');
   }
 });
