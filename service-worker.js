@@ -1,5 +1,5 @@
-/* service-worker v250 - LED rechts + telling - CACHE BUST DEFINITIEF */
-const CACHE_NAME='ommen-v250-compact-knoppen';
+/* service-worker v261 - CACHE BUST + safe fetch + push focus */
+const CACHE_NAME='ommen-v261-fixed';
 const STATIC_ASSETS=[
   './',
   './index.html',
@@ -22,7 +22,6 @@ self.addEventListener('fetch', e=>{
   if(u.hostname.includes('workers.dev') || u.hostname.includes('allorigins') || u.hostname.includes('rss2json') || u.pathname.includes('/proxy')){
     return;
   }
-  // CRITICAL: app.js + index.html NEVER from old cache
   if(u.pathname.includes('app.js') || u.pathname.includes('index.html')){
     e.respondWith(
       fetch(e.request, {cache:'no-store'}).then(r=>{
@@ -44,38 +43,98 @@ self.addEventListener('fetch', e=>{
     return;
   }
 });
+
 const PUSH_WORKER_URL='https://ommen-push-v2.leeuw008.workers.dev';
+
 self.addEventListener('push', e=>{
   e.waitUntil((async()=>{
-    let title='Nieuw(s)Ommen', body='Er is nieuw nieuws uit Ommen', link='/', source='', id='';
-    if(e.data){try{const d=e.data.json();title=d.title||title;body=d.body||d.title||body;link=d.link||d.url||link;source=d.source||'';id=d.id||d.articleId||'';if(source)body=`${source}: ${title}`;}catch{try{const txt=e.data.text();if(txt)body=txt;}catch{}}}
-    else{try{const r=await fetch(`${PUSH_WORKER_URL}/last`,{cache:'no-store'});if(r.ok){const j=await r.json();title=j.title||title;link=j.link||link;source=j.source||'';id=j.id||'';body=source?`${source}: ${j.title}`:j.title;}}catch{}}
-    const tag = id ? `ommen-${id}` : `ommen-${(source||'algemeen').toLowerCase().replace(/\s+/g,'-')}`;
-    const options={body, icon:'./icons/icon-192x192.png', badge:'./icons/icon-192x192.png', data:{url:link, source, id}, tag, renotify:false, vibrate:[100,50,100]};
+    let title='Nieuw(s)Ommen', body='Er is nieuw nieuws uit Ommen', link='', source='', id='', image='';
+    try{
+      if(e.data){
+        const d = e.data.json();
+        title = d.title || title;
+        body = d.body || d.title || body;
+        link = d.link || d.url || '';
+        source = d.source || d.id || '';
+        id = d.articleId || d.id || '';
+        image = d.image || '';
+        if(source && title && !body.includes(source)){
+          body = `${source}: ${title}`;
+        }
+      }
+    }catch(err){
+      try{ 
+        const txt = e.data && e.data.text();
+        if(txt) body = txt;
+      }catch{}
+    }
+
+    if(!link){
+      try{
+        const r=await fetch(`${PUSH_WORKER_URL}/last`,{cache:'no-store'});
+        if(r.ok){
+          const j=await r.json();
+          title=j.title||title;
+          link=j.link||link;
+          source=j.source||source;
+          id=j.id||id;
+          body=source?`${source}: ${j.title}`:j.title;
+        }
+      }catch{}
+    }
+
+    const tag = link ? `ommen-${btoa(link).slice(0,32)}` : (id ? `ommen-${id}` : `ommen-${Date.now()}`);
+    const focusUrl = link ? `/?focus=${encodeURIComponent(link)}&src=${encodeURIComponent(source)}&id=${encodeURIComponent(id)}` : '/';
+    
+    const options={
+      body, 
+      icon:'./icons/icon-192x192.png', 
+      badge:'./icons/icon-192x192.png', 
+      image: image || undefined,
+      data:{url:link, focusUrl, source, id, link}, 
+      tag, 
+      renotify:true,
+      vibrate:[100,50,100],
+      requireInteraction:false
+    };
     return self.registration.showNotification(title, options);
   })());
 });
+
 self.addEventListener('notificationclick', e=>{
   e.notification.close();
   const data=e.notification.data||{};
-  const id=data.id||'';
-  const externalUrl=data.url||'/';
-  const source=data.source||'';
-  const appUrl = id ? `/?highlight=${encodeURIComponent(id)}&src=${encodeURIComponent(source)}` : '/';
+  const focusUrl = data.focusUrl || (data.url ? `/?focus=${encodeURIComponent(data.url)}&src=${encodeURIComponent(data.source||'')}&id=${encodeURIComponent(data.id||'')}` : '/');
+  const externalUrl = data.url || '/';
+  const source = data.source || '';
+  const id = data.id || '';
+  const link = data.link || data.url || '';
+
   e.waitUntil((async()=>{
     try{
       const all=await clients.matchAll({type:'window', includeUncontrolled:true});
       for(const c of all){
         if((c.url.includes('nieuwommen')||c.url.includes('Nieuws-Ommen')||c.url.includes('localhost')) && 'focus' in c){
-          try{c.postMessage({type:'NOTIFICATION_CLICK', id, url:externalUrl, source});}catch{}
-          await c.navigate(appUrl);
+          try{
+            c.postMessage({type:'NOTIFICATION_CLICK', id, url:externalUrl, source, link, focusUrl});
+          }catch{}
+          try{ await c.navigate(focusUrl); }catch{ await c.navigate('/'); }
           return c.focus();
         }
       }
-      if(clients.openWindow) return clients.openWindow(appUrl);
-    }catch{
-      if(clients.openWindow) return clients.openWindow(appUrl);
+      if(clients.openWindow) return clients.openWindow(focusUrl);
+    }catch(err){
+      if(clients.openWindow) return clients.openWindow(focusUrl);
     }
   })());
 });
-self.addEventListener('message', e=>{if(e.data && e.data.type==='SET_FILTERS'){console.log('[v250] Filters:', e.data.sources);}});
+
+self.addEventListener('message', e=>{
+  if(e.data && e.data.type==='SET_FILTERS'){
+    console.log('[v261] Filters ontvangen voor push:', e.data.sources);
+    try{ self._selectedSources = e.data.sources; }catch{}
+  }
+  if(e.data && e.data.type==='SYNC_UPDATED'){
+    console.log('[v261] Sync updated');
+  }
+});
