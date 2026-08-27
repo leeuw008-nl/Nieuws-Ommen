@@ -1,4 +1,4 @@
-// app.js v265 - SYNC FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
+// app.js v266 - SYNC RACE FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
@@ -790,7 +790,7 @@ function renderArticles(){
   container.innerHTML = countHtml + html;
   window.getAllArticles = ()=> filtered;
   try{ if(typeof updateSourceLeds==='function') setTimeout(()=>updateSourceLeds(), 20); }catch{}
-  // v265 fix 0/0 - update filter counts after articles filtered
+  // v266 fix 0/0 - update filter counts after articles filtered
   try{ const list=document.getElementById('source-list'); if(list && list.children.length>0){ /* counts will be updated on next renderFilters */ } }catch{}
 }
 function filterNews(){ renderArticles(); }
@@ -848,7 +848,7 @@ async function refreshNews(){
   });
   if(freshArts.length>0) allArticles=freshArts;
   updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds();
-  console.log('refreshNews klaar v265 FIX 0/0', allArticles.length, 'artikelen');
+  console.log('refreshNews klaar v266 FIX 0/0', allArticles.length, 'artikelen');
 }
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); restorePanelState(); setupFilterHeader();
@@ -951,57 +951,109 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     }
   }
 
+  let pendingSave = false;
   async function saveToCloud(){
-    if(!authToken || !SYNC_ENABLED || isSyncing) return;
+    if(!authToken || !SYNC_ENABLED) return;
+    if(isSyncing){
+      pendingSave = true;
+      console.log('[sync] save queued, isSyncing true');
+      return;
+    }
     try{
       isSyncing = true;
+      console.log('[sync] saving state to cloud, items:', Object.keys(state).length);
       const r = await fetch(WORKER+'/sync/save', {method:'POST', headers: getAuthHeaders(), body: JSON.stringify({state})});
       const j = await r.json().catch(()=>({}));
-      if(j.updated){
-        lastRemoteUpdated = j.updated;
-        localStorage.setItem('ommen_last_sync', String(j.updated));
+      console.log('[sync] save response', j);
+      if(r.ok && (j.ok || j.updated)){
+        const updated = j.updated || Date.now();
+        lastRemoteUpdated = updated;
+        localStorage.setItem('ommen_last_sync', String(updated));
+        console.log('[sync] saved ok, updated:', updated);
       } else {
-        const now = Date.now();
-        lastRemoteUpdated = now;
-        localStorage.setItem('ommen_last_sync', String(now));
+        console.warn('[sync] save failed', j);
       }
     }catch(e){ console.log('Sync save fail', e.message); }
-    finally{ isSyncing = false; }
+    finally{ 
+      isSyncing = false; 
+      if(pendingSave){
+        pendingSave = false;
+        console.log('[sync] processing queued save');
+        setTimeout(()=>saveToCloud(), 300);
+      }
+    }
   }
 
   async function loadFromCloud(force=false){
-    if(!authToken) return false;
-    if(isSyncing && !force) return false;
+    if(!authToken){
+      console.log('[sync] load skipped, no authToken');
+      return false;
+    }
+    if(isSyncing && !force){
+      console.log('[sync] load skipped, isSyncing true and not force');
+      return false;
+    }
     let didUpdate = false;
     try{
-      isSyncing = true;
+      if(!force) isSyncing = true;
+      console.log('[sync] loading from cloud, force=', force, 'lastRemote=', lastRemoteUpdated);
       const r = await fetch(WORKER+'/sync/load', {headers: getAuthHeaders()});
-      if(!r.ok) return false;
+      console.log('[sync] load status', r.status);
+      if(!r.ok){
+        const errTxt = await r.text().catch(()=>'' );
+        console.warn('[sync] load failed status', r.status, errTxt);
+        return false;
+      }
       const data = await r.json();
-      if(!data.state) return false;
+      console.log('[sync] load data', {hasState: !!data.state, updated: data.updated, keys: data.state?Object.keys(data.state).length:0});
+      if(!data.state){
+        console.log('[sync] no remote state');
+        return false;
+      }
       const remoteUpdated = data.updated || 0;
-      if(!force && remoteUpdated && remoteUpdated <= lastRemoteUpdated){
+      if(!force && remoteUpdated && remoteUpdated <= lastRemoteUpdated && lastRemoteUpdated!==0){
+        console.log('[sync] remote not newer, skipping', remoteUpdated, '<=', lastRemoteUpdated);
+        // Still check if local differs though
+        const localStr = JSON.stringify(state);
+        const remoteStr = JSON.stringify(data.state);
+        if(localStr === remoteStr){
+          return false;
+        }
+        // If different but remote older, still apply? No, keep local wins
+        // But for debugging, log
+        console.log('[sync] local differs but remote older, keeping local');
         return false;
       }
       const localStr = JSON.stringify(state);
       const remoteStr = JSON.stringify(data.state);
+      console.log('[sync] compare', {localLen: localStr.length, remoteLen: remoteStr.length, equal: localStr===remoteStr});
       if(localStr === remoteStr){
         if(remoteUpdated) { lastRemoteUpdated = remoteUpdated; localStorage.setItem('ommen_last_sync', String(remoteUpdated)); }
+        console.log('[sync] states equal, no update needed');
         return false;
       }
+      console.log('[sync] applying remote state');
       state = data.state;
+      // Ensure all bronnen exist
+      try{ BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true, vandaag:false, scope:'gemeente'}; }); }catch{}
       localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
       lastRemoteUpdated = remoteUpdated || Date.now();
       localStorage.setItem('ommen_last_sync', String(lastRemoteUpdated));
       if(typeof renderFilters==='function'){ renderFilters(); }
       if(typeof filterNews==='function'){ filterNews(); }
+      if(typeof updateHiddenCompat==='function'){ updateHiddenCompat(); }
+      if(typeof updateHeaderCount==='function'){ updateHeaderCount(); }
+      if(window.updatePushBell) try{ window.updatePushBell(); }catch{}
+      try{ if(window.pushFiltersToSW) window.pushFiltersToSW(); }catch{}
       updateAuthUI();
       didUpdate = true;
       const isBg = document.visibilityState !== 'visible';
       if(!force){
         showSyncNotification(isBg);
+      } else {
+        console.log('[sync] force load applied');
       }
-    }catch(e){ console.log('Sync load fail', e.message); }
+    }catch(e){ console.log('Sync load fail', e.message, e.stack); }
     finally{ isSyncing = false; }
     return didUpdate;
   }
@@ -1115,13 +1167,18 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
 
   if(typeof saveState === 'function'){
     const origSave = saveState;
+    let saveTimeout = null;
     window.saveState = function(){
       try{ origSave(); }catch{}
       localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
       try{ if(typeof updateHiddenCompat==='function') updateHiddenCompat(); }catch{}
       try{ if(typeof updateHeaderCount==='function') updateHeaderCount(); }catch{}
       try{ if(window.updatePushBell) window.updatePushBell(); }catch{}
-      if(authToken) saveToCloud();
+      if(authToken){
+        // debounce cloud save 500ms
+        if(saveTimeout) clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(()=>{ saveToCloud(); }, 500);
+      }
     };
   }
 
