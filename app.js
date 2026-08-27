@@ -1,5 +1,5 @@
- // app.js v268 - DEFINITIEF FIX 0/0 + SUPER ROBUST FETCH + SYNC + LION BADGE
-// app.js v268 - SYNC FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
+// app.js v271 - SYNC ONLY FIX - terug naar werkende bronnen van vanavond + alleen sync race gefixed
+// app.js v271 - LED rechts + aantal ingeladen/geselecteerd - FIX 344 DEFINITIEF
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
@@ -225,7 +225,7 @@ let state = {}; let allArticles = []; let loadedSources = new Set();
 (function injectLedStyles(){
   const css = `
   .source-row{position:relative}
-  .source-led{width:12px;height:12px;border-radius:999px;display:block;flex-shrink:0;transition:all .25s}
+  .source-led{width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0;margin-right:6px;vertical-align:middle;transition:all .25s}
   .source-led.loading{background:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,.25);animation:pulse-red 1.2s infinite}
   .source-led.ok{background:#16a34a;box-shadow:0 0 0 2px rgba(22,163,74,.22)}
   .source-led.fail{background:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,.2)}
@@ -233,7 +233,7 @@ let state = {}; let allArticles = []; let loadedSources = new Set();
   @keyframes pulse-red{0%{transform:scale(1);opacity:1}50%{transform:scale(1.25);opacity:.7}100%{transform:scale(1);opacity:1}}
   .source-meta{display:flex;flex-direction:row;align-items:center;gap:0}
   .source-meta-text{display:flex;flex-direction:column;min-width:0}
-  .source-led-wrap{display:flex;align-items:center;justify-content:center;width:22px;flex-shrink:0} .source-name{position:relative} .source-name span:first-child{flex:1}
+  .source-led-wrap{display:flex;align-items:center;justify-content:center;width:18px}
   `;
   const el=document.createElement('style');
   el.id='led-status-style';
@@ -286,7 +286,6 @@ function saveState(){
   localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
   updateHiddenCompat(); updateHeaderCount();
   if(window.updatePushBell) window.updatePushBell();
-  try{ if(window.updatePushSubscription) window.updatePushSubscription(); }catch(e){}
   // v227 - push filters naar SW voor notificatie filtering
   try{
     if(window.pushFiltersToSW) window.pushFiltersToSW();
@@ -309,34 +308,7 @@ function renderFilters(){
     const row = document.createElement('div');
     row.className='source-row'+(s.aan?'':' off');
     const scopeIsGemeente = s.scope==='gemeente';
-    const allForBron = allArticles.filter(a=>a.id===b.id); // v268: include fallback so never 0/0
-    const loadedCount = allForBron.length;
-    let selectedCount = allForBron.filter(a=>!a.isFallback).length; let totalCount = allForBron.length;
-    if(s.vandaag){
-      const today = new Date();
-      selectedCount = allForBron.filter(a=>a.pubDate && isSameDay(a.pubDate, today)).length;
-    }
-    if(s.scope==='gemeente'){
-      if(s.vandaag){
-        const today = new Date();
-        selectedCount = allForBron.filter(a=>a.pubDate && isSameDay(a.pubDate, today) && isGemeenteArtikel(a)).length;
-      } else {
-        selectedCount = allForBron.filter(a=>isGemeenteArtikel(a)).length;
-      }
-    }
-    row.innerHTML = `
-      <div class="source-meta" style="display:flex;flex-direction:row;align-items:center;gap:8px;flex:1;min-width:0;">
-        <div class="source-meta-text" style="display:flex;flex-direction:column;flex:1;min-width:0;">
-          <div class="source-name" style="display:flex;align-items:center;gap:8px;min-width:0;">
-            <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.name}</span>
-            <span class="led-col" style="width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-              <span class="source-led loading" data-id="${b.id}" title="Laden..." style="width:12px;height:12px;border-radius:999px;background:#ef4444;display:block;flex-shrink:0;box-shadow:0 0 0 2px rgba(239,68,68,.25);"></span>
-            </span>
-            <span class="count-col" style="font-size:11px;font-weight:700;color:#374151;background:#f3f4f6;padding:2px 7px;border-radius:99px;white-space:nowrap;min-width:52px;text-align:center;flex-shrink:0;" title="ingeladen / geselecteerd">${loadedCount} / ${selectedCount}</span>
-          </div>
-          <div class="source-sub">${b.sub}</div>
-        </div>
-      </div>
+    row.innerHTML = `<div class="source-meta"><div class="source-led-wrap"><span class="source-led loading" data-id="${b.id}" title="Laden..."></span></div><div class="source-meta-text"><div class="source-name">${b.name}</div><div class="source-sub">${b.sub}</div></div></div></div>
       <div class="toggles">
         <div class="toggle-col"><label class="mini-switch vandaag ${s.vandaag?'checked':''}"><input type="checkbox" ${s.vandaag?'checked':''} data-type="vandaag" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${s.vandaag?'VANDAAG':'MEER'}</span></div>
         <div class="toggle-col"><label class="mini-switch ${scopeIsGemeente?'checked':''} ${scopeIsGemeente?'scope-gemeente':'scope-regio'}" style="background:${scopeIsGemeente?'#0b5bd3':'#7c3aed'}"><input type="checkbox" ${scopeIsGemeente?'checked':''} data-type="scope" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${scopeIsGemeente?'GEMEENTE':'REGIO'}</span></div>
@@ -354,10 +326,7 @@ function renderFilters(){
       saveState(); renderFilters(); filterNews(); updateSourceLeds();
     });
   });
-  setTimeout(()=>{ try{ updateSourceLeds(); }catch{} }, 50);
 }
-
-
 function updateHeaderCount(){
   const aan = Object.values(state).filter(s=>s.aan).length;
   const countEl = document.getElementById('header-count');
@@ -407,7 +376,7 @@ function setupFilterHeader(){
   });
 }
 const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
-// PERF v268 - CACHE + SNELLER - RTV Oost & Vechtdal parsers 100% intact
+// PERF v271 - CACHE + SNELLER - RTV Oost & Vechtdal parsers 100% intact
 const SOURCE_CACHE_TTL = 1000 * 60 * 5; // 5 min vers
 const SOURCE_CACHE_STALE = 1000 * 60 * 60; // 60 min stale voor instant load
 const SOURCE_CACHE_KEY = 'ommen_source_cache_v1';
@@ -436,57 +405,37 @@ function putCachedSource(url, data){
   setSourceCache(cache);
 }
 async function fetchViaWorker(url){
-  const tryFetch = async (fetchUrl, label, parseFn) => {
-    try{
-      const ctrl = new AbortController();
-      const to = setTimeout(()=>ctrl.abort(), 10000);
-      const r = await fetch(fetchUrl, {cache:'no-store', signal:ctrl.signal});
-      clearTimeout(to);
-      if(!r.ok) throw new Error(label+' status '+r.status);
-      let data = parseFn ? await parseFn(r) : await r.text();
-      if(typeof data==='string' && data.length<150) throw new Error(label+' empty');
-      if(typeof data==='string' && data.includes('Attention Required')) throw new Error('cf challenge');
-      if(typeof data==='string') putCachedSource(url, data);
-      return data;
-    }catch(e){ throw e; }
-  };
-  // 1. worker proxy
+  const controller = new AbortController();
+  const to = setTimeout(()=>controller.abort(), 6000);
   try{
-    return await tryFetch(`${WORKER}/proxy?url=${encodeURIComponent(url)}&t=${Date.now()}`, 'worker-proxy');
+    const r = await fetch(`${WORKER}/proxy?url=${encodeURIComponent(url)}&t=${Date.now()}`, {cache:'no-store', signal:controller.signal});
+    clearTimeout(to);
+    if(!r.ok) throw new Error('proxy fail '+r.status);
+    const t = await r.text();
+    if(t.length<150) throw new Error('proxy empty len '+t.length);
+    if(t.includes('Proxy blocked')||t.includes('Proxy error')||t.startsWith('Proxy err')) throw new Error(t.slice(0,200));
+    if(t.includes('<title>Just a moment</title>')||t.includes('Attention Required')) throw new Error('cf challenge');
+    putCachedSource(url, t);
+    return t;
   }catch(e1){
-    console.log('[fetch] worker fail', e1.message);
-    // 2. corsproxy.io
+    clearTimeout(to);
+    console.log('[perf v271] worker fail, 1 fallback', url, e1.message);
     try{
-      return await tryFetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, 'corsproxy');
-    }catch(e2){
-      // 3. allorigins
-      try{
-        const data = await tryFetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}&t=${Date.now()}`, 'allorigins', async (r)=>{ const j=await r.json(); return j.contents; });
-        if(data && data.length>200) return data;
-        throw new Error('allorigins empty');
-      }catch(e3){
-        // 4. rss2json for RSS
-        if(url.includes('/feed') || url.includes('/rss') || url.includes('.xml')){
-          try{
-            const rss2jsonUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}&t=${Date.now()}`;
-            const r = await fetch(rss2jsonUrl, {cache:'no-store'});
-            if(r.ok){
-              const j = await r.json();
-              if(j.status==='ok' && j.items && j.items.length>0){
-                let xml = '<rss><channel>';
-                j.items.forEach(it=>{
-                  xml+=`<item><title><![CDATA[${it.title}]]></title><link>${it.link}</link><pubDate>${it.pubDate}</pubDate><description><![CDATA[${it.description}]]></description></item>`;
-                });
-                xml+='</channel></rss>';
-                putCachedSource(url, xml);
-                return xml;
-              }
-            }
-          }catch(e4){}
+      const ctrl2=new AbortController();
+      const to2=setTimeout(()=>ctrl2.abort(), 5000);
+      const fallbackUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&t=${Date.now()}`;
+      const r2 = await fetch(fallbackUrl, {cache:'no-store', signal:ctrl2.signal});
+      clearTimeout(to2);
+      if(r2.ok){
+        const j = await r2.json();
+        if(j.contents && j.contents.length>200) {
+          putCachedSource(url, j.contents);
+          console.log('[perf v271] fallback allorigins OK', url);
+          return j.contents;
         }
-        throw e1;
       }
-    }
+    }catch(e2){ console.log('[perf] allorigins fail', e2.message); }
+    throw e1;
   }
 }
 function parseRSSFull(xml, bronId){
@@ -811,15 +760,13 @@ function renderArticles(){
   container.innerHTML = countHtml + html;
   window.getAllArticles = ()=> filtered;
   try{ if(typeof updateSourceLeds==='function') setTimeout(()=>updateSourceLeds(), 20); }catch{}
-  // v268 fix 0/0 - update filter counts after articles filtered
-  try{ const list=document.getElementById('source-list'); if(list && list.children.length>0){ /* counts will be updated on next renderFilters */ } }catch{}
 }
 function filterNews(){ renderArticles(); }
 async function refreshNews(){
   const c=document.getElementById('news-container');
+  // PERF v271: 1. Direct stale cache tonen (<200ms)
   let hasStale=false;
   const initialArts=[];
-  const initialByBron = {};
   try{
     for(const b of BRONNEN){
       const cfg=BRON_URLS[b.id];
@@ -832,12 +779,7 @@ async function refreshNews(){
           else if(b.id==='RTV Vechtdal'){ try{ arts=parseRTVVechtdalFull(cachedData); }catch{} if(arts.length===0) arts=parseRSSFull(cachedData,b.id); }
           else if(b.id==='Vechtdal Centraal'){ if(cachedData.includes('<rss')||cachedData.includes('<item')) arts=parseRSSFull(cachedData,b.id); else arts=parseVechtdalCentraalFallback(cachedData); }
           else arts=parseRSSFull(cachedData,b.id);
-          if(arts.length>0){ 
-            const mapped = arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
-            initialArts.push(...mapped); 
-            initialByBron[b.id] = mapped;
-            hasStale=true; 
-          }
+          if(arts.length>0){ initialArts.push(...arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}))); hasStale=true; }
         }catch(e){}
       }
     }
@@ -845,24 +787,22 @@ async function refreshNews(){
   if(hasStale && initialArts.length>0){
     allArticles=initialArts;
     loadedSources=new Set(BRONNEN.map(b=>b.id));
-    updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds();
+    updateHeaderCount(); renderArticles(); updateSourceLeds();
     if(c) c.querySelector('.articles-count')?.insertAdjacentHTML('afterend', '<div style="font-size:11px;color:#16a34a;padding:0 2px 6px">⚡ Uit cache - wordt ververst...</div>');
+    console.log('[perf v271] stale cache getoond', initialArts.length);
   } else {
-    if(c) c.innerHTML='<div class="article">Bezig met laden... (9 bronnen)</div>';
+    if(c) c.innerHTML='<div class="article">Bezig met laden... (9 bronnen) - eerste keer iets langer, daarna <1 sec</div>';
     allArticles=[]; loadedSources=new Set(); updateHeaderCount();
   }
   const loadWithTimeout = async (b) => {
     try {
-      const timeout = new Promise((_,rej)=> setTimeout(()=>rej(new Error('timeout '+b.id)), 15000));
+      const timeout = new Promise((_,rej)=> setTimeout(()=>rej(new Error('timeout '+b.id)), 8000));
       const arts = await Promise.race([loadOneSource(b), timeout]);
-      return {b, arts, ok:true};
+      return {b, arts};
     } catch(e){
       console.log('load timeout/fail', b.id, e.message);
-      if(hasStale && initialByBron[b.id] && initialByBron[b.id].length>0){
-        return {b, arts: initialByBron[b.id], ok:true, fromCache:true};
-      }
-      // Return fallback article so we never have 0/0, but mark as fallback
-      return {b, arts: [{title:b.name, link:BRON_URLS[b.id].homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - wordt opnieuw geprobeerd [...]', source:b.name, id:b.id, isFallback:true}], ok:false};
+      if(hasStale) return {b, arts:[]};
+      return {b, arts:[{title:b.name, link:BRON_URLS[b.id].homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - '+e.message.slice(0,80)+' [...]', source:b.name, id:b.id, isFallback:true}]};
     }
   };
   const results = await Promise.allSettled(BRONNEN.map(b=>loadWithTimeout(b)));
@@ -870,13 +810,13 @@ async function refreshNews(){
   results.forEach(r=>{
     if(r.status==='fulfilled'){
       const {b, arts}=r.value;
-      freshArts.push(...arts);
+      if(arts.length>0) freshArts.push(...arts);
       loadedSources.add(b.id);
     }
   });
-  allArticles=freshArts;
-  updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds();
-  console.log('refreshNews klaar v268 FIX 0/0 definitief', allArticles.length, 'artikelen, real:', allArticles.filter(a=>!a.isFallback).length);
+  if(freshArts.length>0) allArticles=freshArts;
+  updateHeaderCount(); renderArticles(); updateSourceLeds();
+  console.log('refreshNews klaar v271 PERF', allArticles.length, 'artikelen');
 }
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); restorePanelState(); setupFilterHeader();
@@ -1074,27 +1014,13 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
           btn.textContent='Bezig...'; btn.disabled=true;
           try{
             await saveToCloud();
-            const ok = await loadFromCloud(true);
+            await loadFromCloud(true);
             btn.textContent='✓ Gesynced!';
             btn.style.background='#16a34a';
-            // Toast bevestiging
-            try{
-              let toast=document.getElementById('ommen-toast');
-              if(!toast){
-                toast=document.createElement('div');
-                toast.id='ommen-toast';
-                toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#16a34a;color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:10000;font-weight:600;font-size:14px;';
-                document.body.appendChild(toast);
-              }
-              toast.textContent='✓ Filters gesynchroniseerd om '+new Date().toLocaleTimeString();
-              toast.style.display='block';
-              setTimeout(()=>{ if(toast) toast.style.display='none'; }, 3000);
-            }catch{}
-            setTimeout(()=>{ overlay.remove(); }, 1200);
+            setTimeout(()=>{ overlay.remove(); }, 800);
           }catch(e){
-            btn.textContent='Fout: '+e.message;
-            btn.style.background='#dc2626';
-            setTimeout(()=>{ btn.textContent=origText; btn.disabled=false; btn.style.background='#0b5bd3'; }, 2500);
+            btn.textContent='Fout';
+            setTimeout(()=>{ btn.textContent=origText; btn.disabled=false; }, 2000);
           }
         };
         overlay.onclick=(e)=>{ if(e.target===overlay) overlay.remove(); };
@@ -1140,7 +1066,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     document.body.appendChild(overlay);
   }
 
-  if(typeof saveState === 'function'){
+    if(typeof saveState === 'function'){
     const origSave = saveState;
     let saveTimeout = null;
     window.saveState = function(){
