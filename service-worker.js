@@ -1,5 +1,5 @@
-/* service-worker v273 - LED rechts + telling - CACHE BUST DEFINITIEF */
-const CACHE_NAME='ommen-v273-focus-fix';
+/* service-worker v274 - LED rechts + telling - CACHE BUST DEFINITIEF */
+const CACHE_NAME='ommen-v274-focus-fix';
 const STATIC_ASSETS=[
   './',
   './index.html',
@@ -62,7 +62,7 @@ self.addEventListener('notificationclick', e=>{
   const externalUrl=data.url||data.link||'/';
   const source=data.source||'';
   const link=data.link||data.url||'';
-  // v273 FOCUS FIX: gebruik ?focus=link zoals article-focus.js v3 verwacht
+  // v274 FOCUS FIX: gebruik ?focus=link zoals article-focus.js v3 verwacht
   const focusUrl = link ? `/?focus=${encodeURIComponent(link)}&src=${encodeURIComponent(source)}&id=${encodeURIComponent(id)}` : '/';
   e.waitUntil((async()=>{
     try{
@@ -80,4 +80,4 @@ self.addEventListener('notificationclick', e=>{
     }
   })());
 });
-self.addEventListener('message', e=>{if(e.data && e.data.type==='SET_FILTERS'){console.log('[v273] Filters:', e.data.sources);}});
+self.addEventListener('message', e=>{if(e.data && e.data.type==='SET_FILTERS'){console.log('[v274] Filters:', e.data.sources);}});
