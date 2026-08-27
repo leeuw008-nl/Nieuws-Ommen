@@ -1,5 +1,5 @@
-/* service-worker v278 - FOCUS FIX DEFINITIEF + LION BADGE + ROBUST */
-const CACHE_NAME='ommen-v278-focus-def';
+/* service-worker v279 - FOCUS FIX DEFINITIEF + LION BADGE + ROBUST */
+const CACHE_NAME='ommen-v279-good';
 const STATIC_ASSETS=[
   './',
   './index.html',
