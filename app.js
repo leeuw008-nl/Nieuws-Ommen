@@ -1,4 +1,5 @@
-// app.js v267 - 0/0 FIX + SYNC FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
+ // app.js v268 - DEFINITIEF FIX 0/0 + SUPER ROBUST FETCH + SYNC + LION BADGE
+// app.js v268 - SYNC FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
@@ -308,9 +309,9 @@ function renderFilters(){
     const row = document.createElement('div');
     row.className='source-row'+(s.aan?'':' off');
     const scopeIsGemeente = s.scope==='gemeente';
-    const allForBron = allArticles.filter(a=>a.id===b.id && !a.isFallback);
+    const allForBron = allArticles.filter(a=>a.id===b.id); // v268: include fallback so never 0/0
     const loadedCount = allForBron.length;
-    let selectedCount = allForBron.length;
+    let selectedCount = allForBron.filter(a=>!a.isFallback).length; let totalCount = allForBron.length;
     if(s.vandaag){
       const today = new Date();
       selectedCount = allForBron.filter(a=>a.pubDate && isSameDay(a.pubDate, today)).length;
@@ -406,7 +407,7 @@ function setupFilterHeader(){
   });
 }
 const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
-// PERF v239 - CACHE + SNELLER - RTV Oost & Vechtdal parsers 100% intact
+// PERF v268 - CACHE + SNELLER - RTV Oost & Vechtdal parsers 100% intact
 const SOURCE_CACHE_TTL = 1000 * 60 * 5; // 5 min vers
 const SOURCE_CACHE_STALE = 1000 * 60 * 60; // 60 min stale voor instant load
 const SOURCE_CACHE_KEY = 'ommen_source_cache_v1';
@@ -435,37 +436,57 @@ function putCachedSource(url, data){
   setSourceCache(cache);
 }
 async function fetchViaWorker(url){
-  const controller = new AbortController();
-  const to = setTimeout(()=>controller.abort(), 6000);
-  try{
-    const r = await fetch(`${WORKER}/proxy?url=${encodeURIComponent(url)}&t=${Date.now()}`, {cache:'no-store', signal:controller.signal});
-    clearTimeout(to);
-    if(!r.ok) throw new Error('proxy fail '+r.status);
-    const t = await r.text();
-    if(t.length<150) throw new Error('proxy empty len '+t.length);
-    if(t.includes('Proxy blocked')||t.includes('Proxy error')||t.startsWith('Proxy err')) throw new Error(t.slice(0,200));
-    if(t.includes('<title>Just a moment</title>')||t.includes('Attention Required')) throw new Error('cf challenge');
-    putCachedSource(url, t);
-    return t;
-  }catch(e1){
-    clearTimeout(to);
-    console.log('[perf v239] worker fail, 1 fallback', url, e1.message);
+  const tryFetch = async (fetchUrl, label, parseFn) => {
     try{
-      const ctrl2=new AbortController();
-      const to2=setTimeout(()=>ctrl2.abort(), 5000);
-      const fallbackUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&t=${Date.now()}`;
-      const r2 = await fetch(fallbackUrl, {cache:'no-store', signal:ctrl2.signal});
-      clearTimeout(to2);
-      if(r2.ok){
-        const j = await r2.json();
-        if(j.contents && j.contents.length>200) {
-          putCachedSource(url, j.contents);
-          console.log('[perf v239] fallback allorigins OK', url);
-          return j.contents;
+      const ctrl = new AbortController();
+      const to = setTimeout(()=>ctrl.abort(), 10000);
+      const r = await fetch(fetchUrl, {cache:'no-store', signal:ctrl.signal});
+      clearTimeout(to);
+      if(!r.ok) throw new Error(label+' status '+r.status);
+      let data = parseFn ? await parseFn(r) : await r.text();
+      if(typeof data==='string' && data.length<150) throw new Error(label+' empty');
+      if(typeof data==='string' && data.includes('Attention Required')) throw new Error('cf challenge');
+      if(typeof data==='string') putCachedSource(url, data);
+      return data;
+    }catch(e){ throw e; }
+  };
+  // 1. worker proxy
+  try{
+    return await tryFetch(`${WORKER}/proxy?url=${encodeURIComponent(url)}&t=${Date.now()}`, 'worker-proxy');
+  }catch(e1){
+    console.log('[fetch] worker fail', e1.message);
+    // 2. corsproxy.io
+    try{
+      return await tryFetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, 'corsproxy');
+    }catch(e2){
+      // 3. allorigins
+      try{
+        const data = await tryFetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}&t=${Date.now()}`, 'allorigins', async (r)=>{ const j=await r.json(); return j.contents; });
+        if(data && data.length>200) return data;
+        throw new Error('allorigins empty');
+      }catch(e3){
+        // 4. rss2json for RSS
+        if(url.includes('/feed') || url.includes('/rss') || url.includes('.xml')){
+          try{
+            const rss2jsonUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}&t=${Date.now()}`;
+            const r = await fetch(rss2jsonUrl, {cache:'no-store'});
+            if(r.ok){
+              const j = await r.json();
+              if(j.status==='ok' && j.items && j.items.length>0){
+                let xml = '<rss><channel>';
+                j.items.forEach(it=>{
+                  xml+=`<item><title><![CDATA[${it.title}]]></title><link>${it.link}</link><pubDate>${it.pubDate}</pubDate><description><![CDATA[${it.description}]]></description></item>`;
+                });
+                xml+='</channel></rss>';
+                putCachedSource(url, xml);
+                return xml;
+              }
+            }
+          }catch(e4){}
         }
+        throw e1;
       }
-    }catch(e2){ console.log('[perf] allorigins fail', e2.message); }
-    throw e1;
+    }
   }
 }
 function parseRSSFull(xml, bronId){
@@ -790,13 +811,12 @@ function renderArticles(){
   container.innerHTML = countHtml + html;
   window.getAllArticles = ()=> filtered;
   try{ if(typeof updateSourceLeds==='function') setTimeout(()=>updateSourceLeds(), 20); }catch{}
-  // v265 fix 0/0 - update filter counts after articles filtered
+  // v268 fix 0/0 - update filter counts after articles filtered
   try{ const list=document.getElementById('source-list'); if(list && list.children.length>0){ /* counts will be updated on next renderFilters */ } }catch{}
 }
 function filterNews(){ renderArticles(); }
 async function refreshNews(){
   const c=document.getElementById('news-container');
-  // PERF v266: Fix 0/0 bug - keep stale articles for failed sources
   let hasStale=false;
   const initialArts=[];
   const initialByBron = {};
@@ -827,68 +847,36 @@ async function refreshNews(){
     loadedSources=new Set(BRONNEN.map(b=>b.id));
     updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds();
     if(c) c.querySelector('.articles-count')?.insertAdjacentHTML('afterend', '<div style="font-size:11px;color:#16a34a;padding:0 2px 6px">⚡ Uit cache - wordt ververst...</div>');
-    console.log('[perf v266] stale cache getoond', initialArts.length);
   } else {
-    if(c) c.innerHTML='<div class="article">Bezig met laden... (9 bronnen) - eerste keer iets langer, daarna <1 sec</div>';
+    if(c) c.innerHTML='<div class="article">Bezig met laden... (9 bronnen)</div>';
     allArticles=[]; loadedSources=new Set(); updateHeaderCount();
   }
   const loadWithTimeout = async (b) => {
     try {
-      const timeout = new Promise((_,rej)=> setTimeout(()=>rej(new Error('timeout '+b.id)), 12000));
+      const timeout = new Promise((_,rej)=> setTimeout(()=>rej(new Error('timeout '+b.id)), 15000));
       const arts = await Promise.race([loadOneSource(b), timeout]);
-      return {b, arts};
+      return {b, arts, ok:true};
     } catch(e){
       console.log('load timeout/fail', b.id, e.message);
-      // FIX: if stale exists, return stale for this bron instead of empty
       if(hasStale && initialByBron[b.id] && initialByBron[b.id].length>0){
-        console.log('[fix 0/0] keep stale for', b.id, initialByBron[b.id].length);
-        return {b, arts: initialByBron[b.id]};
+        return {b, arts: initialByBron[b.id], ok:true, fromCache:true};
       }
-      if(hasStale){
-        // keep empty to avoid wiping, but mark as loaded with fallback count
-        return {b, arts: []};
-      }
-      return {b, arts:[{title:b.name, link:BRON_URLS[b.id].homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - '+e.message.slice(0,80)+' [...]', source:b.name, id:b.id, isFallback:true}]};
+      // Return fallback article so we never have 0/0, but mark as fallback
+      return {b, arts: [{title:b.name, link:BRON_URLS[b.id].homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - wordt opnieuw geprobeerd [...]', source:b.name, id:b.id, isFallback:true}], ok:false};
     }
   };
   const results = await Promise.allSettled(BRONNEN.map(b=>loadWithTimeout(b)));
   const freshArts=[];
-  const failedBrons=[];
   results.forEach(r=>{
     if(r.status==='fulfilled'){
       const {b, arts}=r.value;
-      if(arts.length>0){
-        freshArts.push(...arts);
-      } else {
-        // FIX: no fresh arts for this bron, keep old if exists
-        if(initialByBron[b.id]){
-          freshArts.push(...initialByBron[b.id]);
-        } else {
-          failedBrons.push(b.id);
-        }
-      }
+      freshArts.push(...arts);
       loadedSources.add(b.id);
-    } else {
-      console.log('load rejected', r.reason);
     }
   });
-  // If we got at least some fresh, use merged result
-  if(freshArts.length>0){
-    allArticles=freshArts;
-  } else if(initialArts.length>0){
-    allArticles=initialArts;
-  }
-  // If some brons completely failed and no stale, add fallback so count is 0/1 not 0/0
-  failedBrons.forEach(bid=>{
-    if(!allArticles.some(a=>a.id===bid)){
-      const b=BRONNEN.find(x=>x.id===bid);
-      if(b){
-        allArticles.push({title:b.name, link:BRON_URLS[bid].homepage, pubDate:new Date(0), description:'Bron tijdelijk offline [...]', source:b.name, id:bid, isFallback:true});
-      }
-    }
-  });
+  allArticles=freshArts;
   updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds();
-  console.log('refreshNews klaar v266 FIX 0/0 - was bug waar fresh alleen Vechtdal had', allArticles.length, 'artikelen, failed:', failedBrons);
+  console.log('refreshNews klaar v268 FIX 0/0 definitief', allArticles.length, 'artikelen, real:', allArticles.filter(a=>!a.isFallback).length);
 }
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); restorePanelState(); setupFilterHeader();
@@ -994,102 +982,53 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
   let pendingSave = false;
   async function saveToCloud(){
     if(!authToken || !SYNC_ENABLED) return;
-    if(isSyncing){
-      pendingSave = true;
-      console.log('[sync] save queued, isSyncing true');
-      return;
-    }
+    if(isSyncing){ pendingSave = true; return; }
     try{
       isSyncing = true;
-      console.log('[sync] saving state to cloud, items:', Object.keys(state).length);
       const r = await fetch(WORKER+'/sync/save', {method:'POST', headers: getAuthHeaders(), body: JSON.stringify({state})});
       const j = await r.json().catch(()=>({}));
-      console.log('[sync] save response', j);
       if(r.ok && (j.ok || j.updated)){
         const updated = j.updated || Date.now();
         lastRemoteUpdated = updated;
         localStorage.setItem('ommen_last_sync', String(updated));
-        console.log('[sync] saved ok, updated:', updated);
-      } else {
-        console.warn('[sync] save failed', j);
       }
     }catch(e){ console.log('Sync save fail', e.message); }
-    finally{ 
-      isSyncing = false; 
-      if(pendingSave){
-        pendingSave = false;
-        console.log('[sync] processing queued save');
-        setTimeout(()=>saveToCloud(), 300);
-      }
-    }
+    finally{ isSyncing = false; if(pendingSave){ pendingSave=false; setTimeout(()=>saveToCloud(), 300); } }
   }
 
-    async function loadFromCloud(force=false){
-    if(!authToken){
-      console.log('[sync] load skipped, no authToken');
-      return false;
-    }
-    if(isSyncing && !force){
-      console.log('[sync] load skipped, isSyncing true and not force');
-      return false;
-    }
+  async function loadFromCloud(force=false){
+    if(!authToken) return false;
+    if(isSyncing && !force) return false;
     let didUpdate = false;
     try{
-      if(!force) isSyncing = true;
-      console.log('[sync] loading from cloud, force=', force, 'lastRemote=', lastRemoteUpdated);
+      isSyncing = true;
       const r = await fetch(WORKER+'/sync/load', {headers: getAuthHeaders()});
-      console.log('[sync] load status', r.status);
-      if(!r.ok){
-        const errTxt = await r.text().catch(()=>'' );
-        console.warn('[sync] load failed status', r.status, errTxt);
-        return false;
-      }
+      if(!r.ok) return false;
       const data = await r.json();
-      console.log('[sync] load data', {hasState: !!data.state, updated: data.updated, keys: data.state?Object.keys(data.state).length:0});
-      if(!data.state){
-        console.log('[sync] no remote state');
-        return false;
-      }
+      if(!data.state) return false;
       const remoteUpdated = data.updated || 0;
-      if(!force && remoteUpdated && remoteUpdated <= lastRemoteUpdated && lastRemoteUpdated!==0){
-        console.log('[sync] remote not newer, skipping', remoteUpdated, '<=', lastRemoteUpdated);
-        const localStr = JSON.stringify(state);
-        const remoteStr = JSON.stringify(data.state);
-        if(localStr === remoteStr){
-          return false;
-        }
-        console.log('[sync] local differs but remote older, keeping local');
+      if(!force && remoteUpdated && remoteUpdated <= lastRemoteUpdated){
         return false;
       }
       const localStr = JSON.stringify(state);
       const remoteStr = JSON.stringify(data.state);
-      console.log('[sync] compare', {localLen: localStr.length, remoteLen: remoteStr.length, equal: localStr===remoteStr});
       if(localStr === remoteStr){
         if(remoteUpdated) { lastRemoteUpdated = remoteUpdated; localStorage.setItem('ommen_last_sync', String(remoteUpdated)); }
-        console.log('[sync] states equal, no update needed');
         return false;
       }
-      console.log('[sync] applying remote state');
       state = data.state;
-      try{ BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true, vandaag:false, scope:'gemeente'}; }); }catch{}
       localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
       lastRemoteUpdated = remoteUpdated || Date.now();
       localStorage.setItem('ommen_last_sync', String(lastRemoteUpdated));
       if(typeof renderFilters==='function'){ renderFilters(); }
       if(typeof filterNews==='function'){ filterNews(); }
-      if(typeof updateHiddenCompat==='function'){ updateHiddenCompat(); }
-      if(typeof updateHeaderCount==='function'){ updateHeaderCount(); }
-      if(window.updatePushBell) try{ window.updatePushBell(); }catch{}
-      try{ if(window.pushFiltersToSW) window.pushFiltersToSW(); }catch{}
       updateAuthUI();
       didUpdate = true;
       const isBg = document.visibilityState !== 'visible';
       if(!force){
         showSyncNotification(isBg);
-      } else {
-        console.log('[sync] force load applied');
       }
-    }catch(e){ console.log('Sync load fail', e.message, e.stack); }
+    }catch(e){ console.log('Sync load fail', e.message); }
     finally{ isSyncing = false; }
     return didUpdate;
   }
@@ -1201,7 +1140,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     document.body.appendChild(overlay);
   }
 
-    if(typeof saveState === 'function'){
+  if(typeof saveState === 'function'){
     const origSave = saveState;
     let saveTimeout = null;
     window.saveState = function(){
@@ -1210,10 +1149,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       try{ if(typeof updateHiddenCompat==='function') updateHiddenCompat(); }catch{}
       try{ if(typeof updateHeaderCount==='function') updateHeaderCount(); }catch{}
       try{ if(window.updatePushBell) window.updatePushBell(); }catch{}
-      if(authToken){
-        if(saveTimeout) clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(()=>{ saveToCloud(); }, 500);
-      }
+      if(authToken){ if(saveTimeout) clearTimeout(saveTimeout); saveTimeout=setTimeout(()=>saveToCloud(), 500); }
     };
   }
 

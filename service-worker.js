@@ -1,5 +1,5 @@
-/* service-worker v264 - LION BADGE PROPER FIX - witte leeuw silhouet, geen wit vierkant */
-const CACHE_NAME='ommen-v264-lion-proper';
+/* service-worker v268 - LION BADGE PROPER FIX - witte leeuw silhouet, geen wit vierkant */
+const CACHE_NAME='ommen-v268-lion-0-0-fix';
 const STATIC_ASSETS=[
   './',
   './index.html',
