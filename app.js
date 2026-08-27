@@ -1,4 +1,4 @@
-// app.js v266 - SYNC RACE FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
+// app.js v267 - 0/0 FIX + SYNC FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
@@ -790,15 +790,16 @@ function renderArticles(){
   container.innerHTML = countHtml + html;
   window.getAllArticles = ()=> filtered;
   try{ if(typeof updateSourceLeds==='function') setTimeout(()=>updateSourceLeds(), 20); }catch{}
-  // v266 fix 0/0 - update filter counts after articles filtered
+  // v265 fix 0/0 - update filter counts after articles filtered
   try{ const list=document.getElementById('source-list'); if(list && list.children.length>0){ /* counts will be updated on next renderFilters */ } }catch{}
 }
 function filterNews(){ renderArticles(); }
 async function refreshNews(){
   const c=document.getElementById('news-container');
-  // PERF v239: 1. Direct stale cache tonen (<200ms)
+  // PERF v266: Fix 0/0 bug - keep stale articles for failed sources
   let hasStale=false;
   const initialArts=[];
+  const initialByBron = {};
   try{
     for(const b of BRONNEN){
       const cfg=BRON_URLS[b.id];
@@ -811,7 +812,12 @@ async function refreshNews(){
           else if(b.id==='RTV Vechtdal'){ try{ arts=parseRTVVechtdalFull(cachedData); }catch{} if(arts.length===0) arts=parseRSSFull(cachedData,b.id); }
           else if(b.id==='Vechtdal Centraal'){ if(cachedData.includes('<rss')||cachedData.includes('<item')) arts=parseRSSFull(cachedData,b.id); else arts=parseVechtdalCentraalFallback(cachedData); }
           else arts=parseRSSFull(cachedData,b.id);
-          if(arts.length>0){ initialArts.push(...arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}))); hasStale=true; }
+          if(arts.length>0){ 
+            const mapped = arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
+            initialArts.push(...mapped); 
+            initialByBron[b.id] = mapped;
+            hasStale=true; 
+          }
         }catch(e){}
       }
     }
@@ -821,34 +827,68 @@ async function refreshNews(){
     loadedSources=new Set(BRONNEN.map(b=>b.id));
     updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds();
     if(c) c.querySelector('.articles-count')?.insertAdjacentHTML('afterend', '<div style="font-size:11px;color:#16a34a;padding:0 2px 6px">⚡ Uit cache - wordt ververst...</div>');
-    console.log('[perf v239] stale cache getoond', initialArts.length);
+    console.log('[perf v266] stale cache getoond', initialArts.length);
   } else {
     if(c) c.innerHTML='<div class="article">Bezig met laden... (9 bronnen) - eerste keer iets langer, daarna <1 sec</div>';
     allArticles=[]; loadedSources=new Set(); updateHeaderCount();
   }
   const loadWithTimeout = async (b) => {
     try {
-      const timeout = new Promise((_,rej)=> setTimeout(()=>rej(new Error('timeout '+b.id)), 8000));
+      const timeout = new Promise((_,rej)=> setTimeout(()=>rej(new Error('timeout '+b.id)), 12000));
       const arts = await Promise.race([loadOneSource(b), timeout]);
       return {b, arts};
     } catch(e){
       console.log('load timeout/fail', b.id, e.message);
-      if(hasStale) return {b, arts:[]};
+      // FIX: if stale exists, return stale for this bron instead of empty
+      if(hasStale && initialByBron[b.id] && initialByBron[b.id].length>0){
+        console.log('[fix 0/0] keep stale for', b.id, initialByBron[b.id].length);
+        return {b, arts: initialByBron[b.id]};
+      }
+      if(hasStale){
+        // keep empty to avoid wiping, but mark as loaded with fallback count
+        return {b, arts: []};
+      }
       return {b, arts:[{title:b.name, link:BRON_URLS[b.id].homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - '+e.message.slice(0,80)+' [...]', source:b.name, id:b.id, isFallback:true}]};
     }
   };
   const results = await Promise.allSettled(BRONNEN.map(b=>loadWithTimeout(b)));
   const freshArts=[];
+  const failedBrons=[];
   results.forEach(r=>{
     if(r.status==='fulfilled'){
       const {b, arts}=r.value;
-      if(arts.length>0) freshArts.push(...arts);
+      if(arts.length>0){
+        freshArts.push(...arts);
+      } else {
+        // FIX: no fresh arts for this bron, keep old if exists
+        if(initialByBron[b.id]){
+          freshArts.push(...initialByBron[b.id]);
+        } else {
+          failedBrons.push(b.id);
+        }
+      }
       loadedSources.add(b.id);
+    } else {
+      console.log('load rejected', r.reason);
     }
   });
-  if(freshArts.length>0) allArticles=freshArts;
+  // If we got at least some fresh, use merged result
+  if(freshArts.length>0){
+    allArticles=freshArts;
+  } else if(initialArts.length>0){
+    allArticles=initialArts;
+  }
+  // If some brons completely failed and no stale, add fallback so count is 0/1 not 0/0
+  failedBrons.forEach(bid=>{
+    if(!allArticles.some(a=>a.id===bid)){
+      const b=BRONNEN.find(x=>x.id===bid);
+      if(b){
+        allArticles.push({title:b.name, link:BRON_URLS[bid].homepage, pubDate:new Date(0), description:'Bron tijdelijk offline [...]', source:b.name, id:bid, isFallback:true});
+      }
+    }
+  });
   updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds();
-  console.log('refreshNews klaar v266 FIX 0/0', allArticles.length, 'artikelen');
+  console.log('refreshNews klaar v266 FIX 0/0 - was bug waar fresh alleen Vechtdal had', allArticles.length, 'artikelen, failed:', failedBrons);
 }
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); restorePanelState(); setupFilterHeader();
@@ -984,7 +1024,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     }
   }
 
-  async function loadFromCloud(force=false){
+    async function loadFromCloud(force=false){
     if(!authToken){
       console.log('[sync] load skipped, no authToken');
       return false;
@@ -1013,14 +1053,11 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       const remoteUpdated = data.updated || 0;
       if(!force && remoteUpdated && remoteUpdated <= lastRemoteUpdated && lastRemoteUpdated!==0){
         console.log('[sync] remote not newer, skipping', remoteUpdated, '<=', lastRemoteUpdated);
-        // Still check if local differs though
         const localStr = JSON.stringify(state);
         const remoteStr = JSON.stringify(data.state);
         if(localStr === remoteStr){
           return false;
         }
-        // If different but remote older, still apply? No, keep local wins
-        // But for debugging, log
         console.log('[sync] local differs but remote older, keeping local');
         return false;
       }
@@ -1034,7 +1071,6 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       }
       console.log('[sync] applying remote state');
       state = data.state;
-      // Ensure all bronnen exist
       try{ BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true, vandaag:false, scope:'gemeente'}; }); }catch{}
       localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
       lastRemoteUpdated = remoteUpdated || Date.now();
@@ -1165,7 +1201,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     document.body.appendChild(overlay);
   }
 
-  if(typeof saveState === 'function'){
+    if(typeof saveState === 'function'){
     const origSave = saveState;
     let saveTimeout = null;
     window.saveState = function(){
@@ -1175,7 +1211,6 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       try{ if(typeof updateHeaderCount==='function') updateHeaderCount(); }catch{}
       try{ if(window.updatePushBell) window.updatePushBell(); }catch{}
       if(authToken){
-        // debounce cloud save 500ms
         if(saveTimeout) clearTimeout(saveTimeout);
         saveTimeout = setTimeout(()=>{ saveToCloud(); }, 500);
       }
