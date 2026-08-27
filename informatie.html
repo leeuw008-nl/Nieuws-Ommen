@@ -221,7 +221,7 @@ function initAdmin(){
   document.getElementById('btnLocal').onclick=async()=>{
     try{
       const reg=await navigator.serviceWorker.ready;
-      await reg.showNotification('Nieuw(s)Ommen - Test',{body:'Lokale test melding werkt! ✓',icon:'/icons/icon-192x192.png',badge:'/icons/icon-96x96.png'});
+      await reg.showNotification('Nieuw(s)Ommen - Test',{body:'Lokale test melding werkt! ✓',icon:'./icons/icon-192x192.png',badge:'./icons/badge-lion-96x96.png'});
       result.textContent='Lokale notificatie verstuurd ✓\n(Als je niets ziet, check browser toestemming)';
     }catch(e){result.textContent='Fout lokale notificatie: '+e.message;}
   };

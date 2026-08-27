@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nieuw(s)Ommen</title>
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="styles.css?v=261">
+<link rel="stylesheet" href="styles.css?v=264">
 <link rel="icon" href="icons/icon-192x192.png" type="image/png">
 <meta name="theme-color" content="#0b5bd3">
 </head>
@@ -51,15 +51,15 @@
 <footer><button onclick="refreshNews()">🔄 Vernieuwen</button></footer>
 
 <script>
-// Service worker v261 - CACHE BUST DEFINITIEF
+// Service worker voor GitHub Pages subpad /Nieuws-Ommen/ - v264 cache bust
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js?v=261', {scope: './'}).then(r=>{
-    console.log('SW registered v261', r.scope);
+  navigator.serviceWorker.register('./service-worker.js?v=264', {scope: './'}).then(r=>{
+    console.log('SW registered v264', r.scope);
   }).catch(e=>console.log('SW fail', e));
 }
 </script>
-<script src="app.js?v=261"></script>
-<script src="push.js?v=261"></script>
-<script src="article-focus.js?v=261"></script>
+<script src="app.js?v=264"></script>
+<script src="push.js?v=264"></script>
+<script src="article-focus.js?v=264"></script>
 </body>
 </html>
