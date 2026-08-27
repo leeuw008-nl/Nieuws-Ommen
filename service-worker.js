@@ -1,5 +1,5 @@
-/* service-worker v272 - LED rechts + telling - CACHE BUST DEFINITIEF */
-const CACHE_NAME='ommen-v272-led-rechts';
+/* service-worker v273 - LED rechts + telling - CACHE BUST DEFINITIEF */
+const CACHE_NAME='ommen-v273-focus-fix';
 const STATIC_ASSETS=[
   './',
   './index.html',
@@ -51,7 +51,7 @@ self.addEventListener('push', e=>{
     if(e.data){try{const d=e.data.json();title=d.title||title;body=d.body||d.title||body;link=d.link||d.url||link;source=d.source||'';id=d.id||d.articleId||'';if(source)body=`${source}: ${title}`;}catch{try{const txt=e.data.text();if(txt)body=txt;}catch{}}}
     else{try{const r=await fetch(`${PUSH_WORKER_URL}/last`,{cache:'no-store'});if(r.ok){const j=await r.json();title=j.title||title;link=j.link||link;source=j.source||'';id=j.id||'';body=source?`${source}: ${j.title}`:j.title;}}catch{}}
     const tag = id ? `ommen-${id}` : `ommen-${(source||'algemeen').toLowerCase().replace(/\s+/g,'-')}`;
-    const options={body, icon:'./icons/icon-192x192.png', badge:'./icons/badge-lion-96x96.png', data:{url:link, source, id}, tag, renotify:false, vibrate:[100,50,100]};
+    const options={body, icon:'./icons/icon-192x192.png', badge:'./icons/badge-lion-96x96.png', data:{url:link, link:link, source, id, focusUrl: link ? `/?focus=${encodeURIComponent(link)}&src=${encodeURIComponent(source)}&id=${encodeURIComponent(id)}` : '/'}, tag, renotify:false, vibrate:[100,50,100]};
     return self.registration.showNotification(title, options);
   })());
 });
@@ -59,23 +59,25 @@ self.addEventListener('notificationclick', e=>{
   e.notification.close();
   const data=e.notification.data||{};
   const id=data.id||'';
-  const externalUrl=data.url||'/';
+  const externalUrl=data.url||data.link||'/';
   const source=data.source||'';
-  const appUrl = id ? `/?highlight=${encodeURIComponent(id)}&src=${encodeURIComponent(source)}` : '/';
+  const link=data.link||data.url||'';
+  // v273 FOCUS FIX: gebruik ?focus=link zoals article-focus.js v3 verwacht
+  const focusUrl = link ? `/?focus=${encodeURIComponent(link)}&src=${encodeURIComponent(source)}&id=${encodeURIComponent(id)}` : '/';
   e.waitUntil((async()=>{
     try{
       const all=await clients.matchAll({type:'window', includeUncontrolled:true});
       for(const c of all){
         if((c.url.includes('nieuwommen')||c.url.includes('Nieuws-Ommen')||c.url.includes('localhost')) && 'focus' in c){
-          try{c.postMessage({type:'NOTIFICATION_CLICK', id, url:externalUrl, source});}catch{}
-          await c.navigate(appUrl);
+          try{ c.postMessage({type:'NOTIFICATION_CLICK', id, url:externalUrl, source, link, focusUrl}); }catch{}
+          try{ await c.navigate(focusUrl); }catch{ await c.navigate('/'); }
           return c.focus();
         }
       }
-      if(clients.openWindow) return clients.openWindow(appUrl);
+      if(clients.openWindow) return clients.openWindow(focusUrl);
     }catch{
-      if(clients.openWindow) return clients.openWindow(appUrl);
+      if(clients.openWindow) return clients.openWindow(focusUrl);
     }
   })());
 });
-self.addEventListener('message', e=>{if(e.data && e.data.type==='SET_FILTERS'){console.log('[v272] Filters:', e.data.sources);}});
+self.addEventListener('message', e=>{if(e.data && e.data.type==='SET_FILTERS'){console.log('[v273] Filters:', e.data.sources);}});

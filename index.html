@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nieuw(s)Ommen</title>
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="styles.css?v=272">
+<link rel="stylesheet" href="styles.css?v=273">
 <link rel="icon" href="icons/icon-192x192.png" type="image/png">
 <meta name="theme-color" content="#0b5bd3">
 </head>
@@ -51,15 +51,15 @@
 <footer><button onclick="refreshNews()">🔄 Vernieuwen</button></footer>
 
 <script>
-// Service worker voor GitHub Pages subpad /Nieuws-Ommen/ - v272 cache bust
+// Service worker voor GitHub Pages subpad /Nieuws-Ommen/ - v273 cache bust
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js?v=272', {scope: './'}).then(r=>{
-    console.log('SW registered v272', r.scope);
+  navigator.serviceWorker.register('./service-worker.js?v=273', {scope: './'}).then(r=>{
+    console.log('SW registered v273', r.scope);
   }).catch(e=>console.log('SW fail', e));
 }
 </script>
-<script src="app.js?v=272"></script>
-<script src="push.js?v=272"></script>
-<script src="article-focus.js?v=272"></script>
+<script src="app.js?v=273"></script>
+<script src="push.js?v=273"></script>
+<script src="article-focus.js?v=273"></script>
 </body>
 </html>
