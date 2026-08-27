@@ -1,4 +1,4 @@
-// app.js v250 - compacte knoppen + LED strakke kolom
+// app.js v265 - SYNC FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
@@ -285,6 +285,7 @@ function saveState(){
   localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
   updateHiddenCompat(); updateHeaderCount();
   if(window.updatePushBell) window.updatePushBell();
+  try{ if(window.updatePushSubscription) window.updatePushSubscription(); }catch(e){}
   // v227 - push filters naar SW voor notificatie filtering
   try{
     if(window.pushFiltersToSW) window.pushFiltersToSW();
@@ -789,7 +790,7 @@ function renderArticles(){
   container.innerHTML = countHtml + html;
   window.getAllArticles = ()=> filtered;
   try{ if(typeof updateSourceLeds==='function') setTimeout(()=>updateSourceLeds(), 20); }catch{}
-  // v250 fix 0/0 - update filter counts after articles filtered
+  // v265 fix 0/0 - update filter counts after articles filtered
   try{ const list=document.getElementById('source-list'); if(list && list.children.length>0){ /* counts will be updated on next renderFilters */ } }catch{}
 }
 function filterNews(){ renderArticles(); }
@@ -847,7 +848,7 @@ async function refreshNews(){
   });
   if(freshArts.length>0) allArticles=freshArts;
   updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds();
-  console.log('refreshNews klaar v250 FIX 0/0', allArticles.length, 'artikelen');
+  console.log('refreshNews klaar v265 FIX 0/0', allArticles.length, 'artikelen');
 }
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); restorePanelState(); setupFilterHeader();
@@ -969,7 +970,8 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
   }
 
   async function loadFromCloud(force=false){
-    if(!authToken || isSyncing) return false;
+    if(!authToken) return false;
+    if(isSyncing && !force) return false;
     let didUpdate = false;
     try{
       isSyncing = true;
@@ -1039,7 +1041,35 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
         document.body.appendChild(overlay);
         document.getElementById('btn-close-acc').onclick=()=>overlay.remove();
         document.getElementById('btn-logout-now').onclick=()=>{ overlay.remove(); window.logoutOmmen(); };
-        document.getElementById('btn-sync-now').onclick=()=>{ saveToCloud(); loadFromCloud(true); overlay.remove(); };
+        document.getElementById('btn-sync-now').onclick=async()=>{
+          const btn=document.getElementById('btn-sync-now');
+          const origText=btn.textContent;
+          btn.textContent='Bezig...'; btn.disabled=true;
+          try{
+            await saveToCloud();
+            const ok = await loadFromCloud(true);
+            btn.textContent='✓ Gesynced!';
+            btn.style.background='#16a34a';
+            // Toast bevestiging
+            try{
+              let toast=document.getElementById('ommen-toast');
+              if(!toast){
+                toast=document.createElement('div');
+                toast.id='ommen-toast';
+                toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#16a34a;color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:10000;font-weight:600;font-size:14px;';
+                document.body.appendChild(toast);
+              }
+              toast.textContent='✓ Filters gesynchroniseerd om '+new Date().toLocaleTimeString();
+              toast.style.display='block';
+              setTimeout(()=>{ if(toast) toast.style.display='none'; }, 3000);
+            }catch{}
+            setTimeout(()=>{ overlay.remove(); }, 1200);
+          }catch(e){
+            btn.textContent='Fout: '+e.message;
+            btn.style.background='#dc2626';
+            setTimeout(()=>{ btn.textContent=origText; btn.disabled=false; btn.style.background='#0b5bd3'; }, 2500);
+          }
+        };
         overlay.onclick=(e)=>{ if(e.target===overlay) overlay.remove(); };
       };
     } else {
