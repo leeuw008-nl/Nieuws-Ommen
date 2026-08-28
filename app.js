@@ -631,7 +631,25 @@ function parseGemeenteOverview(html){
   return results.slice(0,max);
 }
 function getGemeenteCache(){
-  try{ return JSON.parse(localStorage.getItem('ommen_gemeente_cache')||'{}'); }catch{ return {}; }
+  try{ 
+    const raw = localStorage.getItem('ommen_gemeente_cache');
+    if(!raw) return {};
+    const obj = JSON.parse(raw);
+    // v290 auto-migratie: als cache alleen datum zonder tijd bevat, wis hem zodat echte tijd opnieuw gehaald wordt
+    let hasMidnight=false;
+    for(const k in obj){
+      try{
+        const d=new Date(obj[k].iso);
+        if(d.getHours()===0 && d.getMinutes()===0) { hasMidnight=true; break; }
+      }catch{}
+    }
+    if(hasMidnight){
+      console.log('[v290] oude gemeente cache met 00:00 gevonden -> wissen voor echte tijd');
+      localStorage.removeItem('ommen_gemeente_cache');
+      return {};
+    }
+    return obj;
+  }catch{ return {}; }
 }
 function setGemeenteCache(cache){
   localStorage.setItem('ommen_gemeente_cache', JSON.stringify(cache));
@@ -769,7 +787,7 @@ async function loadOneSource(b){
         allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts);
         loadedSources.add(b.id); updateHeaderCount(); renderArticles(); updateSourceLeds();
       }
-      // v289 FIX: altijd enrich voor echte tijd, ook bij cached overview (overzicht heeft nu alleen datum, geen tijd)
+      // v290 FIX: altijd enrich voor echte tijd, ook bij cached overview (overzicht heeft nu alleen datum, geen tijd)
       enrichGemeenteWithDetail(overview).then(enriched=>{
         const enrichedArts=enriched.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
         allArticles = allArticles.filter(x=>x.id!==b.id).concat(enrichedArts);
