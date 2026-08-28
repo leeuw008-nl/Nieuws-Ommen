@@ -1,5 +1,5 @@
-/* service-worker v249 - FIX lion badge + tijd - LED rechts + telling - CACHE BUST DEFINITIEF */
-const CACHE_NAME='ommen-v249-lion-badge-tijd';
+/* service-worker v250 - LED rechts + telling + tijd + lion - LED rechts + telling - CACHE BUST DEFINITIEF */
+const CACHE_NAME='ommen-v250-led-telling-tijd';
 const STATIC_ASSETS=[
   './',
   './index.html',
