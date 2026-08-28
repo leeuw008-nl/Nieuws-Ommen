@@ -78,7 +78,7 @@ function parseRTVVechtdalECHT(html){
       if(isToday){
         pd = new Date(pollingMoment);
       }else{
-        pd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0);
+        pd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12,0,0);
       }
     }else{
       pd = new Date(pollingMoment);
@@ -101,7 +101,7 @@ function parseRTVVechtdalECHT(html){
         if(isToday){
           pd = new Date(pollingMoment);
         }else{
-          pd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0);
+          pd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12,0,0);
         }
       }else{
         pd = new Date(pollingMoment);
@@ -499,15 +499,33 @@ function parseRSSFull(xml, bronId){
   }).filter(x=>x.link && x.title);
 }
 function extractGemeenteDate(html){
-  let m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*,\s*(\d{1,2}):(\d{2})/i);
-  if(m){
+  // Pattern 1: 12 mei 2026, 14:30  of 12 mei 2026 14:30
+  let m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*,?\s*(\d{1,2}):(\d{2})?/i);
+  if(m && m[4] && m[5]){
     const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
     return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), parseInt(m[4]), parseInt(m[5]));
   }
+  // Pattern 2: alleen datum 12 mei 2026  (zonder tijd) -> zet op 12:00 zodat tijd zichtbaar is
+  m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
+  if(m){
+    const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
+    return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), 12, 0);
+  }
+  // Pattern 3: 12-05-2026 of 12/05/2026
+  m = html.match(/(\d{1,2})[\-\/](\d{1,2})[\-\/](\d{4})/);
+  if(m){
+    return new Date(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1]), 12, 0);
+  }
+  // Pattern 4: <time datetime>
   m = html.match(/<time[^>]+datetime=["']([^"']+)["']/i);
   if(m){
     const d=new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
+  }
+  // Pattern 5: ISO in pagina 2026-05-12
+  m = html.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if(m){
+    return new Date(parseInt(m[1]), parseInt(m[2])-1, parseInt(m[3]), parseInt(m[4]), parseInt(m[5]));
   }
   return null;
 }
@@ -543,6 +561,7 @@ function parseGemeenteOverview(html){
     const desc = extractDescAfter(m.index, clean);
     const block = clean.substring(Math.max(0,m.index-500), m.index+2500);
     let tempDate = extractGemeenteDate(block);
+    if(!tempDate) tempDate = new Date(); // fallback zodat datum altijd zichtbaar is
     results.push({title:title.slice(0,130), link:full, pubDate:tempDate, description:desc});
   }
   return results.slice(0,max);
