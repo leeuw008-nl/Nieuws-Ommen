@@ -501,26 +501,50 @@ function parseRSSFull(xml, bronId){
   }).filter(x=>x.link && x.title);
 }
 function extractGemeenteDate(html){
-  // 1) met echte tijd: 12 mei 2026, 14:30 of 12 mei 2026 14:30 -> echte tijd behouden!
-  let m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*,?\s*(\d{1,2}):(\d{2})/i);
+  // 1) met echte tijd: 12 mei 2026, 14:30 of 12 mei 2026 14:30 of 12 mei 2026 om 14:30 of 12 mei 2026 - 14:30
+  let m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*(?:,|om|-)\s*(\d{1,2}):(\d{2})/i);
   if(m){
     const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
     return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), parseInt(m[4]), parseInt(m[5]));
   }
-  // 2) alleen datum: 12 mei 2026 -> middernacht zodat enrich detailpagina ophaalt voor echte tijd
-  m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
+  m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*,?\s*(\d{1,2}):(\d{2})/i);
   if(m){
     const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
-    return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), 0, 0, 0);
+    return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), parseInt(m[4]), parseInt(m[5]));
   }
+  // 2) meta article:published_time
+  m = html.match(/<meta[^>]+property=["']article:published_time["'][^>]+content=["']([^"']+)["']/i);
+  if(m){
+    const d=new Date(m[1]);
+    if(!isNaN(d.getTime())) return d;
+  }
+  m = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']article:published_time["']/i);
+  if(m){
+    const d=new Date(m[1]);
+    if(!isNaN(d.getTime())) return d;
+  }
+  // 3) JSON-LD datePublished
+  m = html.match(/"datePublished"\s*:\s*"([^"]+)"/i);
+  if(m){
+    const d=new Date(m[1]);
+    if(!isNaN(d.getTime())) return d;
+  }
+  // 4) time datetime
   m = html.match(/<time[^>]+datetime=["']([^"']+)["']/i);
   if(m){
     const d=new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
   }
+  // 5) alleen datum: 12 mei 2026 -> middernacht zodat enrich weet dat er geen echte tijd is en polling-tijd gebruikt
+  m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
+  if(m){
+    const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
+    return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), 0, 0, 0);
+  }
   return null;
 }
-function extractDescAfter(pos, clean){
+
+unction extractDescAfter(pos, clean){
   const slice = clean.substring(pos, pos+1500);
   const re = /<(p|div)[^>]*>([\s\S]*?)<\/\1>/gi;
   let mm;
@@ -575,7 +599,7 @@ async function enrichGemeenteWithDetail(arts){
     }
     if(a.pubDate && !isNaN(a.pubDate.getTime()) && (a.pubDate.getHours()!==0 || a.pubDate.getMinutes()!==0)) return false;
     return true;
-  }).slice(0,3);
+  }).slice(0,10);
   if(needEnrich.length===0){
     arts.forEach(a=>{ if(a.pubDate && !isNaN(a.pubDate.getTime()) && (a.pubDate.getHours()!==0 || a.pubDate.getMinutes()!==0)) cache[a.link]={iso:a.pubDate.toISOString(), ts:now}; });
     setGemeenteCache(cache);
