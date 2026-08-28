@@ -769,13 +769,12 @@ async function loadOneSource(b){
         allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts);
         loadedSources.add(b.id); updateHeaderCount(); renderArticles(); updateSourceLeds();
       }
-      if(!cached){
-        enrichGemeenteWithDetail(overview).then(enriched=>{
-          const enrichedArts=enriched.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
-          allArticles = allArticles.filter(x=>x.id!==b.id).concat(enrichedArts);
-          renderArticles(); updateSourceLeds();
-        }).catch(()=>{});
-      }
+      // v289 FIX: altijd enrich voor echte tijd, ook bij cached overview (overzicht heeft nu alleen datum, geen tijd)
+      enrichGemeenteWithDetail(overview).then(enriched=>{
+        const enrichedArts=enriched.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
+        allArticles = allArticles.filter(x=>x.id!==b.id).concat(enrichedArts);
+        renderArticles(); updateSourceLeds();
+      }).catch(()=>{});
       arts = overview;
     }
     else if(cfg.type==='oost'){ 
