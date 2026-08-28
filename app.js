@@ -1,4 +1,4 @@
-// app.js v286 - FIX Gemeente tijd altijd tonen ook bij KV blokkade + polling-tijd alleen als geen tijd + echte tijd behouden - LED rechts + telling 10/10 + SYNC RACE FIX + LION BADGE - terug naar vanavond werkend
+// app.js v287 - HERSTEL echte Gemeente tijd + fallback polling alleen als geen echte tijd alleen als geen tijd + echte tijd behouden - LED rechts + telling 10/10 + SYNC RACE FIX + LION BADGE - terug naar vanavond werkend
 // app.js v285 - SYNC RACE FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
@@ -576,12 +576,6 @@ function parseGemeenteOverview(html){
     const desc = extractDescAfter(m.index, clean);
     const block = clean.substring(Math.max(0,m.index-500), m.index+2500);
     let tempDate = extractGemeenteDate(block);
-    if(tempDate && tempDate.getHours()===0 && tempDate.getMinutes()===0){
-      const pn = new Date();
-      tempDate = new Date(tempDate);
-      tempDate.setHours(pn.getHours(), pn.getMinutes(), pn.getSeconds());
-    }
-    if(!tempDate) tempDate = new Date();
     results.push({title:title.slice(0,130), link:full, pubDate:tempDate, description:desc});
   }
   return results.slice(0,max);
@@ -640,10 +634,11 @@ async function enrichGemeenteWithDetail(arts){
     }
   }));
   arts.forEach(a=>{
-    // FIX v286: altijd polling-tijd tonen als alleen datum (00:00) gevonden, ook als KV geblokkeerd
+    // v287: behoud echte tijd als gevonden, alleen polling als echt geen tijd te vinden is (na detail fetch)
     if(!a.pubDate || isNaN(a.pubDate.getTime())){
       a.pubDate = new Date(pollingNow);
     } else if(a.pubDate.getHours()===0 && a.pubDate.getMinutes()===0){
+      // nog steeds middernacht na detail fetch -> geen echte tijd op site -> gebruik polling als fallback
       const fb=new Date(a.pubDate);
       fb.setHours(pollingNow.getHours(), pollingNow.getMinutes(), pollingNow.getSeconds());
       a.pubDate=fb;
