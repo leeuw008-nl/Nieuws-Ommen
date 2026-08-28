@@ -1,5 +1,5 @@
-// app.js v287 - HERSTEL echte Gemeente tijd + fallback polling alleen als geen echte tijd alleen als geen tijd + echte tijd behouden - LED rechts + telling 10/10 + SYNC RACE FIX + LION BADGE - terug naar vanavond werkend
-// app.js v285 - SYNC RACE FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
+// app.js v275 - LED rechts + telling 10/10 + SYNC RACE FIX + LION BADGE - terug naar vanavond werkend
+// app.js v275 - SYNC RACE FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
@@ -634,11 +634,7 @@ async function enrichGemeenteWithDetail(arts){
     }
   }));
   arts.forEach(a=>{
-    // v287: behoud echte tijd als gevonden, alleen polling als echt geen tijd te vinden is (na detail fetch)
-    if(!a.pubDate || isNaN(a.pubDate.getTime())){
-      a.pubDate = new Date(pollingNow);
-    } else if(a.pubDate.getHours()===0 && a.pubDate.getMinutes()===0){
-      // nog steeds middernacht na detail fetch -> geen echte tijd op site -> gebruik polling als fallback
+    if(a.pubDate && a.pubDate.getHours()===0 && a.pubDate.getMinutes()===0){
       const fb=new Date(a.pubDate);
       fb.setHours(pollingNow.getHours(), pollingNow.getMinutes(), pollingNow.getSeconds());
       a.pubDate=fb;
