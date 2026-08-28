@@ -452,6 +452,20 @@ async function fetchViaWorker(url){
     return t;
   }catch(e1){
     clearTimeout(to);
+    console.log('[perf v239] worker fail, trying direct fetch', url, e1.message);
+    // FIX v288: fallback direct fetch als worker geblokkeerd is door KV limit (429)
+    try{
+      const r2 = await fetch(url, {cache:'no-store', headers:{'Accept':'text/html'}});
+      if(r2.ok){
+        const t2 = await r2.text();
+        if(t2.length>500){
+          putCachedSource(url, t2);
+          return t2;
+        }
+      }
+    }catch(e2){
+      console.log('[v288] direct fetch fail', e2.message);
+    }
     console.log('[perf v239] worker fail, 1 fallback', url, e1.message);
     try{
       const ctrl2=new AbortController();
@@ -501,19 +515,56 @@ function parseRSSFull(xml, bronId){
   }).filter(x=>x.link && x.title);
 }
 function extractGemeenteDate(html){
-  // 1) met echte tijd: 12 mei 2026, 14:30 of 12 mei 2026 14:30 of 12 mei 2026 om 14:30 of 12 mei 2026 - 14:30
-  let m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*(?:,|om|-)\s*(\d{1,2}):(\d{2})/i);
-  if(m){
-    const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
-    return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), parseInt(m[4]), parseInt(m[5]));
+  const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
+  function mkDate(m){
+    try{
+      const day=parseInt(m[1]); const mon=months[m[2].toLowerCase()]; const year=parseInt(m[3]); const hh=parseInt(m[4]); const mm=parseInt(m[5]);
+      if(mon===undefined) return null;
+      return new Date(year, mon, day, hh, mm);
+    }catch{ return null; }
   }
-  m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*,?\s*(\d{1,2}):(\d{2})/i);
-  if(m){
-    const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
-    return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), parseInt(m[4]), parseInt(m[5]));
+  // Strip tags to spaces for date+time that are split over divs like "28 juli 2026,</div><div>17:17"
+  const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const htmlNoTags = text;
+
+  // 1) echte tijd samen: "28 juli 2026, 17:17" of "28 juli 2026,\n 17:17" of "28 juli 2026 - 17:17" of "28 juli 2026 om 17:17"
+  // Nieuw: tolereer ook newline en extra comma tussen datum en tijd
+  let patterns = [
+    /(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*,?\s*(?:om|\-)?\s*(\d{1,2})\s*:\s*(\d{2})/i,
+    /(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})[^\d]{0,20}(\d{1,2})\s*:\s*(\d{2})/i
+  ];
+  for(const re of patterns){
+    let m = htmlNoTags.match(re);
+    if(m){
+      const d=mkDate(m);
+      if(d && !isNaN(d.getTime())) return d;
+    }
+    // Also try on raw html with tags replaced by space (covers <div> split)
+    m = html.replace(/<[^>]*>/g, ' ').match(re);
+    if(m){
+      const d=mkDate(m);
+      if(d && !isNaN(d.getTime())) return d;
+    }
   }
+
+  // 1b) datum en tijd los: zoek datum, en dan tijd binnen 300 chars erna (voor "28 juli 2026,\n\n17:17" over 2 divs)
+  let dateOnly = htmlNoTags.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
+  if(dateOnly){
+    const idx = htmlNoTags.toLowerCase().indexOf(dateOnly[0].toLowerCase());
+    if(idx>=0){
+      const after = htmlNoTags.substring(idx, idx+400);
+      const timeMatch = after.match(/(\d{1,2})\s*:\s*(\d{2})/);
+      if(timeMatch){
+        const day=parseInt(dateOnly[1]); const mon=months[dateOnly[2].toLowerCase()]; const year=parseInt(dateOnly[3]);
+        if(mon!==undefined){
+          return new Date(year, mon, day, parseInt(timeMatch[1]), parseInt(timeMatch[2]));
+        }
+      }
+    }
+  }
+
   // 2) meta article:published_time
-  m = html.match(/<meta[^>]+property=["']article:published_time["'][^>]+content=["']([^"']+)["']/i);
+  let m = html.match(/<meta[^>]+property=["']article:published_time["'][^>]+content=["']([^"']+)["']/i);
   if(m){
     const d=new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
@@ -535,10 +586,9 @@ function extractGemeenteDate(html){
     const d=new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
   }
-  // 5) alleen datum: 12 mei 2026 -> middernacht zodat enrich weet dat er geen echte tijd is en polling-tijd gebruikt
-  m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
+  // 5) alleen datum: 12 mei 2026 -> middernacht zodat enrich weet dat er geen echte tijd is
+  m = htmlNoTags.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
   if(m){
-    const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
     return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), 0, 0, 0);
   }
   return null;
@@ -587,10 +637,22 @@ function setGemeenteCache(cache){
   localStorage.setItem('ommen_gemeente_cache', JSON.stringify(cache));
 }
 async function enrichGemeenteWithDetail(arts){
-  const cache=getGemeenteCache();
+  let cache=getGemeenteCache();
   const now=Date.now();
   const pollingNow=new Date();
   const CACHE_TTL=1000*60*60*2;
+  // v288 FIX: wis oude cache entries met 00:00 (middernacht) - die verbergen echte tijd
+  let cleaned=false;
+  for(const k in cache){
+    try{
+      const d=new Date(cache[k].iso);
+      if(d.getHours()===0 && d.getMinutes()===0 && d.getSeconds()===0){
+        delete cache[k];
+        cleaned=true;
+      }
+    }catch{}
+  }
+  if(cleaned){ setGemeenteCache(cache); console.log('[v288] gemeente cache middernacht opgeschoond'); }
   const needEnrich=arts.filter(a=>{
     const cached=cache[a.link];
     if(cached && (now - cached.ts) < CACHE_TTL && cached.iso){
