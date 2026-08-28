@@ -1,5 +1,5 @@
-/* service-worker v291 - FORCE tijd + telling - CACHE BUST DEFINITIEF */
-const CACHE_NAME='ommen-v291-FORCE-TIJD';
+/* service-worker v247 - LED rechts + telling - CACHE BUST DEFINITIEF */
+const CACHE_NAME='ommen-v247-LED-rechts-telling';
 const STATIC_ASSETS=[
   './',
   './index.html',

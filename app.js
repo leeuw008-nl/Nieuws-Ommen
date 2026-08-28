@@ -1,4 +1,4 @@
-// app.js v291 - FORCE tijd + cache bust - LED rechts + telling 10/10 + SYNC RACE FIX + LION BADGE - terug naar vanavond werkend
+// app.js v292 - FIX cache tijd gebruiken ipv middernacht teruggeven - LED rechts + telling 10/10 + SYNC RACE FIX + LION BADGE - terug naar vanavond werkend
 // app.js v275 - SYNC RACE FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
@@ -673,6 +673,7 @@ async function enrichGemeenteWithDetail(arts){
     }catch{}
   }
   if(cleaned){ setGemeenteCache(cache); console.log('[v288] gemeente cache middernacht opgeschoond'); }
+  console.log('[v292] start enrich check voor', arts.length, 'artikelen, cache size', Object.keys(cache).length);
   const needEnrich=arts.filter(a=>{
     const cached=cache[a.link];
     if(cached && (now - cached.ts) < CACHE_TTL && cached.iso){
@@ -683,7 +684,21 @@ async function enrichGemeenteWithDetail(arts){
     return true;
   }).slice(0,10);
   if(needEnrich.length===0){
-    arts.forEach(a=>{ if(a.pubDate && !isNaN(a.pubDate.getTime()) && (a.pubDate.getHours()!==0 || a.pubDate.getMinutes()!==0)) cache[a.link]={iso:a.pubDate.toISOString(), ts:now}; });
+    // v292 FIX: als we niks hoeven te enrichen, gebruik dan de echte tijden uit cache (niet de middernacht uit overzicht)
+    console.log('[v292] geen enrich nodig, gebruik cache tijden voor', arts.length, 'artikelen');
+    arts.forEach(a=>{
+      const cached=cache[a.link];
+      if(cached && cached.iso){
+        const cd=new Date(cached.iso);
+        if(!isNaN(cd.getTime()) && (cd.getHours()!==0 || cd.getMinutes()!==0)){
+          a.pubDate=cd;
+          console.log('[v292] cache tijd gebruikt voor', a.title.slice(0,30), cd.toLocaleString('nl-NL'));
+        }
+      }
+      if(a.pubDate && !isNaN(a.pubDate.getTime()) && (a.pubDate.getHours()!==0 || a.pubDate.getMinutes()!==0)){
+        cache[a.link]={iso:a.pubDate.toISOString(), ts:now};
+      }
+    });
     setGemeenteCache(cache);
     return arts;
   }
