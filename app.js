@@ -1,5 +1,5 @@
-// app.js v279 - LED rechts + telling 10/10 + SYNC RACE FIX + LION BADGE - terug naar vanavond werkend
-// app.js v279 - SYNC RACE FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
+// app.js v275 - LED rechts + telling 10/10 + SYNC RACE FIX + LION BADGE - terug naar vanavond werkend
+// app.js v275 - SYNC RACE FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
@@ -78,7 +78,8 @@ function parseRTVVechtdalECHT(html){
       if(isToday){
         pd = new Date(pollingMoment);
       }else{
-        pd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0);
+        // geen tijd op bron -> polling-tijd (zoals gevraagd)
+        pd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), pollingMoment.getHours(), pollingMoment.getMinutes(), pollingMoment.getSeconds());
       }
     }else{
       pd = new Date(pollingMoment);
@@ -101,7 +102,8 @@ function parseRTVVechtdalECHT(html){
         if(isToday){
           pd = new Date(pollingMoment);
         }else{
-          pd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0);
+          // geen tijd op bron -> polling-tijd
+          pd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), pollingMoment.getHours(), pollingMoment.getMinutes(), pollingMoment.getSeconds());
         }
       }else{
         pd = new Date(pollingMoment);
@@ -499,17 +501,29 @@ function parseRSSFull(xml, bronId){
   }).filter(x=>x.link && x.title);
 }
 function extractGemeenteDate(html){
-  let m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*,\s*(\d{1,2}):(\d{2})/i);
+  const pollingTime = new Date();
+  // 1) met tijd: 12 mei 2026, 14:30 of 12 mei 2026 14:30
+  let m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*,?\s*(\d{1,2}):(\d{2})/i);
   if(m){
     const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
     return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), parseInt(m[4]), parseInt(m[5]));
+  }
+  // 2) alleen datum: 12 mei 2026 -> gebruik polling-tijd (zoals gevraagd)
+  m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
+  if(m){
+    const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
+    const d = new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]));
+    // polling-tijd: neem uren/minuten van nu, maar datum van artikel
+    d.setHours(pollingTime.getHours(), pollingTime.getMinutes(), pollingTime.getSeconds());
+    return d;
   }
   m = html.match(/<time[^>]+datetime=["']([^"']+)["']/i);
   if(m){
     const d=new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
   }
-  return null;
+  // 3) geen datum gevonden -> polling-tijd zelf
+  return pollingTime;
 }
 function extractDescAfter(pos, clean){
   const slice = clean.substring(pos, pos+1500);
@@ -791,7 +805,7 @@ function renderArticles(){
   container.innerHTML = countHtml + html;
   window.getAllArticles = ()=> filtered;
   try{ if(typeof updateSourceLeds==='function') setTimeout(()=>updateSourceLeds(), 20); }catch{}
-  // v279 fix 0/0 - update filter counts after articles filtered
+  // v275 fix 0/0 - update filter counts after articles filtered
   try{ const list=document.getElementById('source-list'); if(list && list.children.length>0){ /* counts will be updated on next renderFilters */ } }catch{}
 }
 function filterNews(){ renderArticles(); }
@@ -849,7 +863,7 @@ async function refreshNews(){
   });
   if(freshArts.length>0) allArticles=freshArts;
   updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds();
-  console.log('refreshNews klaar v279 FIX 0/0', allArticles.length, 'artikelen');
+  console.log('refreshNews klaar v275 FIX 0/0', allArticles.length, 'artikelen');
 }
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); restorePanelState(); setupFilterHeader();
