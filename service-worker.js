@@ -1,5 +1,5 @@
-/* service-worker v247 - LED rechts + telling - CACHE BUST DEFINITIEF */
-const CACHE_NAME='ommen-v247-LED-rechts-telling';
+/* service-worker v249 - FIX lion badge + tijd - LED rechts + telling - CACHE BUST DEFINITIEF */
+const CACHE_NAME='ommen-v249-lion-badge-tijd';
 const STATIC_ASSETS=[
   './',
   './index.html',
@@ -51,7 +51,7 @@ self.addEventListener('push', e=>{
     if(e.data){try{const d=e.data.json();title=d.title||title;body=d.body||d.title||body;link=d.link||d.url||link;source=d.source||'';id=d.id||d.articleId||'';if(source)body=`${source}: ${title}`;}catch{try{const txt=e.data.text();if(txt)body=txt;}catch{}}}
     else{try{const r=await fetch(`${PUSH_WORKER_URL}/last`,{cache:'no-store'});if(r.ok){const j=await r.json();title=j.title||title;link=j.link||link;source=j.source||'';id=j.id||'';body=source?`${source}: ${j.title}`:j.title;}}catch{}}
     const tag = id ? `ommen-${id}` : `ommen-${(source||'algemeen').toLowerCase().replace(/\s+/g,'-')}`;
-    const options={body, icon:'./icons/icon-192x192.png', badge:'./icons/icon-192x192.png', data:{url:link, source, id}, tag, renotify:false, vibrate:[100,50,100]};
+    const options={body, icon:'./icons/icon-192x192.png', badge:'./icons/badge-lion-96x96.png', data:{url:link, source, id}, tag, renotify:false, vibrate:[100,50,100]};
     return self.registration.showNotification(title, options);
   })());
 });
