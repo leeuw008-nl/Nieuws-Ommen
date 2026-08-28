@@ -544,7 +544,7 @@ function extractGemeenteDate(html){
   return null;
 }
 
-unction extractDescAfter(pos, clean){
+function extractDescAfter(pos, clean){
   const slice = clean.substring(pos, pos+1500);
   const re = /<(p|div)[^>]*>([\s\S]*?)<\/\1>/gi;
   let mm;
