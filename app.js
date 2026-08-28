@@ -1,4 +1,4 @@
-// app.js v250 - FIX LED rechts + telling terug + tijd + lion badge - CACHE BUST DEFINITIEF
+// app.js v248 - FIX altijd echte tijd uit detail (was alleen bij geen cache) + telling - CACHE BUST DEFINITIEF
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
@@ -327,12 +327,10 @@ function renderFilters(){
         <div class="source-meta-text" style="display:flex;flex-direction:column;flex:1;min-width:0;">
           <div class="source-name" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <span>${b.name}</span>
-            <span style="font-size:11px;font-weight:700;color:#1d4ed8;background:#eff6ff;padding:2px 7px;border-radius:99px;white-space:nowrap;border:1px solid #bfdbfe;" title="totaal geladen / geselecteerd na filters">${loadedCount} / ${selectedCount}</span>
+            <span style="font-size:11px;font-weight:700;color:#374151;background:#f3f4f6;padding:2px 7px;border-radius:99px;white-space:nowrap;" title="ingeladen / geselecteerd">${loadedCount} / ${selectedCount}</span>
+            <span class="source-led loading" data-id="${b.id}" title="Laden..." style="width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block;flex-shrink:0;border:2px solid #fff;box-shadow:0 0 0 2px rgba(239,68,68,.25);"></span>
           </div>
           <div class="source-sub">${b.sub}</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
-          <span class="source-led loading" data-id="${b.id}" title="Laden..." style="width:12px;height:12px;border-radius:50%;background:#ef4444;display:inline-block;flex-shrink:0;border:2px solid #fff;box-shadow:0 0 0 2px rgba(239,68,68,.25);"></span>
         </div>
       </div>
       <div class="toggles">
@@ -642,11 +640,12 @@ async function loadOneSource(b){
         allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts);
         loadedSources.add(b.id); updateHeaderCount(); renderArticles(); updateSourceLeds();
       }
-      // v249 FIX tijd: altijd detail ophalen, ook bij cached overzicht (was alleen bij !cached)
+      // v248 FIX: altijd detail ophalen voor echte tijd, ook bij cached overzicht (overzicht heeft geen tijd meer)
       enrichGemeenteWithDetail(overview).then(enriched=>{
         const enrichedArts=enriched.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
         allArticles = allArticles.filter(x=>x.id!==b.id).concat(enrichedArts);
         renderArticles(); updateSourceLeds();
+        console.log('[v248] echte tijd uit detail geladen voor', enriched.length, 'artikelen');
       }).catch(()=>{});
       arts = overview;
     }
