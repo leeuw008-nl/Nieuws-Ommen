@@ -1,4 +1,4 @@
-// app.js v275 - LED rechts + telling 10/10 + SYNC RACE FIX + LION BADGE - terug naar vanavond werkend
+// app.js v291 - FORCE tijd + cache bust - LED rechts + telling 10/10 + SYNC RACE FIX + LION BADGE - terug naar vanavond werkend
 // app.js v275 - SYNC RACE FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
@@ -515,6 +515,8 @@ function parseRSSFull(xml, bronId){
   }).filter(x=>x.link && x.title);
 }
 function extractGemeenteDate(html){
+  // v291 debug
+  // console.log('[v291] extractGemeenteDate html len', html.length);
   const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
   function mkDate(m){
     try{
@@ -635,7 +637,7 @@ function getGemeenteCache(){
     const raw = localStorage.getItem('ommen_gemeente_cache');
     if(!raw) return {};
     const obj = JSON.parse(raw);
-    // v290 auto-migratie: als cache alleen datum zonder tijd bevat, wis hem zodat echte tijd opnieuw gehaald wordt
+    // v291 auto-migratie: als cache alleen datum zonder tijd bevat, wis hem zodat echte tijd opnieuw gehaald wordt
     let hasMidnight=false;
     for(const k in obj){
       try{
@@ -644,7 +646,7 @@ function getGemeenteCache(){
       }catch{}
     }
     if(hasMidnight){
-      console.log('[v290] oude gemeente cache met 00:00 gevonden -> wissen voor echte tijd');
+      console.log('[v291] oude gemeente cache met 00:00 gevonden -> wissen voor echte tijd');
       localStorage.removeItem('ommen_gemeente_cache');
       return {};
     }
@@ -714,10 +716,15 @@ async function enrichGemeenteWithDetail(arts){
     }
   }));
   arts.forEach(a=>{
-    if(a.pubDate && a.pubDate.getHours()===0 && a.pubDate.getMinutes()===0){
+    // v291: FORCEER altijd tijd, zelfs als detail fetch faalt -> polling tijd, zodat er nooit alleen datum staat
+    if(!a.pubDate || isNaN(a.pubDate.getTime())){
+      a.pubDate = new Date(pollingNow);
+      console.log('[v291] fallback polling tijd voor', a.link);
+    } else if(a.pubDate.getHours()===0 && a.pubDate.getMinutes()===0 && a.pubDate.getSeconds()===0){
       const fb=new Date(a.pubDate);
-      fb.setHours(pollingNow.getHours(), pollingNow.getMinutes(), pollingNow.getSeconds());
+      fb.setHours(pollingNow.getHours(), pollingNow.getMinutes(), pollingNow.getSeconds(), 0);
       a.pubDate=fb;
+      console.log('[v291] middernacht -> polling tijd voor', a.link, fb.toLocaleString('nl-NL'));
     }
     if(a.pubDate && !isNaN(a.pubDate.getTime())) cache[a.link]={iso:a.pubDate.toISOString(), ts:now};
   });
@@ -787,7 +794,7 @@ async function loadOneSource(b){
         allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts);
         loadedSources.add(b.id); updateHeaderCount(); renderArticles(); updateSourceLeds();
       }
-      // v290 FIX: altijd enrich voor echte tijd, ook bij cached overview (overzicht heeft nu alleen datum, geen tijd)
+      // v291 FIX: altijd enrich voor echte tijd, ook bij cached overview (overzicht heeft nu alleen datum, geen tijd)
       enrichGemeenteWithDetail(overview).then(enriched=>{
         const enrichedArts=enriched.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
         allArticles = allArticles.filter(x=>x.id!==b.id).concat(enrichedArts);
