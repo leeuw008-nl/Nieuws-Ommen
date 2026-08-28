@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nieuw(s)Ommen</title>
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="styles.css?v=251">
+<link rel="stylesheet" href="styles.css?v=293">
 <link rel="icon" href="icons/icon-192x192.png" type="image/png">
 <meta name="theme-color" content="#0b5bd3">
 </head>
@@ -31,9 +31,9 @@
   </div>
   <div id="source-panel">
     <div class="panel-hint">
-      <div><b>VANDAAG</b> &lt;-&gt; <b>MEER</b> = alleen vandaag of meerdere dagen</div>
-      <div><b>GEMEENTE</b> &lt;-&gt; <b>REGIO</b> = alleen gemeente Ommen of ook regio</div>
-      <div><b>AAN</b> &lt;-&gt; <b>UIT</b> = nieuwsbron wel of niet tonen in het overzicht</div>
+      <div><b>VANDAAG</b> <-> <b>MEER</b> = alleen vandaag of meerdere dagen</div>
+      <div><b>GEMEENTE</b> <-> <b>REGIO</b> = alleen gemeente Ommen of ook regio</div>
+      <div><b>AAN</b> <-> <b>UIT</b> = nieuwsbron wel of niet tonen in het overzicht</div>
     </div>
     <div class="source-list" id="source-list"></div>
     <div class="panel-footer">
@@ -51,15 +51,14 @@
 <footer><button onclick="refreshNews()">🔄 Vernieuwen</button></footer>
 
 <script>
-// Service worker voor GitHub Pages subpad /Nieuws-Ommen/ - v247 cache bust
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js?v=251', {scope: './'}).then(r=>{
-    console.log('SW registered v247', r.scope);
+  navigator.serviceWorker.register('./service-worker.js?v=293', {scope: './'}).then(r=>{
+    console.log('SW registered v279', r.scope);
   }).catch(e=>console.log('SW fail', e));
 }
 </script>
-<script src="app.js?v=251"></script>
-<script src="push.js?v=251"></script>
-<script src="article-focus.js?v=251"></script>
+<script src="app.js?v=293"></script>
+<script src="push.js?v=293"></script>
+<script src="article-focus.js?v=293"></script>
 </body>
 </html>
