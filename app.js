@@ -501,29 +501,24 @@ function parseRSSFull(xml, bronId){
   }).filter(x=>x.link && x.title);
 }
 function extractGemeenteDate(html){
-  const pollingTime = new Date();
-  // 1) met tijd: 12 mei 2026, 14:30 of 12 mei 2026 14:30
+  // 1) met echte tijd: 12 mei 2026, 14:30 of 12 mei 2026 14:30 -> echte tijd behouden!
   let m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*,?\s*(\d{1,2}):(\d{2})/i);
   if(m){
     const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
     return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), parseInt(m[4]), parseInt(m[5]));
   }
-  // 2) alleen datum: 12 mei 2026 -> gebruik polling-tijd (zoals gevraagd)
+  // 2) alleen datum: 12 mei 2026 -> middernacht zodat enrich detailpagina ophaalt voor echte tijd
   m = html.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
   if(m){
     const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
-    const d = new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]));
-    // polling-tijd: neem uren/minuten van nu, maar datum van artikel
-    d.setHours(pollingTime.getHours(), pollingTime.getMinutes(), pollingTime.getSeconds());
-    return d;
+    return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), 0, 0, 0);
   }
   m = html.match(/<time[^>]+datetime=["']([^"']+)["']/i);
   if(m){
     const d=new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
   }
-  // 3) geen datum gevonden -> polling-tijd zelf
-  return pollingTime;
+  return null;
 }
 function extractDescAfter(pos, clean){
   const slice = clean.substring(pos, pos+1500);
@@ -570,16 +565,19 @@ function setGemeenteCache(cache){
 async function enrichGemeenteWithDetail(arts){
   const cache=getGemeenteCache();
   const now=Date.now();
+  const pollingNow=new Date();
   const CACHE_TTL=1000*60*60*2;
-  // Alleen artikelen zonder goede tijd, max 3 parallel (PERF)
   const needEnrich=arts.filter(a=>{
     const cached=cache[a.link];
-    if(cached && (now - cached.ts) < CACHE_TTL && cached.iso) return false;
-    if(a.pubDate && !isNaN(a.pubDate.getTime()) && a.pubDate.getHours()!==0) return false;
+    if(cached && (now - cached.ts) < CACHE_TTL && cached.iso){
+      const cd=new Date(cached.iso);
+      if(cd.getHours()!==0 || cd.getMinutes()!==0) return false;
+    }
+    if(a.pubDate && !isNaN(a.pubDate.getTime()) && (a.pubDate.getHours()!==0 || a.pubDate.getMinutes()!==0)) return false;
     return true;
   }).slice(0,3);
   if(needEnrich.length===0){
-    arts.forEach(a=>{ if(a.pubDate && !isNaN(a.pubDate.getTime()) && a.pubDate.getHours()!==0) cache[a.link]={iso:a.pubDate.toISOString(), ts:now}; });
+    arts.forEach(a=>{ if(a.pubDate && !isNaN(a.pubDate.getTime()) && (a.pubDate.getHours()!==0 || a.pubDate.getMinutes()!==0)) cache[a.link]={iso:a.pubDate.toISOString(), ts:now}; });
     setGemeenteCache(cache);
     return arts;
   }
@@ -587,16 +585,42 @@ async function enrichGemeenteWithDetail(arts){
     try{
       const html = await fetchViaWorker(a.link);
       const realDate = extractGemeenteDate(html);
-      if(realDate){
+      if(realDate && (realDate.getHours()!==0 || realDate.getMinutes()!==0)){
         a.pubDate=realDate;
         cache[a.link]={iso:realDate.toISOString(), ts:now};
+      }else if(realDate){
+        const d=new Date(realDate);
+        d.setHours(pollingNow.getHours(), pollingNow.getMinutes(), pollingNow.getSeconds());
+        a.pubDate=d;
+        cache[a.link]={iso:d.toISOString(), ts:now};
+      }else{
+        const fallback = a.pubDate && !isNaN(a.pubDate.getTime()) ? new Date(a.pubDate) : new Date();
+        if(fallback.getHours()===0 && fallback.getMinutes()===0){
+          fallback.setHours(pollingNow.getHours(), pollingNow.getMinutes(), pollingNow.getSeconds());
+        }
+        a.pubDate=fallback;
+        cache[a.link]={iso:fallback.toISOString(), ts:now};
       }
-    }catch(e){}
+    }catch(e){
+      if(a.pubDate && a.pubDate.getHours()===0){
+        const fb=new Date(a.pubDate);
+        fb.setHours(pollingNow.getHours(), pollingNow.getMinutes(), pollingNow.getSeconds());
+        a.pubDate=fb;
+      }
+    }
   }));
-  arts.forEach(a=>{ if(a.pubDate && !isNaN(a.pubDate.getTime()) && a.pubDate.getHours()!==0) cache[a.link]={iso:a.pubDate.toISOString(), ts:now}; });
+  arts.forEach(a=>{
+    if(a.pubDate && a.pubDate.getHours()===0 && a.pubDate.getMinutes()===0){
+      const fb=new Date(a.pubDate);
+      fb.setHours(pollingNow.getHours(), pollingNow.getMinutes(), pollingNow.getSeconds());
+      a.pubDate=fb;
+    }
+    if(a.pubDate && !isNaN(a.pubDate.getTime())) cache[a.link]={iso:a.pubDate.toISOString(), ts:now};
+  });
   setGemeenteCache(cache);
   return arts;
 }
+
 function parseOostFull_OLD(html){
   const max = MAX_PER_BRON['RTV Oost'];
   const patterns = [
