@@ -1,4 +1,4 @@
-// app.js v292 - FIX cache tijd gebruiken ipv middernacht teruggeven - LED rechts + telling 10/10 + SYNC RACE FIX + LION BADGE - terug naar vanavond werkend
+// app.js v293 - FIX echte tijd 11:27 via allorigins, geen fake 12:47 ipv middernacht teruggeven - LED rechts + telling 10/10 + SYNC RACE FIX + LION BADGE - terug naar vanavond werkend
 // app.js v275 - SYNC RACE FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
@@ -673,7 +673,7 @@ async function enrichGemeenteWithDetail(arts){
     }catch{}
   }
   if(cleaned){ setGemeenteCache(cache); console.log('[v288] gemeente cache middernacht opgeschoond'); }
-  console.log('[v292] start enrich check voor', arts.length, 'artikelen, cache size', Object.keys(cache).length);
+  console.log('[v293] start enrich check voor', arts.length, 'artikelen, cache size', Object.keys(cache).length);
   const needEnrich=arts.filter(a=>{
     const cached=cache[a.link];
     if(cached && (now - cached.ts) < CACHE_TTL && cached.iso){
@@ -684,15 +684,15 @@ async function enrichGemeenteWithDetail(arts){
     return true;
   }).slice(0,10);
   if(needEnrich.length===0){
-    // v292 FIX: als we niks hoeven te enrichen, gebruik dan de echte tijden uit cache (niet de middernacht uit overzicht)
-    console.log('[v292] geen enrich nodig, gebruik cache tijden voor', arts.length, 'artikelen');
+    // v293 FIX: als we niks hoeven te enrichen, gebruik dan de echte tijden uit cache (niet de middernacht uit overzicht)
+    console.log('[v293] geen enrich nodig, gebruik cache tijden voor', arts.length, 'artikelen');
     arts.forEach(a=>{
       const cached=cache[a.link];
       if(cached && cached.iso){
         const cd=new Date(cached.iso);
         if(!isNaN(cd.getTime()) && (cd.getHours()!==0 || cd.getMinutes()!==0)){
           a.pubDate=cd;
-          console.log('[v292] cache tijd gebruikt voor', a.title.slice(0,30), cd.toLocaleString('nl-NL'));
+          console.log('[v293] cache tijd gebruikt voor', a.title.slice(0,30), cd.toLocaleString('nl-NL'));
         }
       }
       if(a.pubDate && !isNaN(a.pubDate.getTime()) && (a.pubDate.getHours()!==0 || a.pubDate.getMinutes()!==0)){
@@ -704,7 +704,21 @@ async function enrichGemeenteWithDetail(arts){
   }
   await Promise.allSettled(needEnrich.map(async (a)=>{
     try{
-      const html = await fetchViaWorker(a.link);
+      // v293: gebruik allorigins direct voor gemeente details om KV block te omzeilen
+      let html=null;
+      try{
+        const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(a.link)}&t=${Date.now()}`, {cache:'no-store'});
+        if(r.ok){
+          const j = await r.json();
+          if(j.contents && j.contents.length>500){
+            html=j.contents;
+            console.log('[v293] allorigins OK voor', a.link.slice(-30));
+          }
+        }
+      }catch(e){ console.log('[v293] allorigins fail', e.message); }
+      if(!html){
+        html = await fetchViaWorker(a.link);
+      }
       const realDate = extractGemeenteDate(html);
       if(realDate && (realDate.getHours()!==0 || realDate.getMinutes()!==0)){
         a.pubDate=realDate;
@@ -731,17 +745,17 @@ async function enrichGemeenteWithDetail(arts){
     }
   }));
   arts.forEach(a=>{
-    // v291: FORCEER altijd tijd, zelfs als detail fetch faalt -> polling tijd, zodat er nooit alleen datum staat
+    // v293: alleen echte tijd bewaren, geen fake polling tijd - als geen echte tijd gevonden, laat middernacht staan (wordt later echte tijd na retry)
     if(!a.pubDate || isNaN(a.pubDate.getTime())){
-      a.pubDate = new Date(pollingNow);
-      console.log('[v291] fallback polling tijd voor', a.link);
+      console.log('[v293] geen datum gevonden voor', a.link);
     } else if(a.pubDate.getHours()===0 && a.pubDate.getMinutes()===0 && a.pubDate.getSeconds()===0){
-      const fb=new Date(a.pubDate);
-      fb.setHours(pollingNow.getHours(), pollingNow.getMinutes(), pollingNow.getSeconds(), 0);
-      a.pubDate=fb;
-      console.log('[v291] middernacht -> polling tijd voor', a.link, fb.toLocaleString('nl-NL'));
+      console.log('[v293] nog steeds middernacht na detail fetch voor', a.link, '- behoud middernacht, retry later');
+    } else {
+      console.log('[v293] echte tijd gevonden voor', a.title.slice(0,30), a.pubDate.toLocaleString('nl-NL'));
     }
-    if(a.pubDate && !isNaN(a.pubDate.getTime())) cache[a.link]={iso:a.pubDate.toISOString(), ts:now};
+    if(a.pubDate && !isNaN(a.pubDate.getTime()) && (a.pubDate.getHours()!==0 || a.pubDate.getMinutes()!==0)){
+      cache[a.link]={iso:a.pubDate.toISOString(), ts:now};
+    }
   });
   setGemeenteCache(cache);
   return arts;
