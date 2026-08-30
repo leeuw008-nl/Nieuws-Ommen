@@ -1,77 +1,80 @@
 <!DOCTYPE html>
 <html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin - NieuwOmmen v263 PUSH COUNT</title>
+<title>Admin - NieuwOmmen v265 - 10e bron Nieuwsbrief</title>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:#f6f7f9;color:#111}
-.sidebar{position:fixed;left:0;top:0;bottom:0;width:260px;background:#111827;color:#fff;padding:20px;overflow:auto}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:270px;background:#111827;color:#fff;padding:20px;overflow:auto}
 .sidebar h2{margin:0 0 20px;font-size:18px}.sidebar a{display:block;color:#9ca3af;padding:10px 12px;border-radius:8px;text-decoration:none;margin-bottom:4px;font-size:14px}
 .sidebar a.active,.sidebar a:hover{background:#1f2937;color:#fff}
-.main{margin-left:260px;padding:24px}
+.main{margin-left:270px;padding:24px}
 .card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:16px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
 .stat h3{margin:0 0 6px;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em}.stat .val{font-size:24px;font-weight:700}
 table{width:100%;border-collapse:collapse}th,td{padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:13px;vertical-align:top}th{color:#6b7280;font-weight:600;position:sticky;top:0;background:#fff;z-index:1}
 .btn{background:#2563eb;color:#fff;border:0;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px}.btn:disabled{opacity:.5;cursor:not-allowed}
-.btn-sec{background:#e5e7eb;color:#111}.btn-danger{background:#dc2626;color:#fff}.btn-ok{background:#16a34a;color:#fff}
+.btn-sec{background:#e5e7eb;color:#111}.btn-danger{background:#dc2626;color:#fff}.btn-ok{background:#16a34a;color:#fff}.btn-purple{background:#7c3aed;color:#fff}
 .input,textarea,select{width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px}
-.alert{padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:13px}.alert-warn{background:#fef3c7;color:#92400e}.alert-ok{background:#dcfce7;color:#166534;border:1px solid #16a34a}
-.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;background:#e5e7eb}
+.alert{padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:13px}.alert-warn{background:#fef3c7;color:#92400e}.alert-ok{background:#dcfce7;color:#166534;border:1px solid #16a34a}.alert-info{background:#dbeafe;color:#1e40af;border:1px solid #3b82f6}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;background:#e5e7eb}.badge-green{background:#dcfce7;color:#166534}.badge-purple{background:#ede9fe;color:#6d28d9}
 .table-wrap{overflow:auto;max-height:75vh;border:1px solid #e5e7eb;border-radius:8px}
 .small{font-size:11px;color:#6b7280}
 .count{font-weight:700;font-size:14px}
+.checkbox{display:flex;align-items:center;gap:8px;margin:8px 0}
 @media(max-width:900px){.sidebar{position:relative;width:100%}.main{margin-left:0}}
 </style>
 </head><body>
 <div class="sidebar">
-<h2>NieuwOmmen v263</h2>
+<h2>NieuwOmmen v265</h2>
 <a href="#" data-tab="overview" class="active">Overzicht</a>
 <a href="#" data-tab="subs">📱 Abonnementen</a>
 <a href="#" data-tab="users">Gebruikers</a>
-<a href="#" data-tab="newsletter">Nieuwsbrief</a>
-<a href="#" data-tab="push">Push testen</a>
+<a href="#" data-tab="newsletter">Nieuwsbrief (10e bron)</a>
+<a href="#" data-tab="push">Push testen (10 bronnen)</a>
 <a href="#" data-tab="logs">Logs</a>
 <a href="#" data-tab="settings">Instellingen</a>
 <div style="margin-top:24px;font-size:11px;color:#9ca3af">
 Ingelogd als <span id="adminEmail">...</span><br>
 <small id="apiBase"></small><br><br>
-<b>v263 PUSH COUNT</b><br>
-✅ kolom aantal pushes<br>
-✅ naam vrij veld opslaan<br>
-✅ alles uit = 0 push<br>
+<b>v265 NIEUW:</b><br>
+✅ 10e bron: Nieuwsbrief<br>
+✅ Aantal pushes kolom<br>
+✅ Naam vrij veld opslaan<br>
+✅ Echt artikel push = omlijnd<br>
+✅ Fix Natuurlijk Ommen bug<br>
 <span id="subs-count-side">laden...</span>
 </div>
 </div>
 <div class="main">
-<div id="login-box" class="card" style="border:2px solid #16a34a"><h3 style="margin-top:0">Admin v263 - Push count + naam opslaan</h3><p style="font-size:13px;color:#166534"><b>Nieuw:</b> Kolom met aantal pushes + vrij veld naam dat echt wordt opgeslagen in KV.</p><div class="grid" style="grid-template-columns:1fr 1fr"><div><label>Email</label><input id="login-email" class="input" value="leeuw008@gmail.com"></div><div><label>Wachtwoord</label><input id="login-pw" type="password" class="input"></div></div><br><button class="btn btn-ok" onclick="doLogin()">Inloggen v263</button><span id="login-result" style="margin-left:12px;font-size:13px"></span></div>
+<div id="login-box" class="card" style="border:2px solid #7c3aed"><h3 style="margin-top:0">Admin v265 - 10e bron Nieuwsbrief + omlijnd artikel testen</h3><p style="font-size:13px;color:#6d28d9"><b>Nieuw in v265:</b> Nieuwsbrief als 10e bron toegevoegd! Werkt exact als andere 9 bronnen. Je kunt nu testen hoe een écht push-artikel er omlijnd uitziet (met groene rand) via push testen -> Nieuwsbrief + "Stuur als echt artikel".</p><div class="grid" style="grid-template-columns:1fr 1fr"><div><label>Email</label><input id="login-email" class="input" value="leeuw008@gmail.com"></div><div><label>Wachtwoord</label><input id="login-pw" type="password" class="input"></div></div><br><button class="btn btn-purple" onclick="doLogin()">Inloggen v265</button><span id="login-result" style="margin-left:12px;font-size:13px"></span></div>
 
 <div id="tab-overview">
-<div class="alert alert-ok">✅ <b>v263</b> - Nieuw: kolom <b>aantal pushes</b> + vrij veld <b>naam opslaan</b> werkt nu definitief. Alles uit = 0 push fix blijft actief.</div>
+<div class="alert alert-info">✅ <b>v265</b> - Nieuw: <b>10e bron Nieuwsbrief</b> toegevoegd! Werkt als alle andere bronnen. Je kunt hem gebruiken als <b>test-push van echt artikel</b> om <b>omlijnd artikel weergave</b> te testen bij aanklikken push. | Aantal pushes + naam opslaan + alles uit fix blijven actief.</div>
 <div class="grid">
-<div class="card stat"><h3>Push abonnees</h3><div class="val" id="stat-subs">-</div><div class="small">totaal</div></div>
+<div class="card stat"><h3>Push abonnees</h3><div class="val" id="stat-subs">-</div><div class="small">totaal (10 bronnen)</div></div>
 <div class="card stat"><h3>Totaal pushes verstuurd</h3><div class="val" id="stat-totalpush">-</div><div class="small">som van alle abonnementen</div></div>
 <div class="card stat"><h3>Gebruikers</h3><div class="val" id="stat-users">-</div></div>
-<div class="card stat"><h3>Laatste artikel</h3><div style="font-size:12px" id="stat-last">-</div></div>
+<div class="card stat"><h3>Nieuwsbrief items (10e bron)</h3><div class="val" id="stat-newsletter">-</div><div class="small"><span id="stat-last">-</span></div></div>
 </div>
-<div class="card"><h3 style="margin-top:0">Snel</h3><button class="btn" onclick="switchTab('subs')">📱 Bekijk abonnementen met aantallen</button> <button class="btn btn-sec" onclick="switchTab('push')">Push testen</button></div>
+<div class="card"><h3 style="margin-top:0">Snel testen - omlijnd artikel</h3><p class="small">Stap 1: Zet Nieuwsbrief AAN op je smartphone. Stap 2: Ga naar Push testen -> Bron Nieuwsbrief -> vink "Stuur als echt artikel" -> Stuur. Stap 3: Klik op push melding -> artikel wordt omlijnd getoond met groene rand + pulse.</p><button class="btn btn-purple" onclick="switchTab('push')">📰 Test Nieuwsbrief push (omlijnd)</button> <button class="btn" onclick="switchTab('subs')">📱 Bekijk abonnementen</button> <button class="btn btn-sec" onclick="switchTab('newsletter')">📰 Beheer Nieuwsbrief 10e bron</button></div>
 </div>
 
 <div id="tab-subs" style="display:none">
 <div class="card">
-<h3 style="margin-top:0">📱 Push Abonnementen - met aantallen + naam</h3>
-<p class="small">ID = hash van endpoint. <b>Aantal</b> = hoe vaak deze al een push kreeg (wordt bij elke push +1). <b>Naam</b> is vrij veld, wordt opgeslagen in KV (max 100 tekens). Werkt nu definitief via /api/admin/subs/update.</p>
+<h3 style="margin-top:0">📱 Push Abonnementen - 10 bronnen + aantallen + naam</h3>
+<p class="small">ID = hash van endpoint. <b>Aantal</b> = hoe vaak deze al een push kreeg. <b>Naam</b> is vrij veld (max 100). <b>Nieuwsbrief</b> staat nu ook bij bronnen als 10e bron.</p>
 <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
 <button class="btn" onclick="loadSubs()">🔄 Vernieuwen</button>
-<button class="btn btn-sec" onclick="exportSubsCSV()">📥 CSV export (met aantallen)</button>
+<button class="btn btn-sec" onclick="exportSubsCSV()">📥 CSV export</button>
 <button class="btn btn-danger" onclick="clearAllSubs()">🗑️ Wis ALLE</button>
 <span id="subs-result" style="font-size:12px;margin-left:8px"></span>
 </div>
 <div class="table-wrap"><table><thead><tr>
 <th>ID</th>
 <th style="min-width:180px">Naam (vrij veld) + opslaan</th>
-<th>Aantal pushes</th>
+<th>Aantal</th>
 <th>Email / User</th>
 <th>IP + Device</th>
-<th>Bronnen</th>
+<th>Bronnen (10)</th>
 <th>Laatste push</th>
 <th>Acties</th>
 </tr></thead><tbody id="subs-body"><tr><td colspan=8>Laden...</td></tr></tbody></table></div>
@@ -79,31 +82,56 @@ Ingelogd als <span id="adminEmail">...</span><br>
 </div>
 
 <div id="tab-users" style="display:none">
-<div class="card"><h3>Gebruikers</h3><table><thead><tr><th>Email</th><th>ID</th><th>Bronnen aan</th><th>Push aan</th><th>Acties</th></tr></thead><tbody id="users-body"></tbody></table><br><button class="btn btn-sec" onclick="exportUsers()">Exporteer CSV</button></div>
+<div class="card"><h3>Gebruikers (10 bronnen)</h3><table><thead><tr><th>Email</th><th>ID</th><th>Bronnen aan (10)</th><th>Push aan</th><th>Acties</th></tr></thead><tbody id="users-body"></tbody></table><br><button class="btn btn-sec" onclick="exportUsers()">Exporteer CSV</button></div>
 </div>
 
 <div id="tab-newsletter" style="display:none">
-<div class="card"><h3>Nieuwsbrief</h3>
-<div class="grid" style="grid-template-columns:1fr 1fr"><div><label>Onderwerp</label><input id="nl-subject" class="input" placeholder="Update"></div><div><label>Van</label><input id="nl-from" class="input" value="NieuwOmmen <nieuws@nieuwommen.leeuw008.nl>"></div></div>
-<br><label>Bericht</label><textarea id="nl-body" rows="8" class="input"></textarea><br><br>
-<div class="grid"><div><label>Ontvangers</label><select id="nl-to" class="input"><option value="self">Alleen test naar eigen e-mail</option><option value="all">Alle gebruikers</option></select></div><div style="display:flex;align-items:end;gap:8px"><button class="btn" onclick="sendNewsletter(false)">Verstuur test</button><button class="btn btn-sec" onclick="sendNewsletter(true)">Verstuur naar allen</button></div></div>
+<div class="card" style="border:2px solid #16a34a"><h3 style="margin-top:0">📰 Nieuwsbrief - 10e bron + omlijnd artikel testen</h3>
+<div class="alert alert-info"><b>Nieuw v265:</b> Nieuwsbrief is nu de <b>10e bron</b> in de app! Werkt exact als andere bronnen (AAN/UIT, filter, push). Je kunt hem gebruiken om te testen hoe een <b>echt push-artikel er omlijnd uitziet</b>. Test-pushes (isTest=true) zijn expres NIET omlijnd. Echte pushes (isReal=true) WEL omlijnd met groene rand + pulse.</div>
+<div class="grid" style="grid-template-columns:1fr 1fr"><div><label>Onderwerp / Titel (voor 10e bron)</label><input id="nl-subject" class="input" placeholder="Bijv. Nieuwe update: 10e bron toegevoegd!"></div><div><label>Van (email)</label><input id="nl-from" class="input" value="NieuwOmmen <nieuws@nieuwommen.leeuw008.nl>"></div></div>
+<br><label>Link (waar artikel naar toe gaat)</label><input id="nl-link" class="input" value="https://nieuwommen.leeuw008.nl/"><br><br>
+<label>Bericht (beschrijving voor 10e bron)</label><textarea id="nl-body" rows="6" class="input" placeholder="We hebben een 10e bron toegevoegd: Nieuwsbrief!
+
+- Werkt als alle andere bronnen
+- AAN/UIT te zetten
+- Push notificaties
+- Klik op push -> omlijnd artikel met groene rand
+
+Groet,
+Tjeerd"></textarea><br><br>
+<div class="grid"><div><label>Opslaan als</label><select id="nl-save-mode" class="input"><option value="feed">Alleen feed (10e bron item)</option><option value="email">Alleen email (Resend)</option><option value="both">Feed + Email</option></select></div><div><label>Ontvangers (voor email)</label><select id="nl-to" class="input"><option value="self">Alleen test naar eigen e-mail</option><option value="all">Alle gebruikers</option></select></div></div><br>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<button class="btn btn-ok" onclick="saveNewsletterFeed()">💾 Opslaan als 10e bron item</button>
+<button class="btn" onclick="sendNewsletter(false)">📧 Verstuur test email</button>
+<button class="btn btn-sec" onclick="sendNewsletter(true)">📧 Verstuur naar allen (email)</button>
+<button class="btn btn-purple" onclick="sendNewsletterAsRealPush()">🔔 Push als ECHT artikel (omlijnd!)</button>
+</div>
 <div id="nl-result" style="margin-top:12px"></div>
+<hr style="margin:20px 0">
+<h4>Huidige Nieuwsbrief items (10e bron feed)</h4>
+<div id="nl-feed-list">Laden...</div>
+<button class="btn btn-sec" onclick="loadNewsletterFeed()">🔄 Vernieuw feed</button>
 </div>
 </div>
 
 <div id="tab-push" style="display:none">
-<div class="card"><h3>Push testen - v263</h3>
-<p class="small">Na test zie je bij Abonnementen het aantal +1 en laatste push tijd update.</p>
-<div class="grid"><div><label>Titel</label><input id="push-title" class="input" value="Test push - v263 count"></div><div><label>Bron</label><select id="push-source" class="input" onchange="onSourceChange()"><option value="De Stentor" data-link="https://www.destentor.nl/ommen/">De Stentor</option><option value="Gemeente Ommen" data-link="https://www.ommen.nl/actueel/">Gemeente Ommen</option><option value="Natuurlijk Ommen" data-link="https://www.natuurlijkommen.nl/">Natuurlijk Ommen</option><option value="Ommen City" data-link="https://ommencity.nl/">Ommen City</option><option value="OudOmmen" data-link="https://weblog.oudommen.nl/">OudOmmen</option><option value="RondOmmen" data-link="https://www.rondommen.nl/">RondOmmen</option><option value="RTV Oost" data-link="https://www.oost.nl/nieuws/vechtdal">RTV Oost</option><option value="RTV Vechtdal" data-link="https://rtvvechtdal.nl/">RTV Vechtdal</option><option value="Vechtdal Centraal" data-link="https://www.vechtdalcentraal.nl/">Vechtdal Centraal</option></select></div></div><br>
-<label>Link</label><input id="push-link" class="input" value="https://www.destentor.nl/ommen/"><br><br>
-<label>Body</label><input id="push-body" class="input" value="v263 test - check aantal +1"><br><br>
-<button class="btn btn-ok" onclick="sendTestPush()">Stuur test push (gefilterd)</button> <button class="btn btn-sec" onclick="sendTestPushAll()">Stuur naar alle (bypass)</button>
+<div class="card" style="border:2px solid #7c3aed"><h3 style="margin-top:0">🔔 Push testen - 10 bronnen incl Nieuwsbrief (omlijnd testen)</h3>
+<div class="alert alert-info"><b>Test omlijnd artikel:</b> Kies <b>Bron = Nieuwsbrief</b> + vink <b>"Stuur als echt artikel"</b> aan -> dan wordt het artikel <b>omlijnd met groene rand + pulse animatie</b> getoond bij aanklikken push. Test-pushes (isTest) zijn expres NIET omlijnd.</div>
+<div class="grid"><div><label>Titel</label><input id="push-title" class="input" value="Nieuwsbrief - Test omlijnd artikel"></div><div><label>Bron (10 bronnen)</label><select id="push-source" class="input" onchange="onSourceChange()"><option value="De Stentor" data-link="https://www.destentor.nl/ommen/">De Stentor</option><option value="Gemeente Ommen" data-link="https://www.ommen.nl/actueel/">Gemeente Ommen</option><option value="Natuurlijk Ommen" data-link="https://www.natuurlijkommen.nl/">Natuurlijk Ommen</option><option value="Ommen City" data-link="https://ommencity.nl/">Ommen City</option><option value="OudOmmen" data-link="https://weblog.oudommen.nl/">OudOmmen</option><option value="RondOmmen" data-link="https://www.rondommen.nl/">RondOmmen</option><option value="RTV Oost" data-link="https://www.oost.nl/nieuws/vechtdal">RTV Oost</option><option value="RTV Vechtdal" data-link="https://rtvvechtdal.nl/">RTV Vechtdal</option><option value="Vechtdal Centraal" data-link="https://www.vechtdalcentraal.nl/">Vechtdal Centraal</option><option value="Nieuwsbrief" data-link="https://nieuwommen.leeuw008.nl/" selected>📰 Nieuwsbrief (10e bron) - voor omlijnd testen</option></select></div></div><br>
+<label>Link naar artikel (wordt geopend + omlijnd bij klik)</label><input id="push-link" class="input" value="https://nieuwommen.leeuw008.nl/"><br><br>
+<label>Body</label><input id="push-body" class="input" value="Klik om het omlijnde artikel te openen - test groene rand + pulse"><br><br>
+<div class="checkbox"><input type="checkbox" id="push-is-real" checked><label for="push-is-real"><b>Stuur als ECHT artikel (met omlijning)</b> - voor Nieuwsbrief testen. Als uitgevinkt = test-push zonder omlijning.</label></div><br>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<button class="btn btn-purple" onclick="sendTestPush(true)">🔔 Stuur als ECHT artikel (omlijnd) - Nieuwsbrief</button>
+<button class="btn" onclick="sendTestPush(false)">Test push (zonder omlijning, gefilterd)</button>
+<button class="btn btn-sec" onclick="sendTestPushAll()">Stuur naar alle (bypass filter)</button>
+</div>
 <div id="push-result" style="margin-top:12px"></div>
 </div>
 </div>
 
-<div id="tab-logs" style="display:none"><div class="card"><h3>Debug (Worker v263)</h3><pre id="debug-pre" style="background:#111827;color:#e5e7eb;padding:16px;border-radius:8px;overflow:auto;max-height:400px"></pre><button class="btn btn-sec" onclick="loadDebug()">Vernieuwen</button></div></div>
-<div id="tab-settings" style="display:none"><div class="card"><h3>Instellingen v263</h3><p>Frontend: <code>nieuwommen.leeuw008.nl/admin/</code> - <b>v263</b></p><p>Backend: <code>ommen-push-v2</code> - <b>v263 PUSH COUNT</b></p><p>Nieuw: kolom aantal pushes (pushCount), naam vrij veld opslaan via /api/admin/subs/update</p><p>Resend: <span id="resend-status"></span></p></div></div>
+<div id="tab-logs" style="display:none"><div class="card"><h3>Debug v265 (10 bronnen)</h3><pre id="debug-pre" style="background:#111827;color:#e5e7eb;padding:16px;border-radius:8px;overflow:auto;max-height:500px"></pre><button class="btn btn-sec" onclick="loadDebug()">Vernieuwen</button> <button class="btn btn-sec" onclick="loadNewsletterFeedDebug()">Nieuwsbrief feed debug</button></div></div>
+<div id="tab-settings" style="display:none"><div class="card"><h3>Instellingen v265 - 10 bronnen</h3><p>Frontend: <code>nieuwommen.leeuw008.nl/admin/</code> - <b>v265 - 10e bron Nieuwsbrief</b></p><p>Backend: <code>ommen-push-v2</code> - <b>v265 - 10e bron + push count + naam + omlijnd testen</b></p><p>Bronnen: De Stentor, Gemeente Ommen, Natuurlijk Ommen, Ommen City, OudOmmen, RondOmmen, RTV Oost, RTV Vechtdal, Vechtdal Centraal, <b>Nieuwsbrief (nieuw!)</b></p><p>Nieuwsbrief feed: <code>/newsletter/feed</code> - <span id="newsletter-feed-status">laden...</span></p><p>Resend: <span id="resend-status"></span></p><p>Omlijnd testen: Push met Bron=Nieuwsbrief + isReal=true -> groene rand + pulse bij aanklikken</p></div></div>
 </div>
 
 <script>
@@ -126,11 +154,11 @@ async function doLogin(){
   try{
     const res=await fetch(API_BASE+'/auth/login',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,password:pw})});
     const data=await res.json();
-    if(data.token){ token=data.token; localStorage.setItem('ommen_token', token); document.getElementById('adminEmail').textContent=data.email; document.getElementById('login-box').style.display='none'; loadOverview(); loadSubs(); }
+    if(data.token){ token=data.token; localStorage.setItem('ommen_token', token); document.getElementById('adminEmail').textContent=data.email; document.getElementById('login-box').style.display='none'; loadOverview(); loadSubs(); loadNewsletterFeed(); }
     else { document.getElementById('login-result').textContent='Fout: '+(data.error||JSON.stringify(data)); }
   }catch(e){ document.getElementById('login-result').textContent='Fout: '+e.message; }
 }
-function switchTab(t){ document.querySelectorAll('[id^=tab-]').forEach(el=>el.style.display='none'); document.getElementById('tab-'+t).style.display='block'; document.querySelectorAll('.sidebar a').forEach(a=>a.classList.remove('active')); const link=document.querySelector('[data-tab='+t+']'); if(link) link.classList.add('active'); if(t==='subs') loadSubs(); if(t==='users') loadUsers(); if(t==='logs') loadDebug(); if(t==='overview') loadOverview(); }
+function switchTab(t){ document.querySelectorAll('[id^=tab-]').forEach(el=>el.style.display='none'); document.getElementById('tab-'+t).style.display='block'; document.querySelectorAll('.sidebar a').forEach(a=>a.classList.remove('active')); const link=document.querySelector('[data-tab='+t+']'); if(link) link.classList.add('active'); if(t==='subs') loadSubs(); if(t==='users') loadUsers(); if(t==='logs') loadDebug(); if(t==='overview') loadOverview(); if(t==='newsletter') loadNewsletterFeed(); }
 document.querySelectorAll('.sidebar a').forEach(a=>{ a.addEventListener('click',e=>{ e.preventDefault(); switchTab(a.dataset.tab); }); });
 
 async function loadOverview(){
@@ -139,14 +167,16 @@ async function loadOverview(){
     document.getElementById('stat-last').textContent=s.last? (s.last.source+': '+s.last.title.slice(0,60)) : '-';
     const subsData = await api('/api/admin/subs').catch(()=>({subs:[]}));
     document.getElementById('stat-subs').textContent=subsData.count||0;
-    document.getElementById('subs-count-side').textContent=(subsData.count||0)+' abonnementen';
+    document.getElementById('subs-count-side').textContent=(subsData.count||0)+' abonnementen (10 bronnen)';
     const totalPush = (subsData.subs||[]).reduce((sum,x)=>sum+(x.pushCount||0),0);
     document.getElementById('stat-totalpush').textContent=totalPush;
     document.querySelector('[data-tab=subs]').textContent='📱 Abonnementen ('+(subsData.count||0)+')';
     const usersData = await api('/api/admin/users').catch(()=>({count:'?'}));
     document.getElementById('stat-users').textContent=usersData.count||usersData.users?.length||'0';
     const me = await api('/auth/me'); if(me.email){ document.getElementById('adminEmail').textContent=me.email; document.getElementById('login-box').style.display='none'; }
-    const dbg=await api('/debug'); document.getElementById('resend-status').textContent = (dbg.version||'') + ' - v263';
+    const dbg=await api('/debug'); document.getElementById('resend-status').textContent = (dbg.version||'') + ' - v265 10 bronnen';
+    document.getElementById('stat-newsletter').textContent = dbg.newsletterCount||0;
+    document.getElementById('newsletter-feed-status').textContent = (dbg.newsletterCount||0)+' items in feed';
     document.getElementById('apiBase').textContent=API_BASE;
   }catch(e){ console.log(e); }
 }
@@ -158,7 +188,7 @@ async function loadSubs(){
     const data = await api('/api/admin/subs');
     const tbody=document.getElementById('subs-body');
     tbody.innerHTML='';
-    document.getElementById('subs-result').textContent=data.count+' abonnementen, totaal pushes: '+data.subs.reduce((s,x)=>s+(x.pushCount||0),0);
+    document.getElementById('subs-result').textContent=data.count+' abonnementen, totaal pushes: '+data.subs.reduce((s,x)=>s+(x.pushCount||0),0)+' (10 bronnen incl Nieuwsbrief)';
     document.getElementById('subs-count-side').textContent=data.count+' abonnementen';
     document.querySelector('[data-tab=subs]').textContent='📱 Abonnementen ('+data.count+')';
     document.getElementById('stat-subs').textContent=data.count;
@@ -166,10 +196,11 @@ async function loadSubs(){
     (data.subs||[]).forEach(sub=>{
       const tr=document.createElement('tr');
       const sources = sub.sources && sub.sources.length ? sub.sources.join(', ') : (sub.sourcesCount===0 ? '<span style=color:#dc2626>alles uit (0)</span>' : '-');
+      const isNieuwsbrief = sub.sources && sub.sources.includes('Nieuwsbrief');
       const ipInfo = (sub.ip||'') + (sub.userAgent ? '<br><span class=small>'+sub.userAgent.slice(0,50)+'</span>' : '');
       const emailInfo = (sub.email||'') + (sub.userId ? '<br><span class=small>'+sub.userId.slice(0,12)+'</span>' : '');
       tr.innerHTML = `
-        <td><span class=badge title="${sub.id}">${sub.id.slice(0,12)}...</span><br><span class=small>${sub.endpointPreview||''}</span></td>
+        <td><span class=badge title="${sub.id}">${sub.id.slice(0,12)}...</span><br><span class=small>${sub.endpointPreview||''}</span>${isNieuwsbrief ? '<br><span class=badge-green>Nieuwsbrief</span>' : ''}</td>
         <td>
           <input class="input" id="desc-${sub.id}" value="${(sub.description||'').replace(/"/g,'&quot;')}" placeholder="Bijv. iPhone Tjeerd - kantoor" style="min-width:160px">
           <div style="display:flex;gap:4px;margin-top:4px">
@@ -186,66 +217,80 @@ async function loadSubs(){
       `;
       tbody.appendChild(tr);
     });
-    if((data.subs||[]).length===0){
-      tbody.innerHTML='<tr><td colspan=8>Geen abonnementen</td></tr>';
-    }
-  }catch(e){
-    document.getElementById('subs-body').innerHTML='<tr><td colspan=8>Fout: '+e.message+'</td></tr>';
-  }
+    if((data.subs||[]).length===0){ tbody.innerHTML='<tr><td colspan=8>Geen abonnementen</td></tr>'; }
+  }catch(e){ document.getElementById('subs-body').innerHTML='<tr><td colspan=8>Fout: '+e.message+'</td></tr>'; }
 }
 
 async function saveDesc(id){
-  const input=document.getElementById('desc-'+id);
-  const val=input.value;
-  const status=document.getElementById('save-'+id);
-  status.textContent='Opslaan...';
-  status.style.color='#2563eb';
+  const input=document.getElementById('desc-'+id); const val=input.value; const status=document.getElementById('save-'+id);
+  status.textContent='Opslaan...'; status.style.color='#2563eb';
   try{
     const res=await api('/api/admin/subs/update',{method:'POST', body:JSON.stringify({id, description:val})});
-    if(res.ok){
-      status.textContent='✅ Opgeslagen!';
-      status.style.color='#16a34a';
-      input.style.borderColor='#16a34a';
-      setTimeout(()=>{ status.textContent=''; input.style.borderColor='#d1d5db'; }, 2500);
-    } else {
-      status.textContent='❌ Fout: '+(res.error||'');
-      status.style.color='#dc2626';
-    }
+    if(res.ok){ status.textContent='✅ Opgeslagen!'; status.style.color='#16a34a'; input.style.borderColor='#16a34a'; setTimeout(()=>{ status.textContent=''; input.style.borderColor='#d1d5db'; }, 2500); }
+    else { status.textContent='❌ Fout: '+(res.error||''); status.style.color='#dc2626'; }
   }catch(e){ status.textContent='❌ Fout: '+e.message; status.style.color='#dc2626'; }
 }
-
-async function deleteSub(id){
-  if(!confirm('Wissen van '+id.slice(0,16)+'? Krijgt geen push meer tot opnieuw 🔔')) return;
-  try{
-    const res=await api('/api/admin/subs/delete',{method:'POST', body:JSON.stringify({id})});
-    if(res.ok){ loadSubs(); } else { alert('Fout: '+(res.error||'')); }
-  }catch(e){ alert('Fout: '+e.message); }
-}
-async function clearAllSubs(){
-  if(!confirm('ALLE '+document.getElementById('stat-subs').textContent+' abonnementen wissen? Iedereen moet opnieuw 🔔 klikken!')) return;
-  if(!confirm('Zeker weten?')) return;
-  try{ const res=await api('/api/admin/clear-all-subs',{method:'POST'}); alert(JSON.stringify(res)); loadSubs(); }catch(e){ alert('Fout: '+e.message); }
-}
+async function deleteSub(id){ if(!confirm('Wissen van '+id.slice(0,16)+'?')) return; try{ const res=await api('/api/admin/subs/delete',{method:'POST', body:JSON.stringify({id})}); if(res.ok){ loadSubs(); } else { alert('Fout: '+(res.error||'')); } }catch(e){ alert('Fout: '+e.message); } }
+async function clearAllSubs(){ if(!confirm('ALLE abonnementen wissen?')) return; if(!confirm('Zeker weten?')) return; try{ const res=await api('/api/admin/clear-all-subs',{method:'POST'}); alert(JSON.stringify(res)); loadSubs(); }catch(e){ alert('Fout: '+e.message); } }
 async function exportSubsCSV(){
   try{
     const data = await api('/api/admin/subs');
     let csv = 'id,description,pushCount,email,userId,ip,sources,lastPush,lastPushSource,created\n';
-    (data.subs||[]).forEach(s=>{
-      csv += `"${s.id}","${(s.description||'').replace(/"/g,'""')}",${s.pushCount||0},"${s.email||''}","${s.userId||''}","${s.ip||''}","${(s.sources||[]).join(';')}","${s.lastPush? new Date(s.lastPush).toISOString():''}","${s.lastPushSource||''}","${s.created? new Date(s.created).toISOString():''}"\n`;
-    });
-    const blob = new Blob([csv], {type:'text/csv'}); const url = URL.createObjectURL(blob);
-    const a=document.createElement('a'); a.href=url; a.download='push_abonnementen_v263_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
+    (data.subs||[]).forEach(s=>{ csv += `"${s.id}","${(s.description||'').replace(/"/g,'""')}",${s.pushCount||0},"${s.email||''}","${s.userId||''}","${s.ip||''}","${(s.sources||[]).join(';')}","${s.lastPush? new Date(s.lastPush).toISOString():''}","${s.lastPushSource||''}","${s.created? new Date(s.created).toISOString():''}"\n`; });
+    const blob = new Blob([csv], {type:'text/csv'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='push_abonnementen_v265_10bronnen_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
   }catch(e){ alert('Export fout: '+e.message); }
 }
-async function loadUsers(){ const data = await api('/api/admin/users'); const tbody=document.getElementById('users-body'); tbody.innerHTML=''; (data.users||[]).forEach(u=>{ const aanCount = u.sync? Object.keys(u.sync.state||{}).filter(k=>{const v=u.sync.state[k]; return v && v.aan===true;}).length : 0; const pushAan = u.sync?.state?.__pushEnabled!==false ? 'ja' : 'nee'; const tr=document.createElement('tr'); tr.innerHTML='<td>'+u.email+'</td><td><span class=badge>'+u.id.slice(0,20)+'</span></td><td>'+aanCount+' aan</td><td>'+pushAan+'</td><td><button class=btn-sec onclick="viewSync(\''+u.id+'\')">SYNC</button></td>'; tbody.appendChild(tr); }); }
+async function loadUsers(){ const data = await api('/api/admin/users'); const tbody=document.getElementById('users-body'); tbody.innerHTML=''; (data.users||[]).forEach(u=>{ const aanKeys = u.sync? Object.keys(u.sync.state||{}).filter(k=>{const v=u.sync.state[k]; return v && typeof v==='object' && v.aan===true;}) : []; const aanCount = aanKeys.length; const hasNieuwsbrief = aanKeys.includes('Nieuwsbrief'); const pushAan = u.sync?.state?.__pushEnabled!==false ? 'ja' : 'nee'; const tr=document.createElement('tr'); tr.innerHTML='<td>'+u.email+'</td><td><span class=badge>'+u.id.slice(0,20)+'</span></td><td>'+aanCount+' aan'+(hasNieuwsbrief?' <span class=badge-green>Nieuwsbrief</span>':'')+'<br><span class=small>'+aanKeys.join(', ')+'</span></td><td>'+pushAan+'</td><td><button class=btn-sec onclick="viewSync(\''+u.id+'\')">SYNC</button></td>'; tbody.appendChild(tr); }); }
 async function viewSync(id){ const d=await api('/api/admin/sync/'+id); alert(JSON.stringify(d.sync||{},null,2)); }
 function exportUsers(){ window.open(API_BASE+'/api/admin/users?format=csv&token='+token,'_blank'); }
-function onSourceChange(){ const sel=document.getElementById('push-source'); const opt=sel.options[sel.selectedIndex]; const link=opt.getAttribute('data-link'); if(link){ document.getElementById('push-link').value=link; document.getElementById('push-title').value='Test push - '+opt.value+' - v263'; } }
-async function sendNewsletter(toAll){ const subject=document.getElementById('nl-subject').value; const body=document.getElementById('nl-body').value; const to=document.getElementById('nl-to').value; if(!subject||!body){ alert('Onderwerp en bericht vereist'); return; } document.getElementById('nl-result').innerHTML='Versturen...'; const res=await api('/api/admin/newsletter',{method:'POST', body:JSON.stringify({subject, body, to: toAll? 'all': to})}); document.getElementById('nl-result').innerHTML='<div class=alert-ok>'+JSON.stringify(res)+'</div>'; }
-async function sendTestPush(){ const title=document.getElementById('push-title').value; const source=document.getElementById('push-source').value; const link=document.getElementById('push-link').value; const body=document.getElementById('push-body').value; document.getElementById('push-result').innerHTML='Versturen...'; const res=await api('/api/admin/test-push',{method:'POST', body:JSON.stringify({title, source, link, body, filter:true})}); document.getElementById('push-result').innerHTML='<div class=alert-ok>✅ Verstuurd naar '+res.sent+'/'+res.total+' (gefilterd op '+source+')<br>Elk abonnement nu +1 bij aantal</div>'; loadSubs(); }
-async function sendTestPushAll(){ const title=document.getElementById('push-title').value; const source=document.getElementById('push-source').value; const link=document.getElementById('push-link').value; const body=document.getElementById('push-body').value; document.getElementById('push-result').innerHTML='Versturen...'; const res=await api('/api/admin/test-push',{method:'POST', body:JSON.stringify({title, source, link, body, filter:false})}); document.getElementById('push-result').innerHTML='<div class=alert-ok>Verstuurd naar '+res.sent+'/'+res.total+' (alle)</div>'; loadSubs(); }
+function onSourceChange(){ const sel=document.getElementById('push-source'); const opt=sel.options[sel.selectedIndex]; const link=opt.getAttribute('data-link'); if(link){ document.getElementById('push-link').value=link; document.getElementById('push-title').value='Test push - '+opt.value+' - v265 10 bronnen'; if(opt.value==='Nieuwsbrief'){ document.getElementById('push-is-real').checked=true; document.getElementById('push-title').value='📰 Nieuwsbrief - Test omlijnd artikel'; document.getElementById('push-body').value='Klik om het omlijnde artikel te openen - test groene rand + pulse'; } } }
+
+async function saveNewsletterFeed(){
+  const subject=document.getElementById('nl-subject').value; const body=document.getElementById('nl-body').value; const link=document.getElementById('nl-link').value;
+  if(!subject){ alert('Titel vereist'); return; }
+  document.getElementById('nl-result').innerHTML='Opslaan als 10e bron...';
+  const res=await api('/api/admin/newsletter',{method:'POST', body:JSON.stringify({subject, body, link})});
+  document.getElementById('nl-result').innerHTML='<div class=alert-ok>✅ Opgeslagen als 10e bron item: '+JSON.stringify(res)+'</div>'; loadNewsletterFeed(); loadOverview();
+}
+async function sendNewsletter(toAll){
+  const subject=document.getElementById('nl-subject').value; const body=document.getElementById('nl-body').value;
+  if(!subject||!body){ alert('Onderwerp en bericht vereist'); return; }
+  document.getElementById('nl-result').innerHTML='Versturen email...';
+  const res=await api('/api/admin/newsletter',{method:'POST', body:JSON.stringify({subject, body, to: toAll? 'all': 'self'})});
+  document.getElementById('nl-result').innerHTML='<div class=alert-ok>'+JSON.stringify(res)+'</div>';
+}
+async function sendNewsletterAsRealPush(){
+  const subject=document.getElementById('nl-subject').value; const body=document.getElementById('nl-body').value; const link=document.getElementById('nl-link').value;
+  if(!subject){ alert('Titel vereist voor push'); return; }
+  document.getElementById('nl-result').innerHTML='Pushen als ECHT artikel (omlijnd)...';
+  const res=await api('/api/admin/newsletter/push-real',{method:'POST', body:JSON.stringify({title:subject, link:link, description:body})});
+  document.getElementById('nl-result').innerHTML='<div class=alert-ok>🔔 Verstuurd als ECHT artikel (omlijnd) naar '+res.sent+'/'+res.total+' abonnees<br>'+JSON.stringify(res.article)+'<br><br>Op smartphone: klik push -> artikel wordt omlijnd met groene rand!</div>';
+}
+async function loadNewsletterFeed(){
+  try{
+    const data=await api('/newsletter/feed');
+    document.getElementById('nl-feed-list').innerHTML = (data.items||[]).map((it,i)=>`<div style="padding:8px;border-bottom:1px solid #eee"><b>${i+1}. ${it.title}</b><br><span class=small>${it.link} - ${new Date(it.pubDate).toLocaleString('nl-NL')} - ${it.source}</span><br><span class=small>${(it.description||'').slice(0,120)}</span></div>`).join('') || 'Geen items';
+  }catch(e){ document.getElementById('nl-feed-list').innerHTML='Fout: '+e.message; }
+}
+async function loadNewsletterFeedDebug(){ const d=await api('/newsletter/feed'); document.getElementById('debug-pre').textContent=JSON.stringify(d,null,2); }
+
+async function sendTestPush(isRealParam){
+  const title=document.getElementById('push-title').value; const source=document.getElementById('push-source').value; const link=document.getElementById('push-link').value; const body=document.getElementById('push-body').value;
+  const isRealCheckbox = document.getElementById('push-is-real').checked;
+  const isReal = typeof isRealParam==='boolean' ? isRealParam : isRealCheckbox;
+  document.getElementById('push-result').innerHTML=(isReal?'🔔 Versturen als ECHT artikel (omlijnd)...':'Versturen als test (zonder omlijning)...');
+  const res=await api('/api/admin/test-push',{method:'POST', body:JSON.stringify({title, source, link, body, filter:true, isReal:isReal})});
+  const type = isReal ? 'ECHT artikel (OMLIJND - groene rand)' : 'test push (NIET omlijnd)';
+  document.getElementById('push-result').innerHTML='<div class=alert-ok>✅ Verstuurd als '+type+' naar '+res.sent+'/'+res.total+' (gefilterd op '+source+')<br>isReal='+isReal+'<br>'+JSON.stringify(res.article)+'<br><br>'+(isReal?'Op smartphone: klik push -> artikel wordt omlijnd!':'Test pushes zijn expres niet omlijnd')+'</div>'; loadSubs();
+}
+async function sendTestPushAll(){
+  const title=document.getElementById('push-title').value; const source=document.getElementById('push-source').value; const link=document.getElementById('push-link').value; const body=document.getElementById('push-body').value;
+  const isReal=document.getElementById('push-is-real').checked;
+  document.getElementById('push-result').innerHTML='Versturen naar alle...';
+  const res=await api('/api/admin/test-push',{method:'POST', body:JSON.stringify({title, source, link, body, filter:false, isReal:isReal})});
+  document.getElementById('push-result').innerHTML='<div class=alert-ok>Verstuurd naar '+res.sent+'/'+res.total+' (alle, bypass) isReal='+isReal+'</div>'; loadSubs();
+}
 async function loadDebug(){ const d=await api('/debug'); document.getElementById('debug-pre').textContent=JSON.stringify(d,null,2); }
-loadOverview();
-loadSubs();
+loadOverview(); loadSubs(); loadNewsletterFeed();
 </script>
 </body></html>
