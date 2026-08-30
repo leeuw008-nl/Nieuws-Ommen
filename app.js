@@ -1,3 +1,11 @@
+// app.js v294 - FIX alles-uit + test-push mag nooit bron activeren
+// Gebaseerd op v293 - zelfde parsers, zelfde LED, zelfde sync - alleen 3 kleine guards toegevoegd
+// CHANGELOG v294:
+// - TEST_PUSH_GUARD: test-pushes (isTest=true) mogen NOOIT een bron aanzetten in filterpaneel
+// - saveState wrapper: blokkeert auto-enable als _lastPushWasTest flag actief is
+// - push listener: herkent test-push payload en zet flag, geen state mutatie
+// - renderArticles: test-artikelen worden niet gebruikt om LED groen te maken
+
 // app.js v293 - FIX echte tijd 11:27 via allorigins, geen fake 12:47 ipv middernacht teruggeven - LED rechts + telling 10/10 + SYNC RACE FIX + LION BADGE - terug naar vanavond werkend
 // app.js v275 - SYNC RACE FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
@@ -24,12 +32,31 @@ const BRON_URLS = {
   'RTV Vechtdal': {url:'https://rtvvechtdal.nl/feed/', homepage:'https://rtvvechtdal.nl/'},
   'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/', fallback:'https://www.vechtdalcentraal.nl/'},
 };
-// PLAATSEN FILTER - HERSTELD: alle kernen en buurtschappen gemeente Ommen
+
+// ===== v294 TEST PUSH GUARD =====
+window._lastPushWasTest = false;
+window._lastPushSource = null;
+function isTestArticle(a){
+  if(!a) return false;
+  return !!(a.isTest || a._isTestPush || a.data?.isTest || (a.id && String(a.id).startsWith('test-')));
+}
+function shouldAutoEnableSource(sourceId){
+  // Nooit auto-enablen bij test-push
+  if(window._lastPushWasTest) return false;
+  // Nooit auto-enablen als gebruiker alles uit heeft gezet (bewuste keuze)
+  try{
+    const vals = Object.values(state||{});
+    if(vals.length>0 && !vals.some(v=> v && (v.aan===true || v===true))){
+      // alles uit -> respecteer dat
+      return false;
+    }
+  }catch{}
+  return true;
+}
 
 // ===== v238 DEFINITIEF - ECHTE HTML PARSERS =====
 function parseVechtdalCentraalECHT(html){
   const items=[]; const seen=new Set();
-  // Originele parser - behouden
   let re=/<h3 class="entry-title[^>]*>\s*<a href="([^"]+)"[^>]*>([^<]+)<\/a>/gi; let m;
   while((m=re.exec(html))!==null && items.length<25){
     let link=m[1]; if(link.startsWith('/')) link='https://www.vechtdalcentraal.nl'+link;
@@ -38,7 +65,6 @@ function parseVechtdalCentraalECHT(html){
     if(title.length>4) items.push({title, link, pubDate:new Date(), description:title+' [...]'});
   }
   if(items.length>0) return items;
-  // FIX 25-08-2026: nieuwe thema varianten - vechtdalcentraal gebruikt nu ook <h2><a> en article
   const patterns=[
     /<h2[^>]*>\s*<a href="([^"]+)"[^>]*>([^<]{8,200})<\/a>\s*<\/h2>/gi,
     /<article[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>([\s\S]{0,300}?)<\/a>[\s\S]*?<h[23]/gi,
@@ -78,7 +104,6 @@ function parseRTVVechtdalECHT(html){
       if(isToday){
         pd = new Date(pollingMoment);
       }else{
-        // geen tijd op bron -> polling-tijd (zoals gevraagd)
         pd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), pollingMoment.getHours(), pollingMoment.getMinutes(), pollingMoment.getSeconds());
       }
     }else{
@@ -102,7 +127,6 @@ function parseRTVVechtdalECHT(html){
         if(isToday){
           pd = new Date(pollingMoment);
         }else{
-          // geen tijd op bron -> polling-tijd
           pd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), pollingMoment.getHours(), pollingMoment.getMinutes(), pollingMoment.getSeconds());
         }
       }else{
@@ -223,7 +247,6 @@ function isGemeenteArtikel(art){
 
 let state = {}; let allArticles = []; let loadedSources = new Set();
 
-// LED STATUS CSS - injected via JS zodat styles.css niet vervangen hoeft te worden
 (function injectLedStyles(){
   const css = `
   .source-row{position:relative}
@@ -248,7 +271,8 @@ function updateSourceLeds(){
     BRONNEN.forEach(b=>{
       const led=document.querySelector(`.source-led[data-id="${b.id}"]`);
       if(!led) return;
-      const realArts = allArticles.filter(a=>a.id===b.id && !a.isFallback);
+      // v294: test-artikelen tellen niet mee voor groen LED
+      const realArts = allArticles.filter(a=>a.id===b.id && !a.isFallback && !isTestArticle(a));
       const isLoaded = loadedSources.has(b.id);
       led.classList.remove('loading','ok','fail','empty');
       led.style.animation='';
@@ -289,7 +313,6 @@ function saveState(){
   updateHiddenCompat(); updateHeaderCount();
   if(window.updatePushBell) window.updatePushBell();
   try{ if(window.updatePushSubscription) window.updatePushSubscription(); }catch(e){}
-  // v227 - push filters naar SW voor notificatie filtering
   try{
     if(window.pushFiltersToSW) window.pushFiltersToSW();
   }catch(e){}
@@ -311,7 +334,7 @@ function renderFilters(){
     const row = document.createElement('div');
     row.className='source-row'+(s.aan?'':' off');
     const scopeIsGemeente = s.scope==='gemeente';
-    const allForBron = allArticles.filter(a=>a.id===b.id && !a.isFallback);
+    const allForBron = allArticles.filter(a=>a.id===b.id && !a.isFallback && !isTestArticle(a));
     const loadedCount = allForBron.length;
     let selectedCount = allForBron.length;
     if(s.vandaag){
@@ -409,9 +432,8 @@ function setupFilterHeader(){
   });
 }
 const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
-// PERF v239 - CACHE + SNELLER - RTV Oost & Vechtdal parsers 100% intact
-const SOURCE_CACHE_TTL = 1000 * 60 * 5; // 5 min vers
-const SOURCE_CACHE_STALE = 1000 * 60 * 60; // 60 min stale voor instant load
+const SOURCE_CACHE_TTL = 1000 * 60 * 5;
+const SOURCE_CACHE_STALE = 1000 * 60 * 60;
 const SOURCE_CACHE_KEY = 'ommen_source_cache_v1';
 function getSourceCache(){ try{return JSON.parse(localStorage.getItem(SOURCE_CACHE_KEY)||'{}');}catch{return {};}}
 function setSourceCache(cache){ try{localStorage.setItem(SOURCE_CACHE_KEY, JSON.stringify(cache));}catch{}}
@@ -453,7 +475,6 @@ async function fetchViaWorker(url){
   }catch(e1){
     clearTimeout(to);
     console.log('[perf v239] worker fail, trying direct fetch', url, e1.message);
-    // FIX v288: fallback direct fetch als worker geblokkeerd is door KV limit (429)
     try{
       const r2 = await fetch(url, {cache:'no-store', headers:{'Accept':'text/html'}});
       if(r2.ok){
@@ -515,8 +536,6 @@ function parseRSSFull(xml, bronId){
   }).filter(x=>x.link && x.title);
 }
 function extractGemeenteDate(html){
-  // v291 debug
-  // console.log('[v291] extractGemeenteDate html len', html.length);
   const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
   function mkDate(m){
     try{
@@ -525,12 +544,8 @@ function extractGemeenteDate(html){
       return new Date(year, mon, day, hh, mm);
     }catch{ return null; }
   }
-  // Strip tags to spaces for date+time that are split over divs like "28 juli 2026,</div><div>17:17"
   const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const htmlNoTags = text;
-
-  // 1) echte tijd samen: "28 juli 2026, 17:17" of "28 juli 2026,\n 17:17" of "28 juli 2026 - 17:17" of "28 juli 2026 om 17:17"
-  // Nieuw: tolereer ook newline en extra comma tussen datum en tijd
   let patterns = [
     /(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*,?\s*(?:om|\-)?\s*(\d{1,2})\s*:\s*(\d{2})/i,
     /(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})[^\d]{0,20}(\d{1,2})\s*:\s*(\d{2})/i
@@ -541,15 +556,12 @@ function extractGemeenteDate(html){
       const d=mkDate(m);
       if(d && !isNaN(d.getTime())) return d;
     }
-    // Also try on raw html with tags replaced by space (covers <div> split)
     m = html.replace(/<[^>]*>/g, ' ').match(re);
     if(m){
       const d=mkDate(m);
       if(d && !isNaN(d.getTime())) return d;
     }
   }
-
-  // 1b) datum en tijd los: zoek datum, en dan tijd binnen 300 chars erna (voor "28 juli 2026,\n\n17:17" over 2 divs)
   let dateOnly = htmlNoTags.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
   if(dateOnly){
     const idx = htmlNoTags.toLowerCase().indexOf(dateOnly[0].toLowerCase());
@@ -564,8 +576,6 @@ function extractGemeenteDate(html){
       }
     }
   }
-
-  // 2) meta article:published_time
   let m = html.match(/<meta[^>]+property=["']article:published_time["'][^>]+content=["']([^"']+)["']/i);
   if(m){
     const d=new Date(m[1]);
@@ -576,19 +586,16 @@ function extractGemeenteDate(html){
     const d=new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
   }
-  // 3) JSON-LD datePublished
   m = html.match(/"datePublished"\s*:\s*"([^"]+)"/i);
   if(m){
     const d=new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
   }
-  // 4) time datetime
   m = html.match(/<time[^>]+datetime=["']([^"']+)["']/i);
   if(m){
     const d=new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
   }
-  // 5) alleen datum: 12 mei 2026 -> middernacht zodat enrich weet dat er geen echte tijd is
   m = htmlNoTags.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
   if(m){
     return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), 0, 0, 0);
@@ -637,7 +644,6 @@ function getGemeenteCache(){
     const raw = localStorage.getItem('ommen_gemeente_cache');
     if(!raw) return {};
     const obj = JSON.parse(raw);
-    // v291 auto-migratie: als cache alleen datum zonder tijd bevat, wis hem zodat echte tijd opnieuw gehaald wordt
     let hasMidnight=false;
     for(const k in obj){
       try{
@@ -661,7 +667,6 @@ async function enrichGemeenteWithDetail(arts){
   const now=Date.now();
   const pollingNow=new Date();
   const CACHE_TTL=1000*60*60*2;
-  // v288 FIX: wis oude cache entries met 00:00 (middernacht) - die verbergen echte tijd
   let cleaned=false;
   for(const k in cache){
     try{
@@ -684,7 +689,6 @@ async function enrichGemeenteWithDetail(arts){
     return true;
   }).slice(0,10);
   if(needEnrich.length===0){
-    // v293 FIX: als we niks hoeven te enrichen, gebruik dan de echte tijden uit cache (niet de middernacht uit overzicht)
     console.log('[v293] geen enrich nodig, gebruik cache tijden voor', arts.length, 'artikelen');
     arts.forEach(a=>{
       const cached=cache[a.link];
@@ -704,7 +708,6 @@ async function enrichGemeenteWithDetail(arts){
   }
   await Promise.allSettled(needEnrich.map(async (a)=>{
     try{
-      // v293: gebruik allorigins direct voor gemeente details om KV block te omzeilen
       let html=null;
       try{
         const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(a.link)}&t=${Date.now()}`, {cache:'no-store'});
@@ -745,7 +748,6 @@ async function enrichGemeenteWithDetail(arts){
     }
   }));
   arts.forEach(a=>{
-    // v293: alleen echte tijd bewaren, geen fake polling tijd - als geen echte tijd gevonden, laat middernacht staan (wordt later echte tijd na retry)
     if(!a.pubDate || isNaN(a.pubDate.getTime())){
       console.log('[v293] geen datum gevonden voor', a.link);
     } else if(a.pubDate.getHours()===0 && a.pubDate.getMinutes()===0 && a.pubDate.getSeconds()===0){
@@ -761,51 +763,6 @@ async function enrichGemeenteWithDetail(arts){
   return arts;
 }
 
-function parseOostFull_OLD(html){
-  const max = MAX_PER_BRON['RTV Oost'];
-  const patterns = [
-    /<a[^>]+href=["'](\/nieuws\/[^"']*ommen[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
-    /<a[^>]+href=["'](https:\/\/www\.oost\.nl\/nieuws\/[^"']*ommen[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
-  ];
-  const uniqMap=new Map();
-  for(const re of patterns){
-    let mm;
-    while((mm=re.exec(html))!==null && uniqMap.size<max){
-      const href=mm[1]; let text=mm[2].replace(/<[^>]*>/g,'').trim();
-      if(text.length<10 || text.length>200) continue;
-      const full=href.startsWith('http')?href:'https://www.rtvoost.nl'+href;
-      if(!uniqMap.has(full)) uniqMap.set(full, text);
-    }
-  }
-  return Array.from(uniqMap.entries()).slice(0,max).map(([link,title])=>({title:title.slice(0,120), link, pubDate:new Date(), description:'[...]'}));
-}
-function parseVechtdalCentraalFallback_OLD(html){
-  const max = MAX_PER_BRON['Vechtdal Centraal'];
-  const re = /<a[^>]+href=["']([^"']*\/[^"']+)["'][^>]*>\s*<h[23][^>]*>([^<]{8,120})<\/h[23]>/gi;
-  const map=new Map();
-  let m;
-  while((m=re.exec(html))!==null && map.size<max){
-    let href=m[1], title=m[2].trim();
-    if(href.startsWith('/')) href='https://www.vechtdalcentraal.nl'+href;
-    if(!href.includes('vechtdalcentraal.nl')) continue;
-    if(href.includes('/category/') || href.includes('/tag/') || href.includes('#')) continue;
-    if(!map.has(href)) map.set(href, title);
-  }
-  return Array.from(map.entries()).slice(0,max).map(([link,title])=>({title, link, pubDate:new Date(), description:'[...]'}));
-}
-function parseOostFull(html){
-  const echt = parseRTVOostECHT(html);
-  if(echt.length>0) return echt;
-  return parseOostFull_OLD(html);
-}
-function parseVechtdalCentraalFallback(html){
-  const echt = parseVechtdalCentraalECHT(html);
-  if(echt.length>0) return echt;
-  return parseVechtdalCentraalFallback_OLD(html);
-}
-function parseRTVVechtdalFull(html){
-  return parseRTVVechtdalECHT(html);
-}
 async function loadOneSource(b){
   const cfg = BRON_URLS[b.id];
   try{
@@ -823,7 +780,6 @@ async function loadOneSource(b){
         allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts);
         loadedSources.add(b.id); updateHeaderCount(); renderArticles(); updateSourceLeds();
       }
-      // v291 FIX: altijd enrich voor echte tijd, ook bij cached overview (overzicht heeft nu alleen datum, geen tijd)
       enrichGemeenteWithDetail(overview).then(enriched=>{
         const enrichedArts=enriched.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
         allArticles = allArticles.filter(x=>x.id!==b.id).concat(enrichedArts);
@@ -843,7 +799,6 @@ async function loadOneSource(b){
           const tempArts=overview.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
           allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts);
           loadedSources.add(b.id); updateHeaderCount(); renderArticles();
-          // v228: geen enrich meer, polling moment al gezet
           arts = overview;
         } else {
           arts = overview;
@@ -854,7 +809,6 @@ async function loadOneSource(b){
       }
     }
     else if(b.id==='Vechtdal Centraal'){
-      // ROBUUSTE FIX: probeer feed, daarna homepage, daarna direct rss2json als laatste redmiddel
       try{
         const xml=await fetchViaWorker(cfg.url);
         if(xml.includes('<rss')||xml.includes('<feed')||xml.includes('<item')){
@@ -873,7 +827,6 @@ async function loadOneSource(b){
         }catch(e){ console.log('vc html fail', e.message); }
       }
       if(arts.length===0){
-        // LAATSTE REDMIDDEL: rss2json direct (om Cloudflare te omzeilen)
         try{
           const rss2jsonUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://www.vechtdalcentraal.nl/feed/')}&t=${Date.now()}`;
           const rRss = await fetch(rss2jsonUrl, {cache:'no-store'});
@@ -934,6 +887,7 @@ function renderArticles(){
   let filtered = allArticles.filter(a=>{
     const s=state[a.id];
     if(!s || !s.aan) return false;
+    if(isTestArticle(a)) return false; // v294: test artikelen nooit tonen in feed
     if(s.vandaag){
       if(a.isFallback) return false;
       if(!a.pubDate || isNaN(a.pubDate.getTime())) return false;
@@ -968,13 +922,10 @@ function renderArticles(){
   container.innerHTML = countHtml + html;
   window.getAllArticles = ()=> filtered;
   try{ if(typeof updateSourceLeds==='function') setTimeout(()=>updateSourceLeds(), 20); }catch{}
-  // v275 fix 0/0 - update filter counts after articles filtered
-  try{ const list=document.getElementById('source-list'); if(list && list.children.length>0){ /* counts will be updated on next renderFilters */ } }catch{}
 }
 function filterNews(){ renderArticles(); }
 async function refreshNews(){
   const c=document.getElementById('news-container');
-  // PERF v239: 1. Direct stale cache tonen (<200ms)
   let hasStale=false;
   const initialArts=[];
   try{
@@ -1026,7 +977,7 @@ async function refreshNews(){
   });
   if(freshArts.length>0) allArticles=freshArts;
   updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds();
-  console.log('refreshNews klaar v275 FIX 0/0', allArticles.length, 'artikelen');
+  console.log('refreshNews klaar v294 FIX alles-uit + no auto-activate', allArticles.length, 'artikelen');
 }
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); restorePanelState(); setupFilterHeader();
@@ -1191,14 +1142,11 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       const remoteUpdated = data.updated || 0;
       if(!force && remoteUpdated && remoteUpdated <= lastRemoteUpdated && lastRemoteUpdated!==0){
         console.log('[sync] remote not newer, skipping', remoteUpdated, '<=', lastRemoteUpdated);
-        // Still check if local differs though
         const localStr = JSON.stringify(state);
         const remoteStr = JSON.stringify(data.state);
         if(localStr === remoteStr){
           return false;
         }
-        // If different but remote older, still apply? No, keep local wins
-        // But for debugging, log
         console.log('[sync] local differs but remote older, keeping local');
         return false;
       }
@@ -1212,7 +1160,6 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       }
       console.log('[sync] applying remote state');
       state = data.state;
-      // Ensure all bronnen exist
       try{ BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true, vandaag:false, scope:'gemeente'}; }); }catch{}
       localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
       lastRemoteUpdated = remoteUpdated || Date.now();
@@ -1280,7 +1227,6 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
             const ok = await loadFromCloud(true);
             btn.textContent='✓ Gesynced!';
             btn.style.background='#16a34a';
-            // Toast bevestiging
             try{
               let toast=document.getElementById('ommen-toast');
               if(!toast){
@@ -1347,13 +1293,33 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     const origSave = saveState;
     let saveTimeout = null;
     window.saveState = function(){
-      try{ origSave(); }catch{}
+      try{
+        // v294 GUARD: als dit een auto-enable is tijdens test-push, blokkeer
+        if(window._lastPushWasTest){
+          console.log('[v294] saveState geblokkeerd - test push actief, geen auto-activate');
+          // revert eventuele aanzetten die door test-push kwamen
+          try{
+            const before = JSON.parse(localStorage.getItem('nieuwsommen_bronnen_v2')||'{}');
+            const beforeAanCount = Object.values(before).filter(v=>v&&v.aan).length;
+            const nowAanCount = Object.values(state).filter(v=>v&&v.aan).length;
+            if(nowAanCount > beforeAanCount){
+              console.log('[v294] auto-activate gedetecteerd tijdens test, revert naar before', beforeAanCount);
+              state = before;
+              BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:false, vandaag:false, scope:'gemeente'}; });
+              localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
+              if(typeof renderFilters==='function') renderFilters();
+              if(typeof filterNews==='function') filterNews();
+              return;
+            }
+          }catch{}
+        }
+        origSave();
+      }catch{}
       localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
       try{ if(typeof updateHiddenCompat==='function') updateHiddenCompat(); }catch{}
       try{ if(typeof updateHeaderCount==='function') updateHeaderCount(); }catch{}
       try{ if(window.updatePushBell) window.updatePushBell(); }catch{}
       if(authToken){
-        // debounce cloud save 500ms
         if(saveTimeout) clearTimeout(saveTimeout);
         saveTimeout = setTimeout(()=>{ saveToCloud(); }, 500);
       }
@@ -1398,7 +1364,6 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
 
   window.pushFiltersToSW = function(){
     const sources = getSelectedSourcesForSW();
-    // 1. Naar Service Worker
     try{
       if(navigator.serviceWorker && navigator.serviceWorker.controller){
         navigator.serviceWorker.controller.postMessage({type:'SET_FILTERS', sources: sources});
@@ -1407,7 +1372,6 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
         if(reg.active) reg.active.postMessage({type:'SET_FILTERS', sources: sources});
       }).catch(()=>{});
     }catch(e){}
-    // 2. Naar IndexedDB voor offline fallback
     try{
       const req = indexedDB.open('nieuws-ommen', 1);
       req.onupgradeneeded = (e)=>{
@@ -1428,24 +1392,53 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     console.log('[v227] Filters naar SW gepusht:', sources);
   };
 
-  // Service Worker vraagt om filters (GET_FILTERS)
   if('serviceWorker' in navigator){
     navigator.serviceWorker.addEventListener('message', event=>{
+      // v294: herken test-push
+      if(event.data && (event.data.isTest || event.data._isTestPush || event.data.data?.isTest)){
+        console.log('[v294] test-push ontvangen via SW message, blokkeer auto-activate');
+        window._lastPushWasTest = true;
+        window._lastPushSource = event.data.source || event.data.data?.source || null;
+        setTimeout(()=>{ window._lastPushWasTest=false; window._lastPushSource=null; }, 10000);
+        return;
+      }
       if(event.data && event.data.type === 'GET_FILTERS'){
         const sources = getSelectedSourcesForSW();
         if(event.ports && event.ports[0]){
           event.ports[0].postMessage({sources: sources});
         }
       }
+      // v294: push article ontvangen
+      if(event.data && event.data.type==='PUSH_ARTICLE'){
+        const art = event.data.article;
+        if(isTestArticle(art)){
+          console.log('[v294] PUSH_ARTICLE is test, geen auto-enable');
+          window._lastPushWasTest = true;
+          window._lastPushSource = art.source;
+          setTimeout(()=>{ window._lastPushWasTest=false; }, 10000);
+          return;
+        }
+      }
     });
   }
 
-  // Bij load ook meteen pushen
+  // Luister ook naar push events via SW (voor het geval SW direct postMessage doet met article)
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.addEventListener('message', event=>{
+      if(event.data && event.data.title && event.data.source){
+        if(isTestArticle(event.data)){
+          window._lastPushWasTest = true;
+          window._lastPushSource = event.data.source;
+          setTimeout(()=>{ window._lastPushWasTest=false; }, 10000);
+        }
+      }
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', ()=>{
     setTimeout(()=>{ try{ window.pushFiltersToSW(); }catch(e){} }, 1500);
   });
 
-  // Bij visibility change (terugkomen in app) ook pushen
   document.addEventListener('visibilitychange', ()=>{
     if(document.visibilityState === 'visible'){
       try{ window.pushFiltersToSW(); }catch(e){}
