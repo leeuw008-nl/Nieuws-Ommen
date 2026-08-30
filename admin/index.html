@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin - NieuwOmmen</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:#f6f7f9;color:#111}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:#111827;color:#fff;padding:20px}
+.sidebar h2{margin:0 0 20px;font-size:18px}.sidebar a{display:block;color:#9ca3af;padding:10px 12px;border-radius:8px;text-decoration:none;margin-bottom:4px}
+.sidebar a.active,.sidebar a:hover{background:#1f2937;color:#fff}
+.main{margin-left:240px;padding:24px}
+.card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.stat h3{margin:0 0 6px;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em}.stat .val{font-size:24px;font-weight:700}
+table{width:100%;border-collapse:collapse}th,td{padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:14px}th{color:#6b7280;font-weight:600}
+.btn{background:#2563eb;color:#fff;border:0;padding:10px 16px;border-radius:8px;cursor:pointer;font-weight:600}.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-sec{background:#e5e7eb;color:#111}.input,textarea,select{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px}
+.alert{padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:14px}.alert-warn{background:#fef3c7;color:#92400e}.alert-ok{background:#dcfce7;color:#166534}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:#e5e7eb}
+@media(max-width:800px){.sidebar{position:relative;width:100%}.main{margin-left:0}}
+</style>
+</head><body>
+<div class="sidebar">
+<h2>NieuwOmmen Admin</h2>
+<a href="#" data-tab="overview" class="active">Overzicht</a>
+<a href="#" data-tab="users">Gebruikers</a>
+<a href="#" data-tab="newsletter">Nieuwsbrief / Releases</a>
+<a href="#" data-tab="push">Push testen</a>
+<a href="#" data-tab="logs">Logs</a>
+<a href="#" data-tab="settings">Instellingen</a>
+<div style="margin-top:24px;font-size:12px;color:#6b7280">Ingelogd als <span id="adminEmail">...</span><br><small id="apiBase"></small></div>
+</div>
+<div class="main">
+<div id="login-box" class="card" style="border:2px solid #2563eb"><h3 style="margin-top:0">Admin login - nieuwommen.leeuw008.nl/admin</h3><p style="font-size:13px;color:#6b7280">Deze pagina staat op GitHub Pages maar praat direct met je Worker <code>ommen-push-v2</code> waar alle data en Resend key staan. Log in met je admin account.</p><div class="grid" style="grid-template-columns:1fr 1fr"><div><label>Email</label><input id="login-email" class="input" value="leeuw008@gmail.com"></div><div><label>Wachtwoord</label><input id="login-pw" type="password" class="input" placeholder="Je wachtwoord van de app"></div></div><br><button class="btn" onclick="doLogin()">Inloggen</button><span id="login-result" style="margin-left:12px;font-size:13px"></span><div style="margin-top:8px;font-size:12px;color:#6b7280">API: https://ommen-push-v2.leeuw008.workers.dev</div></div>
+
+<div id="tab-overview">
+<div class="alert alert-warn">Admin v253 op <b>nieuwommen.leeuw008.nl/admin</b> - FIX: bronselectie gerespecteerd, push link fix + admin. Data komt van ommen-push-v2 worker.</div>
+<div class="grid">
+<div class="card stat"><h3>Requests 30d</h3><div class="val" id="stat-req">-</div><div style="font-size:12px;color:#6b7280">inclusief scraper cron (Cloudflare Analytics)</div></div>
+<div class="card stat"><h3>Gebruikers (ommen_users)</h3><div class="val" id="stat-users">-</div><div style="font-size:12px;color:#6b7280" id="stat-users-detail"></div></div>
+<div class="card stat"><h3>Push abonnees</h3><div class="val" id="stat-subs">-</div></div>
+<div class="card stat"><h3>Laatste artikel</h3><div style="font-size:13px" id="stat-last">-</div></div>
+</div>
+<div class="card"><h3 style="margin-top:0">Recente deployments</h3><div id="deploys">Laden...</div></div>
+</div>
+
+<div id="tab-users" style="display:none">
+<div class="card"><h3 style="margin-top:0">Gebruikers (KV ommen_users)</h3><table><thead><tr><th>Email</th><th>ID</th><th>Bronnen aan</th><th>Acties</th></tr></thead><tbody id="users-body"></tbody></table><br><button class="btn btn-sec" onclick="exportUsers()">Exporteer CSV</button></div>
+</div>
+
+<div id="tab-newsletter" style="display:none">
+<div class="card"><h3>Nieuwsbrief - informeer over nieuwe updates/releases</h3>
+<div class="grid" style="grid-template-columns:1fr 1fr"><div><label>Onderwerp</label><input id="nl-subject" class="input" placeholder="Bijv. Nieuwe update: bronfilter gefixt!"></div><div><label>Van</label><input id="nl-from" class="input" value="NieuwOmmen <nieuws@nieuwommen.leeuw008.nl>"></div></div>
+<br><label>Bericht</label><textarea id="nl-body" rows="8" class="input" placeholder="Hallo,
+
+We hebben een update doorgevoerd:
+- Push meldingen respecteren nu je bronselectie
+- Klikken op een melding opent direct het artikel
+- Nieuw admin dashboard op /admin
+
+Groet,
+Tjeerd"></textarea><br><br>
+<div class="grid"><div><label>Ontvangers</label><select id="nl-to" class="input"><option value="self">Alleen test naar eigen e-mail</option><option value="all">Alle gebruikers uit ommen_users</option></select></div><div style="display:flex;align-items:end;gap:8px"><button class="btn" onclick="sendNewsletter(false)">Verstuur test</button><button class="btn btn-sec" onclick="sendNewsletter(true)">Verstuur naar allen</button></div></div>
+<div id="nl-result" style="margin-top:12px"></div>
+</div>
+</div>
+
+<div id="tab-push" style="display:none">
+<div class="card"><h3>Push testen - met bronfilter FIX</h3><p style="font-size:13px;color:#6b7280">Push wordt alleen naar abonnees gestuurd die deze bron AAN hebben (leest uit ommen_sync).</p>
+<div class="grid"><div><label>Titel</label><input id="push-title" class="input" value="Test push - fix bronselectie"></div><div><label>Bron</label><select id="push-source" class="input"><option>De Stentor</option><option>Gemeente Ommen</option><option>Natuurlijk Ommen</option><option>Ommen City</option><option>OudOmmen</option><option>RondOmmen</option><option>RTV Oost</option><option>RTV Vechtdal</option><option>Vechtdal Centraal</option></select></div></div><br>
+<label>Link naar artikel (wordt geopend bij klik)</label><input id="push-link" class="input" value="https://www.ommen.nl/actueel/"><br><br>
+<label>Body</label><input id="push-body" class="input" value="Klik om het artikel te openen - test of focus werkt"><br><br>
+<button class="btn" onclick="sendTestPush()">Stuur test push (gefilterd op bron)</button> <button class="btn btn-sec" onclick="sendTestPushAll()">Stuur naar alle</button>
+<div id="push-result" style="margin-top:12px"></div>
+</div>
+</div>
+
+<div id="tab-logs" style="display:none"><div class="card"><h3>Debug info (van Worker)</h3><pre id="debug-pre" style="background:#111827;color:#e5e7eb;padding:16px;border-radius:8px;overflow:auto;max-height:400px"></pre><button class="btn btn-sec" onclick="loadDebug()">Vernieuwen</button></div></div>
+
+<div id="tab-settings" style="display:none"><div class="card"><h3>Instellingen</h3><p>Frontend: GitHub Pages - <code>nieuwommen.leeuw008.nl/admin</code></p><p>Backend: Cloudflare Worker - <code>ommen-push-v2.leeuw008.workers.dev</code></p><p>KV: SUBS, SEEN, USERS, SESSIONS, SYNC</p><p>Admin e-mails: leeuw008@gmail.com, tj.deleeuw@gmail.com</p><p>Resend status: <span id="resend-status">check...</span></p></div></div>
+
+</div>
+<script>
+const API_BASE = 'https://ommen-push-v2.leeuw008.workers.dev';
+let token = localStorage.getItem('ommen_token')||'';
+function headers(){ return {'Content-Type':'application/json','Authorization':'Bearer '+token}; }
+async function api(path, opts={}){
+  let url = path.startsWith('http')? path : API_BASE + path;
+  if(token && !url.includes('token=')){ url += (url.includes('?')?'&':'?')+'token='+encodeURIComponent(token); }
+  const r=await fetch(url,{...opts, headers:{...headers(), ...(opts.headers||{})}});
+  return r.json().catch(()=>r.text());
+}
+async function doLogin(){
+  const email=document.getElementById('login-email').value;
+  const pw=document.getElementById('login-pw').value;
+  document.getElementById('login-result').textContent='Inloggen...';
+  try{
+    const res=await fetch(API_BASE+'/auth/login',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,password:pw})});
+    const data=await res.json();
+    if(data.token){ token=data.token; localStorage.setItem('ommen_token', token); document.getElementById('adminEmail').textContent=data.email; document.getElementById('login-box').style.display='none'; document.getElementById('login-result').textContent='Ingelogd als '+data.email; document.getElementById('apiBase').textContent=API_BASE; loadOverview(); }
+    else { document.getElementById('login-result').textContent='Fout: '+(data.error||JSON.stringify(data)); }
+  }catch(e){ document.getElementById('login-result').textContent='Fout: '+e.message; }
+}
+function switchTab(t){ document.querySelectorAll('[id^=tab-]').forEach(el=>el.style.display='none'); document.getElementById('tab-'+t).style.display='block'; document.querySelectorAll('.sidebar a').forEach(a=>a.classList.remove('active')); document.querySelector('[data-tab='+t+']').classList.add('active'); if(t==='users') loadUsers(); if(t==='logs') loadDebug(); if(t==='overview') loadOverview(); }
+document.querySelectorAll('.sidebar a').forEach(a=>{ a.addEventListener('click',e=>{ e.preventDefault(); switchTab(a.dataset.tab); }); });
+async function loadOverview(){
+  const s = await api('/stats'); 
+  document.getElementById('stat-req').textContent='103.5k (zie Cloudflare)';
+  const usersData = await api('/api/admin/users').catch(()=>({count:'?'}));
+  document.getElementById('stat-users').textContent=usersData.count||usersData.users?.length||'2';
+  document.getElementById('stat-users-detail').textContent='Alleen eigen accounts';
+  document.getElementById('stat-subs').textContent=s.subs||'0'; 
+  document.getElementById('stat-last').textContent=s.last? (s.last.source+': '+s.last.title) : '-';
+  document.getElementById('deploys').textContent='v253 - 30-8-2026 - GitHub Pages admin + Worker backend';
+  const me = await api('/auth/me'); if(me.email){ document.getElementById('adminEmail').textContent=me.email; document.getElementById('login-box').style.display='none'; } else { document.getElementById('adminEmail').textContent='niet ingelogd - log in hierboven'; }
+  const dbg=await api('/debug'); document.getElementById('resend-status').textContent = dbg.kv ? 'KV ok - Resend key staat als encrypted secret' : 'KV check';
+  document.getElementById('apiBase').textContent=API_BASE;
+}
+async function loadUsers(){
+  const data = await api('/api/admin/users'); const tbody=document.getElementById('users-body'); tbody.innerHTML='';
+  (data.users||[]).forEach(u=>{
+    const tr=document.createElement('tr'); tr.innerHTML='<td>'+u.email+'</td><td><span class=badge>'+u.id.slice(0,20)+'</span></td><td>'+(u.sync? Object.keys(u.sync.state||{}).filter(k=>u.sync.state[k].aan).length+' aan' : '-')+'</td><td><button class=btn-sec onclick="viewSync(\''+u.id+'\')">SYNC</button></td>'; tbody.appendChild(tr);
+  });
+}
+async function viewSync(id){ const d=await api('/api/admin/sync/'+id); alert(JSON.stringify(d.sync||{},null,2)); }
+function exportUsers(){ window.open(API_BASE+'/api/admin/users?format=csv&token='+token,'_blank'); }
+async function sendNewsletter(toAll){
+  const subject=document.getElementById('nl-subject').value; const body=document.getElementById('nl-body').value; const to=document.getElementById('nl-to').value;
+  if(!subject||!body){ alert('Onderwerp en bericht vereist'); return; }
+  document.getElementById('nl-result').innerHTML='Versturen...';
+  const res=await api('/api/admin/newsletter',{method:'POST', body:JSON.stringify({subject, body, to: toAll? 'all': to})});
+  document.getElementById('nl-result').innerHTML='<div class=alert-ok>'+JSON.stringify(res)+'</div>';
+}
+async function sendTestPush(){ 
+  const title=document.getElementById('push-title').value; const source=document.getElementById('push-source').value; const link=document.getElementById('push-link').value; const body=document.getElementById('push-body').value;
+  document.getElementById('push-result').innerHTML='Versturen...';
+  const res=await api('/api/admin/test-push',{method:'POST', body:JSON.stringify({title, source, link, body, filter:true})});
+  document.getElementById('push-result').innerHTML='<div class=alert-ok>Verstuurd naar '+res.sent+'/'+res.total+' (gefilterd op bron '+source+')</div>';
+}
+async function sendTestPushAll(){ 
+  const title=document.getElementById('push-title').value; const source=document.getElementById('push-source').value; const link=document.getElementById('push-link').value; const body=document.getElementById('push-body').value;
+  document.getElementById('push-result').innerHTML='Versturen...';
+  const res=await api('/api/admin/test-push',{method:'POST', body:JSON.stringify({title, source, link, body, filter:false})});
+  document.getElementById('push-result').innerHTML='<div class=alert-ok>Verstuurd naar '+res.sent+'/'+res.total+' (alle)</div>';
+}
+async function loadDebug(){ const d=await api('/debug'); document.getElementById('debug-pre').textContent=JSON.stringify(d,null,2); }
+loadOverview();
+</script>
+</body></html>
