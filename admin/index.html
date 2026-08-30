@@ -64,12 +64,13 @@ Tjeerd"></textarea><br><br>
 </div>
 
 <div id="tab-push" style="display:none">
-<div class="card"><h3>Push testen - met bronfilter FIX</h3><p style="font-size:13px;color:#6b7280">Push wordt alleen naar abonnees gestuurd die deze bron AAN hebben (leest uit ommen_sync).</p>
-<div class="grid"><div><label>Titel</label><input id="push-title" class="input" value="Test push - fix bronselectie"></div><div><label>Bron</label><select id="push-source" class="input"><option>De Stentor</option><option>Gemeente Ommen</option><option>Natuurlijk Ommen</option><option>Ommen City</option><option>OudOmmen</option><option>RondOmmen</option><option>RTV Oost</option><option>RTV Vechtdal</option><option>Vechtdal Centraal</option></select></div></div><br>
-<label>Link naar artikel (wordt geopend bij klik)</label><input id="push-link" class="input" value="https://www.ommen.nl/actueel/"><br><br>
+<div class="card"><h3>Push testen - met bronfilter FIX v255</h3><p style="font-size:13px;color:#6b7280">Push wordt alleen naar abonnees gestuurd die deze bron AAN hebben (leest uit ommen_sync). Link wordt nu automatisch aangepast aan bron.</p>
+<div class="grid"><div><label>Titel</label><input id="push-title" class="input" value="Test push - fix bronselectie"></div><div><label>Bron (filtert op deze bron)</label><select id="push-source" class="input" onchange="onSourceChange()"><option value="De Stentor" data-link="https://www.destentor.nl/ommen/">De Stentor</option><option value="Gemeente Ommen" data-link="https://www.ommen.nl/actueel/">Gemeente Ommen</option><option value="Natuurlijk Ommen" data-link="https://www.natuurlijkommen.nl/">Natuurlijk Ommen</option><option value="Ommen City" data-link="https://ommencity.nl/">Ommen City</option><option value="OudOmmen" data-link="https://weblog.oudommen.nl/">OudOmmen</option><option value="RondOmmen" data-link="https://www.rondommen.nl/">RondOmmen</option><option value="RTV Oost" data-link="https://www.oost.nl/nieuws/vechtdal">RTV Oost</option><option value="RTV Vechtdal" data-link="https://rtvvechtdal.nl/">RTV Vechtdal</option><option value="Vechtdal Centraal" data-link="https://www.vechtdalcentraal.nl/">Vechtdal Centraal</option></select></div></div><br>
+<label>Link naar artikel (wordt geopend bij klik) <span style="font-size:12px;color:#6b7280">- auto gevuld op basis van bron, maar aanpasbaar</span></label><input id="push-link" class="input" value="https://www.destentor.nl/ommen/"><br><br>
 <label>Body</label><input id="push-body" class="input" value="Klik om het artikel te openen - test of focus werkt"><br><br>
-<button class="btn" onclick="sendTestPush()">Stuur test push (gefilterd op bron)</button> <button class="btn btn-sec" onclick="sendTestPushAll()">Stuur naar alle</button>
+<button class="btn" onclick="sendTestPush()">Stuur test push (gefilterd op bron)</button> <button class="btn btn-sec" onclick="sendTestPushAll()">Stuur naar alle (bypass filter)</button>
 <div id="push-result" style="margin-top:12px"></div>
+<div style="margin-top:16px;padding:12px;background:#f3f4f6;border-radius:8px;font-size:12px"><b>Uitleg fix v255:</b> Bron = de bron waarop gefilterd wordt (uit ommen_sync). Als gebruiker alles uit heeft -> krijgt hij GEEN push meer, ook niet gefilterd. Link = waarheen geklikt wordt, wordt nu auto gevuld.</div>
 </div>
 </div>
 
@@ -109,7 +110,7 @@ async function loadOverview(){
   document.getElementById('stat-users-detail').textContent='Alleen eigen accounts';
   document.getElementById('stat-subs').textContent=s.subs||'0'; 
   document.getElementById('stat-last').textContent=s.last? (s.last.source+': '+s.last.title) : '-';
-  document.getElementById('deploys').textContent='v253 - 30-8-2026 - GitHub Pages admin + Worker backend';
+  document.getElementById('deploys').textContent='v255 - 30-8-2026 - fix alles-uit + auto link per bron';
   const me = await api('/auth/me'); if(me.email){ document.getElementById('adminEmail').textContent=me.email; document.getElementById('login-box').style.display='none'; } else { document.getElementById('adminEmail').textContent='niet ingelogd - log in hierboven'; }
   const dbg=await api('/debug'); document.getElementById('resend-status').textContent = dbg.kv ? 'KV ok - Resend key staat als encrypted secret' : 'KV check';
   document.getElementById('apiBase').textContent=API_BASE;
@@ -122,6 +123,14 @@ async function loadUsers(){
 }
 async function viewSync(id){ const d=await api('/api/admin/sync/'+id); alert(JSON.stringify(d.sync||{},null,2)); }
 function exportUsers(){ window.open(API_BASE+'/api/admin/users?format=csv&token='+token,'_blank'); }
+function onSourceChange(){
+  const sel=document.getElementById('push-source');
+  const opt=sel.options[sel.selectedIndex];
+  const link=opt.getAttribute('data-link');
+  if(link) document.getElementById('push-link').value=link;
+  // titel ook aanpassen voor duidelijkheid
+  document.getElementById('push-title').value='Test push - '+opt.value;
+}
 async function sendNewsletter(toAll){
   const subject=document.getElementById('nl-subject').value; const body=document.getElementById('nl-body').value; const to=document.getElementById('nl-to').value;
   if(!subject||!body){ alert('Onderwerp en bericht vereist'); return; }
