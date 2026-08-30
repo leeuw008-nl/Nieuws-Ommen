@@ -1,86 +1,111 @@
 <!DOCTYPE html>
 <html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin - NieuwOmmen v261 DEFINITIEF</title>
+<title>Admin - NieuwOmmen v262 SUBS MANAGER</title>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:#f6f7f9;color:#111}
-.sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:#111827;color:#fff;padding:20px}
-.sidebar h2{margin:0 0 20px;font-size:18px}.sidebar a{display:block;color:#9ca3af;padding:10px 12px;border-radius:8px;text-decoration:none;margin-bottom:4px}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:260px;background:#111827;color:#fff;padding:20px;overflow:auto}
+.sidebar h2{margin:0 0 20px;font-size:18px}.sidebar a{display:block;color:#9ca3af;padding:10px 12px;border-radius:8px;text-decoration:none;margin-bottom:4px;font-size:14px}
 .sidebar a.active,.sidebar a:hover{background:#1f2937;color:#fff}
-.main{margin-left:240px;padding:24px}
+.main{margin-left:260px;padding:24px}
 .card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:16px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
 .stat h3{margin:0 0 6px;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em}.stat .val{font-size:24px;font-weight:700}
-table{width:100%;border-collapse:collapse}th,td{padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:14px}th{color:#6b7280;font-weight:600}
-.btn{background:#2563eb;color:#fff;border:0;padding:10px 16px;border-radius:8px;cursor:pointer;font-weight:600}.btn:disabled{opacity:.5;cursor:not-allowed}
-.btn-sec{background:#e5e7eb;color:#111}.input,textarea,select{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px}
-.alert{padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:14px}.alert-warn{background:#fef3c7;color:#92400e}.alert-ok{background:#dcfce7;color:#166534}
-.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:#e5e7eb}
-@media(max-width:800px){.sidebar{position:relative;width:100%}.main{margin-left:0}}
+table{width:100%;border-collapse:collapse}th,td{padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:13px;vertical-align:top}th{color:#6b7280;font-weight:600;position:sticky;top:0;background:#fff}
+.btn{background:#2563eb;color:#fff;border:0;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px}.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-sec{background:#e5e7eb;color:#111}.btn-danger{background:#dc2626;color:#fff}.btn-ok{background:#16a34a;color:#fff}
+.input,textarea,select{width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px}
+.alert{padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:13px}.alert-warn{background:#fef3c7;color:#92400e}.alert-ok{background:#dcfce7;color:#166534;border:1px solid #16a34a}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;background:#e5e7eb}
+.table-wrap{overflow:auto;max-height:70vh;border:1px solid #e5e7eb;border-radius:8px}
+.small{font-size:11px;color:#6b7280}
+@media(max-width:900px){.sidebar{position:relative;width:100%}.main{margin-left:0}}
 </style>
 </head><body>
 <div class="sidebar">
-<h2>NieuwOmmen Admin v261</h2>
+<h2>NieuwOmmen Admin v262</h2>
 <a href="#" data-tab="overview" class="active">Overzicht</a>
+<a href="#" data-tab="subs">📱 Abonnementen (14)</a>
 <a href="#" data-tab="users">Gebruikers</a>
-<a href="#" data-tab="newsletter">Nieuwsbrief / Releases</a>
+<a href="#" data-tab="newsletter">Nieuwsbrief</a>
 <a href="#" data-tab="push">Push testen</a>
-<a href="#" data-tab="logs">Logs</a>
+<a href="#" data-tab="logs">Logs / Debug</a>
 <a href="#" data-tab="settings">Instellingen</a>
-<div style="margin-top:24px;font-size:12px;color:#6b7280">Ingelogd als <span id="adminEmail">...</span><br><small id="apiBase"></small><br><br><b>v261 DEFINITIEF</b><br>alles uit = 0 push<br>push uit = 0 push<br>geen omlijnd test meer</div>
+<div style="margin-top:24px;font-size:11px;color:#9ca3af">
+Ingelogd als <span id="adminEmail">...</span><br>
+<small id="apiBase"></small><br><br>
+<b>v262 SUBS MANAGER</b><br>
+✅ alles uit = 0 push<br>
+✅ naam geven per ID<br>
+✅ laatste push tijd<br>
+✅ IP adres<br>
+<span id="subs-count-side">laden...</span>
+</div>
 </div>
 <div class="main">
-<div id="login-box" class="card" style="border:2px solid #16a34a"><h3 style="margin-top:0">Admin v261 DEFINITIEF - nieuwommen.leeuw008.nl/admin/</h3><p style="font-size:13px;color:#166534"><b> Gefixed:</b> Alles uit = echt 0 push, [] = blokkeer, test-push niet meer omlijnd.</p><div class="grid" style="grid-template-columns:1fr 1fr"><div><label>Email</label><input id="login-email" class="input" value="leeuw008@gmail.com"></div><div><label>Wachtwoord</label><input id="login-pw" type="password" class="input" placeholder="Je wachtwoord van de app"></div></div><br><button class="btn" style="background:#16a34a" onclick="doLogin()">Inloggen v261</button><span id="login-result" style="margin-left:12px;font-size:13px"></span><div style="margin-top:8px;font-size:12px;color:#6b7280">API: https://ommen-push-v2.leeuw008.workers.dev - v261</div></div>
+<div id="login-box" class="card" style="border:2px solid #16a34a"><h3 style="margin-top:0">Admin v262 SUBS MANAGER - nieuwommen.leeuw008.nl/admin/</h3><p style="font-size:13px;color:#166534"><b>Nieuw:</b> Overzicht alle push abonnementen met ID, IP, laatste push, en eigen naam geven.</p><div class="grid" style="grid-template-columns:1fr 1fr"><div><label>Email</label><input id="login-email" class="input" value="leeuw008@gmail.com"></div><div><label>Wachtwoord</label><input id="login-pw" type="password" class="input"></div></div><br><button class="btn btn-ok" onclick="doLogin()">Inloggen v262</button><span id="login-result" style="margin-left:12px;font-size:13px"></span></div>
 
 <div id="tab-overview">
-<div class="alert alert-ok" style="background:#dcfce7;border:1px solid #16a34a"> <b>Admin v261 DEFINITIEF</b> - FIX: alles uit = 0 push + [] fix + geen omlijnd test meer. Worker + push.js + admin nu in sync.</div>
+<div class="alert alert-ok">✅ <b>v262 SUBS MANAGER</b> - FIX: alles uit = 0 push + nieuw: abonnementen beheren met naam + IP + laatste push tijd.</div>
 <div class="grid">
-<div class="card stat"><h3>Requests 30d</h3><div class="val" id="stat-req">-</div><div style="font-size:12px;color:#6b7280">inclusief scraper cron</div></div>
-<div class="card stat"><h3>Gebruikers (ommen_users)</h3><div class="val" id="stat-users">-</div><div style="font-size:12px;color:#6b7280" id="stat-users-detail"></div></div>
-<div class="card stat"><h3>Push abonnees</h3><div class="val" id="stat-subs">-</div></div>
-<div class="card stat"><h3>Laatste artikel</h3><div style="font-size:13px" id="stat-last">-</div></div>
+<div class="card stat"><h3>Push abonnees</h3><div class="val" id="stat-subs">-</div><div class="small">totaal in KV</div></div>
+<div class="card stat"><h3>Laatste push</h3><div class="val" id="stat-lastpush" style="font-size:16px">-</div></div>
+<div class="card stat"><h3>Gebruikers</h3><div class="val" id="stat-users">-</div></div>
+<div class="card stat"><h3>Laatste artikel</h3><div style="font-size:12px" id="stat-last">-</div></div>
 </div>
-<div class="card"><h3 style="margin-top:0">Recente deployments</h3><div id="deploys">Laden...</div></div>
+<div class="card"><h3 style="margin-top:0">Snel naar</h3><button class="btn" onclick="switchTab('subs')">📱 Bekijk alle  abonnementen</button> <button class="btn btn-sec" onclick="switchTab('push')">Push testen</button></div>
+</div>
+
+<div id="tab-subs" style="display:none">
+<div class="card">
+<h3 style="margin-top:0">📱 Push Abonnementen - met naam + IP + laatste push</h3>
+<p class="small">ID = hash van endpoint (uniek per telefoon/browser). IP is het IP bij aanmelden (let op: mobiel IP wisselt). Naam kun je zelf geven, bijv. "iPhone Tjeerd" en wordt opgeslagen in KV. Laatste push wordt bijgewerkt elke keer dat er een push naar dat abonnement wordt verstuurd.</p>
+<div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
+<button class="btn" onclick="loadSubs()">🔄 Vernieuwen</button>
+<button class="btn btn-sec" onclick="exportSubsCSV()">📥 Exporteer CSV</button>
+<button class="btn btn-danger" onclick="clearAllSubs()">🗑️ Wis ALLE abonnementen (reset)</button>
+<span id="subs-result" style="font-size:12px;margin-left:8px"></span>
+</div>
+<div class="table-wrap"><table><thead><tr>
+<th style="min-width:120px">ID (hash)</th>
+<th style="min-width:160px">Naam (vrij veld)</th>
+<th>Email / User</th>
+<th>IP + Device</th>
+<th>Bronnen</th>
+<th>Laatste push</th>
+<th>Aangemaakt</th>
+<th>Acties</th>
+</tr></thead><tbody id="subs-body"><tr><td colspan=8>Laden...</td></tr></tbody></table></div>
+<div style="margin-top:12px" class="small">Tip: geef elk abonnement een naam, dan zie je in de test-push resultaten (3/14) welke apparaten het zijn. IP helpt om te zien of het dezelfde persoon is op ander netwerk.</div>
+</div>
 </div>
 
 <div id="tab-users" style="display:none">
-<div class="card"><h3 style="margin-top:0">Gebruikers</h3><table><thead><tr><th>Email</th><th>ID</th><th>Bronnen aan</th><th>Push aan</th><th>Acties</th></tr></thead><tbody id="users-body"></tbody></table><br><button class="btn btn-sec" onclick="exportUsers()">Exporteer CSV</button></div>
+<div class="card"><h3>Gebruikers</h3><table><thead><tr><th>Email</th><th>ID</th><th>Bronnen aan</th><th>Push aan</th><th>Acties</th></tr></thead><tbody id="users-body"></tbody></table><br><button class="btn btn-sec" onclick="exportUsers()">Exporteer CSV</button></div>
 </div>
 
 <div id="tab-newsletter" style="display:none">
 <div class="card"><h3>Nieuwsbrief</h3>
-<div class="grid" style="grid-template-columns:1fr 1fr"><div><label>Onderwerp</label><input id="nl-subject" class="input" placeholder="Fix: alles uit = echt geen push meer!"></div><div><label>Van</label><input id="nl-from" class="input" value="NieuwOmmen <nieuws@nieuwommen.leeuw008.nl>"></div></div>
-<br><label>Bericht</label><textarea id="nl-body" rows="8" class="input">Hallo,
-
-Goed nieuws! We hebben de push-notificaties gefixed:
-
-- Als je alle bronnen uit zet, krijg je nu echt 0 push-meldingen meer
-- Als je push uit zet (belletje uit), krijg je nergens meer meldingen
-- Testberichten worden niet meer omlijnd getoond
-
-Bedankt voor je geduld!
-
-Groet,
-Tjeerd</textarea><br><br>
-<div class="grid"><div><label>Ontvangers</label><select id="nl-to" class="input"><option value="self">Alleen test naar eigen e-mail</option><option value="all">Alle gebruikers uit ommen_users</option></select></div><div style="display:flex;align-items:end;gap:8px"><button class="btn" onclick="sendNewsletter(false)">Verstuur test</button><button class="btn btn-sec" onclick="sendNewsletter(true)">Verstuur naar allen</button></div></div>
+<div class="grid" style="grid-template-columns:1fr 1fr"><div><label>Onderwerp</label><input id="nl-subject" class="input" placeholder="Update"></div><div><label>Van</label><input id="nl-from" class="input" value="NieuwOmmen <nieuws@nieuwommen.leeuw008.nl>"></div></div>
+<br><label>Bericht</label><textarea id="nl-body" rows="8" class="input"></textarea><br><br>
+<div class="grid"><div><label>Ontvangers</label><select id="nl-to" class="input"><option value="self">Alleen test naar eigen e-mail</option><option value="all">Alle gebruikers</option></select></div><div style="display:flex;align-items:end;gap:8px"><button class="btn" onclick="sendNewsletter(false)">Verstuur test</button><button class="btn btn-sec" onclick="sendNewsletter(true)">Verstuur naar allen</button></div></div>
 <div id="nl-result" style="margin-top:12px"></div>
 </div>
 </div>
 
 <div id="tab-push" style="display:none">
-<div class="card"><h3>Push testen - v261 DEFINITIEF - alles uit = 0 push</h3>
-<p style="font-size:13px;color:#166534"><b> Gefixed:</b> hasSettings 9 aan 0 -> [] -> 0/0 blokkeer. Test-push isTest=true -> nooit last_article.</p>
-<div class="grid"><div><label>Titel</label><input id="push-title" class="input" value="Test push - v261 fix"></div><div><label>Bron</label><select id="push-source" class="input" onchange="onSourceChange()"><option value="De Stentor" data-link="https://www.destentor.nl/ommen/">De Stentor</option><option value="Gemeente Ommen" data-link="https://www.ommen.nl/actueel/">Gemeente Ommen</option><option value="Natuurlijk Ommen" data-link="https://www.natuurlijkommen.nl/">Natuurlijk Ommen</option><option value="Ommen City" data-link="https://ommencity.nl/">Ommen City</option><option value="OudOmmen" data-link="https://weblog.oudommen.nl/">OudOmmen</option><option value="RondOmmen" data-link="https://www.rondommen.nl/">RondOmmen</option><option value="RTV Oost" data-link="https://www.oost.nl/nieuws/vechtdal">RTV Oost</option><option value="RTV Vechtdal" data-link="https://rtvvechtdal.nl/">RTV Vechtdal</option><option value="Vechtdal Centraal" data-link="https://www.vechtdalcentraal.nl/">Vechtdal Centraal</option></select></div></div><br>
-<label>Link <span style="font-size:12px;color:#16a34a;font-weight:600">auto gevuld per bron!</span></label><input id="push-link" class="input" value="https://www.destentor.nl/ommen/"><br><br>
-<label>Body</label><input id="push-body" class="input" value="v261 test - alles uit = 0 push, geen omlijnd meer"><br><br>
-<button class="btn" style="background:#16a34a" onclick="sendTestPush()">Stuur test push (gefilterd)</button> <button class="btn btn-sec" onclick="sendTestPushAll()">Stuur naar alle (bypass)</button>
+<div class="card"><h3>Push testen - v262</h3>
+<p class="small">Test push wordt alleen naar gefilterde abonnementen gestuurd. Check bij Abonnementen tab welke ID's er zijn.</p>
+<div class="grid"><div><label>Titel</label><input id="push-title" class="input" value="Test push - v262 subs manager"></div><div><label>Bron</label><select id="push-source" class="input" onchange="onSourceChange()"><option value="De Stentor" data-link="https://www.destentor.nl/ommen/">De Stentor</option><option value="Gemeente Ommen" data-link="https://www.ommen.nl/actueel/">Gemeente Ommen</option><option value="Natuurlijk Ommen" data-link="https://www.natuurlijkommen.nl/">Natuurlijk Ommen</option><option value="Ommen City" data-link="https://ommencity.nl/">Ommen City</option><option value="OudOmmen" data-link="https://weblog.oudommen.nl/">OudOmmen</option><option value="RondOmmen" data-link="https://www.rondommen.nl/">RondOmmen</option><option value="RTV Oost" data-link="https://www.oost.nl/nieuws/vechtdal">RTV Oost</option><option value="RTV Vechtdal" data-link="https://rtvvechtdal.nl/">RTV Vechtdal</option><option value="Vechtdal Centraal" data-link="https://www.vechtdalcentraal.nl/">Vechtdal Centraal</option></select></div></div><br>
+<label>Link</label><input id="push-link" class="input" value="https://www.destentor.nl/ommen/"><br><br>
+<label>Body</label><input id="push-body" class="input" value="v262 test met naam + IP tracking"><br><br>
+<button class="btn btn-ok" onclick="sendTestPush()">Stuur test push (gefilterd)</button> <button class="btn btn-sec" onclick="sendTestPushAll()">Stuur naar alle (bypass)</button>
 <div id="push-result" style="margin-top:12px"></div>
-<div style="margin-top:16px;padding:12px;background:#dcfce7;border-radius:8px;font-size:12px;border:1px solid #16a34a"><b>v261:</b> Alles-uit = [] = 0/1 blokkeer, geen omlijnd test meer</div>
 </div>
 </div>
 
-<div id="tab-logs" style="display:none"><div class="card"><h3>Debug (Worker v261)</h3><pre id="debug-pre" style="background:#111827;color:#e5e7eb;padding:16px;border-radius:8px;overflow:auto;max-height:400px"></pre><button class="btn btn-sec" onclick="loadDebug()">Vernieuwen</button></div></div>
+<div id="tab-logs" style="display:none"><div class="card"><h3>Debug (Worker v262)</h3><pre id="debug-pre" style="background:#111827;color:#e5e7eb;padding:16px;border-radius:8px;overflow:auto;max-height:400px"></pre><button class="btn btn-sec" onclick="loadDebug()">Vernieuwen</button></div></div>
 
-<div id="tab-settings" style="display:none"><div class="card"><h3>Instellingen v261</h3><p>Frontend: GitHub Pages - <code>nieuwommen.leeuw008.nl/admin/</code> - <b>v261</b></p><p>Backend: Cloudflare Worker - <code>ommen-push-v2.leeuw008.workers.dev</code> - <b>v261</b></p><p>KV: SUBS, SEEN, USERS, SESSIONS, SYNC</p><p>Resend status: <span id="resend-status">check...</span></p><div style="margin-top:12px;padding:12px;background:#dcfce7;border-radius:8px;border:1px solid #16a34a"><b> v261 fixes:</b> [] = 0 push, push uit = 0 push, isTest nooit last_article</div></div></div>
+<div id="tab-settings" style="display:none"><div class="card"><h3>Instellingen v262 SUBS MANAGER</h3><p>Frontend: <code>nieuwommen.leeuw008.nl/admin/</code> - <b>v262</b></p><p>Backend: <code>ommen-push-v2</code> - <b>v262 SUBS MANAGER</b></p><p>Features: naam geven per ID, IP logging, laatste push tijd, []=0 push fix</p><p>Resend: <span id="resend-status">check...</span></p></div></div>
 
 </div>
 <script>
@@ -93,6 +118,9 @@ async function api(path, opts={}){
   const r=await fetch(url,{...opts, headers:{...headers(), ...(opts.headers||{})}});
   return r.json().catch(()=>r.text());
 }
+function fmtDate(ts){ if(!ts) return '-'; const d=new Date(ts); return d.toLocaleString('nl-NL'); }
+function timeAgo(ts){ if(!ts) return '-'; const diff=Math.floor((Date.now()-ts)/1000); if(diff<60) return diff+'s geleden'; if(diff<3600) return Math.floor(diff/60)+'m geleden'; if(diff<86400) return Math.floor(diff/3600)+'u geleden'; return Math.floor(diff/86400)+'d geleden'; }
+
 async function doLogin(){
   const email=document.getElementById('login-email').value;
   const pw=document.getElementById('login-pw').value;
@@ -100,25 +128,120 @@ async function doLogin(){
   try{
     const res=await fetch(API_BASE+'/auth/login',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,password:pw})});
     const data=await res.json();
-    if(data.token){ token=data.token; localStorage.setItem('ommen_token', token); document.getElementById('adminEmail').textContent=data.email; document.getElementById('login-box').style.display='none'; document.getElementById('login-result').textContent='Ingelogd als '+data.email; document.getElementById('apiBase').textContent=API_BASE; loadOverview(); }
+    if(data.token){ token=data.token; localStorage.setItem('ommen_token', token); document.getElementById('adminEmail').textContent=data.email; document.getElementById('login-box').style.display='none'; loadOverview(); loadSubs(); }
     else { document.getElementById('login-result').textContent='Fout: '+(data.error||JSON.stringify(data)); }
   }catch(e){ document.getElementById('login-result').textContent='Fout: '+e.message; }
 }
-function switchTab(t){ document.querySelectorAll('[id^=tab-]').forEach(el=>el.style.display='none'); document.getElementById('tab-'+t).style.display='block'; document.querySelectorAll('.sidebar a').forEach(a=>a.classList.remove('active')); document.querySelector('[data-tab='+t+']').classList.add('active'); if(t==='users') loadUsers(); if(t==='logs') loadDebug(); if(t==='overview') loadOverview(); }
+function switchTab(t){ document.querySelectorAll('[id^=tab-]').forEach(el=>el.style.display='none'); document.getElementById('tab-'+t).style.display='block'; document.querySelectorAll('.sidebar a').forEach(a=>a.classList.remove('active')); const link=document.querySelector('[data-tab='+t+']'); if(link) link.classList.add('active'); if(t==='subs') loadSubs(); if(t==='users') loadUsers(); if(t==='logs') loadDebug(); if(t==='overview') loadOverview(); }
 document.querySelectorAll('.sidebar a').forEach(a=>{ a.addEventListener('click',e=>{ e.preventDefault(); switchTab(a.dataset.tab); }); });
+
 async function loadOverview(){
-  const s = await api('/stats'); 
-  document.getElementById('stat-req').textContent='103.5k';
-  const usersData = await api('/api/admin/users').catch(()=>({count:'?'}));
-  document.getElementById('stat-users').textContent=usersData.count||usersData.users?.length||'2';
-  document.getElementById('stat-users-detail').textContent='Alleen eigen accounts';
-  document.getElementById('stat-subs').textContent=s.subs||'0'; 
-  document.getElementById('stat-last').textContent=s.last? (s.last.source+': '+s.last.title) : '-';
-  document.getElementById('deploys').textContent='v261 DEFINITIEF - 31-8-2026 - alles uit = 0 push + [] fix + geen omlijnd test';
-  const me = await api('/auth/me'); if(me.email){ document.getElementById('adminEmail').textContent=me.email; document.getElementById('login-box').style.display='none'; } else { document.getElementById('adminEmail').textContent='niet ingelogd'; }
-  const dbg=await api('/debug'); document.getElementById('resend-status').textContent = (dbg.version||'') + ' - KV ok - v261';
-  document.getElementById('apiBase').textContent=API_BASE;
+  try{
+    const s = await api('/stats'); 
+    document.getElementById('stat-subs').textContent=s.subs||'0';
+    document.getElementById('stat-last').textContent=s.last? (s.last.source+': '+s.last.title.slice(0,60)) : '-';
+    document.getElementById('subs-count-side').textContent=s.subs+' abonnementen';
+    const subsData = await api('/api/admin/subs').catch(()=>({subs:[]}));
+    if(subsData.subs && subsData.subs.length){
+      const last = subsData.subs.filter(x=>x.lastPush).sort((a,b)=>b.lastPush-a.lastPush)[0];
+      document.getElementById('stat-lastpush').textContent = last ? timeAgo(last.lastPush)+' ('+(last.description||last.id.slice(0,12))+')' : 'nog geen push';
+    }
+    const usersData = await api('/api/admin/users').catch(()=>({count:'?'}));
+    document.getElementById('stat-users').textContent=usersData.count||usersData.users?.length||'0';
+    const me = await api('/auth/me'); if(me.email){ document.getElementById('adminEmail').textContent=me.email; document.getElementById('login-box').style.display='none'; }
+    const dbg=await api('/debug'); document.getElementById('resend-status').textContent = (dbg.version||'') + ' - v262';
+    document.getElementById('apiBase').textContent=API_BASE;
+  }catch(e){ console.log(e); }
 }
+
+async function loadSubs(){
+  document.getElementById('subs-body').innerHTML='<tr><td colspan=8>Laden...</td></tr>';
+  document.getElementById('subs-result').textContent='Laden...';
+  try{
+    const data = await api('/api/admin/subs');
+    const tbody=document.getElementById('subs-body');
+    tbody.innerHTML='';
+    document.getElementById('subs-result').textContent=data.count+' abonnementen gevonden';
+    document.getElementById('subs-count-side').textContent=data.count+' abonnementen';
+    document.querySelector('[data-tab=subs]').textContent='📱 Abonnementen ('+data.count+')';
+    document.getElementById('stat-subs').textContent=data.count;
+    (data.subs||[]).forEach(sub=>{
+      const tr=document.createElement('tr');
+      const created = sub.created ? fmtDate(sub.created) : '-';
+      const lastPush = sub.lastPush ? fmtDate(sub.lastPush)+'<br><span class=small>'+timeAgo(sub.lastPush)+'<br>'+(sub.lastPushSource||'')+'</span>' : '<span class=small>nog geen push</span>';
+      const sources = sub.sources && sub.sources.length ? sub.sources.join(', ') : (sub.sourcesCount===0 ? '<span style=color:#dc2626>alles uit (0)</span>' : '-');
+      const ipInfo = (sub.ip||'') + (sub.userAgent ? '<br><span class=small>'+sub.userAgent.slice(0,60)+'</span>' : '');
+      const emailInfo = (sub.email||'') + (sub.userId ? '<br><span class=small>'+sub.userId.slice(0,16)+'</span>' : '');
+      tr.innerHTML = `
+        <td><span class=badge title="${sub.id}">${sub.id.slice(0,16)}...</span><br><span class=small>${sub.endpointPreview||''}</span></td>
+        <td><input class="input" id="desc-${sub.id}" value="${(sub.description||'').replace(/"/g,'&quot;')}" placeholder="Bijv. iPhone Tjeerd" style="min-width:140px"><button class="btn btn-ok" style="margin-top:4px;padding:4px 8px" onclick="saveDesc('${sub.id}')">💾 Opslaan</button><div id="save-${sub.id}" class="small"></div></td>
+        <td>${emailInfo||'<span class=small>-</span>'}</td>
+        <td>${ipInfo||'<span class=small>-</span>'}</td>
+        <td><span class=small>${sources}</span></td>
+        <td>${lastPush}</td>
+        <td><span class=small>${created}<br>upd: ${sub.updated? timeAgo(sub.updated):'-'}</span></td>
+        <td><button class="btn btn-danger" style="padding:4px 8px" onclick="deleteSub('${sub.id}')">🗑️ Wis</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+    if((data.subs||[]).length===0){
+      tbody.innerHTML='<tr><td colspan=8>Geen abonnementen gevonden</td></tr>';
+    }
+  }catch(e){
+    document.getElementById('subs-body').innerHTML='<tr><td colspan=8>Fout: '+e.message+'</td></tr>';
+    document.getElementById('subs-result').textContent='Fout: '+e.message;
+  }
+}
+
+async function saveDesc(id){
+  const input=document.getElementById('desc-'+id);
+  const val=input.value;
+  document.getElementById('save-'+id).textContent='Opslaan...';
+  try{
+    const res=await api('/api/admin/subs/update',{method:'POST', body:JSON.stringify({id, description:val})});
+    if(res.ok){
+      document.getElementById('save-'+id).textContent='✅ Opgeslagen';
+      setTimeout(()=>{ document.getElementById('save-'+id).textContent=''; }, 2000);
+    } else {
+      document.getElementById('save-'+id).textContent='Fout: '+(res.error||'');
+    }
+  }catch(e){ document.getElementById('save-'+id).textContent='Fout: '+e.message; }
+}
+
+async function deleteSub(id){
+  if(!confirm('Weet je zeker dat je abonnement '+id.slice(0,16)+' wilt wissen? Die telefoon krijgt dan geen push meer tot hij opnieuw op 🔔 klikt.')) return;
+  try{
+    const res=await api('/api/admin/subs/delete',{method:'POST', body:JSON.stringify({id})});
+    if(res.ok){ loadSubs(); } else { alert('Fout: '+(res.error||'')); }
+  }catch(e){ alert('Fout: '+e.message); }
+}
+
+async function clearAllSubs(){
+  if(!confirm('Weet je zeker dat je ALLE '+document.getElementById('stat-subs').textContent+' abonnementen wilt wissen? Iedereen moet dan opnieuw op 🔔 klikken!')) return;
+  if(!confirm('Nog een keer bevestigen: ALLES wissen?')) return;
+  try{
+    const res=await api('/api/admin/clear-all-subs',{method:'POST'});
+    alert('Wis resultaat: '+JSON.stringify(res));
+    loadSubs();
+  }catch(e){ alert('Fout: '+e.message); }
+}
+
+function exportSubsCSV(){
+  window.open(API_BASE+'/api/admin/subs?format=csv&token='+token,'_blank');
+}
+async function exportSubsCSV(){
+  try{
+    const data = await api('/api/admin/subs');
+    let csv = 'id,description,email,userId,ip,sources,lastPush,lastPushSource,created\n';
+    (data.subs||[]).forEach(s=>{
+      csv += `"${s.id}","${(s.description||'').replace(/"/g,'""')}","${s.email||''}","${s.userId||''}","${s.ip||''}","${(s.sources||[]).join(';')}","${s.lastPush? new Date(s.lastPush).toISOString():''}","${s.lastPushSource||''}","${s.created? new Date(s.created).toISOString():''}"\n`;
+    });
+    const blob = new Blob([csv], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download='push_abonnementen_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
+  }catch(e){ alert('Export fout: '+e.message); }
+}
+
 async function loadUsers(){
   const data = await api('/api/admin/users'); const tbody=document.getElementById('users-body'); tbody.innerHTML='';
   (data.users||[]).forEach(u=>{
@@ -135,7 +258,7 @@ function onSourceChange(){
   const link=opt.getAttribute('data-link');
   if(link){
     document.getElementById('push-link').value=link;
-    document.getElementById('push-title').value='Test push - '+opt.value+' - v261';
+    document.getElementById('push-title').value='Test push - '+opt.value+' - v262';
   }
 }
 async function sendNewsletter(toAll){
@@ -149,15 +272,21 @@ async function sendTestPush(){
   const title=document.getElementById('push-title').value; const source=document.getElementById('push-source').value; const link=document.getElementById('push-link').value; const body=document.getElementById('push-body').value;
   document.getElementById('push-result').innerHTML='Versturen...';
   const res=await api('/api/admin/test-push',{method:'POST', body:JSON.stringify({title, source, link, body, filter:true})});
-  document.getElementById('push-result').innerHTML='<div class=alert-ok>Verstuurd naar '+res.sent+'/'+res.total+' (gefilterd op '+source+')</div>';
+  let html = '<div class=alert-ok>✅ Verstuurd naar '+res.sent+'/'+res.total+' (gefilterd op '+source+')<br>';
+  if(res.skipped && res.skipped.length) html+='Geblokkeerd: '+res.skipped.length+' (alles uit of bron uit)<br>';
+  html+='</div>';
+  document.getElementById('push-result').innerHTML=html;
+  loadSubs();
 }
 async function sendTestPushAll(){ 
   const title=document.getElementById('push-title').value; const source=document.getElementById('push-source').value; const link=document.getElementById('push-link').value; const body=document.getElementById('push-body').value;
   document.getElementById('push-result').innerHTML='Versturen...';
   const res=await api('/api/admin/test-push',{method:'POST', body:JSON.stringify({title, source, link, body, filter:false})});
-  document.getElementById('push-result').innerHTML='<div class=alert-ok>Verstuurd naar '+res.sent+'/'+res.total+' (alle)</div>';
+  document.getElementById('push-result').innerHTML='<div class=alert-ok>Verstuurd naar '+res.sent+'/'+res.total+' (alle, bypass)</div>';
+  loadSubs();
 }
 async function loadDebug(){ const d=await api('/debug'); document.getElementById('debug-pre').textContent=JSON.stringify(d,null,2); }
 loadOverview();
+loadSubs();
 </script>
 </body></html>
