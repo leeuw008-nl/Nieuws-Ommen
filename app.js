@@ -1,4 +1,4 @@
-// app.js v320 - v319 Alles aan/uit goed + gemeente alle 15 beschrijving + datum/tijd fix - v297b + alleen Alles uit fix (3 regels) zonder andere dingen te breken - rollback stabiel + alleen opmaak NieuwOmmen vet + Nieuwsbrief updates & releases klein
+// app.js v321 - v319 Alles uit goed + gemeente fix compleet (date, desc helpers) - v297b + alleen Alles uit fix (3 regels) zonder andere dingen te breken - rollback stabiel + alleen opmaak NieuwOmmen vet + Nieuwsbrief updates & releases klein
 // Dit is exact v297 die groen was, met 1 regel gewijzigd op regel 18
 // Was: {id:'Nieuwsbrief', name:'Nieuwsbrief', sub:'updates & releases van NieuwOmmen'}
 // Wordt: {id:'Nieuwsbrief', name:'NieuwOmmen', sub:'Nieuwsbrief updates & releases'}
@@ -140,7 +140,7 @@ function updateSourceLeds(){
 function loadState(){
   try{
     const raw = JSON.parse(localStorage.getItem('nieuwsommen_bronnen_v2')||'{}');
-    // v320 - v319 Alles aan/uit goed + gemeente alle 15 beschrijving + datum/tijd fix FIX: alleen echte bronnen, negeer __pushEnabled, pushEnabled, etc die push.js erin zet
+    // v321 - v319 Alles uit goed + gemeente fix compleet (date, desc helpers) FIX: alleen echte bronnen, negeer __pushEnabled, pushEnabled, etc die push.js erin zet
     if(Array.isArray(raw)){
       const newState={}; BRONNEN.forEach(b=>{ newState[b.id]={aan: raw.includes(b.id), vandaag:false, scope:'gemeente'}; }); state=newState;
     } else {
@@ -203,7 +203,7 @@ function renderFilters(){
   setTimeout(()=>{ try{ updateSourceLeds(); }catch{} }, 50);
 }
 function updateHeaderCount(){
-  const aan = BRONNEN.map(b=>state[b.id]).filter(s=>s && s.aan).length; // v320 - v319 Alles aan/uit goed + gemeente alle 15 beschrijving + datum/tijd fix FIX: alleen bronnen
+  const aan = BRONNEN.map(b=>state[b.id]).filter(s=>s && s.aan).length; // v321 - v319 Alles uit goed + gemeente fix compleet (date, desc helpers) FIX: alleen bronnen
   const countEl = document.getElementById('header-count');
   if(countEl){ countEl.textContent = `${loadedSources.size || aan} v/d ${BRONNEN.length} bronnen`; if(loadedSources.size>=BRONNEN.length) countEl.textContent = `10 v/d 10 bronnen`; }
   const btn = document.getElementById('btn-all');
@@ -223,7 +223,7 @@ function setupFilterHeader(){
   fh.addEventListener('click', (e)=>{
     if(e.target.closest('#bell-slot') || e.target.closest('#push-bell-btn')) return;
     if(e.target.id==='btn-all' || e.target.closest('#btn-all')){
-      e.stopPropagation(); const bronStates=BRONNEN.map(b=>state[b.id]).filter(Boolean); const allOn=bronStates.length>0 && bronStates.every(s=>s.aan); console.log('[v320 - v319 Alles aan/uit goed + gemeente alle 15 beschrijving + datum/tijd fix] Alles toggle allOn',allOn); BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true,vandaag:false,scope:'gemeente'}; state[b.id].aan=!allOn; }); saveState(); renderFilters(); filterNews(); updateSourceLeds(); return;
+      e.stopPropagation(); const bronStates=BRONNEN.map(b=>state[b.id]).filter(Boolean); const allOn=bronStates.length>0 && bronStates.every(s=>s.aan); console.log('[v321 - v319 Alles uit goed + gemeente fix compleet (date, desc helpers)] Alles toggle allOn',allOn); BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true,vandaag:false,scope:'gemeente'}; state[b.id].aan=!allOn; }); saveState(); renderFilters(); filterNews(); updateSourceLeds(); return;
     }
     const p = document.getElementById('source-panel'); if(p.classList.contains('open')) closePanel(); else openPanel();
   });
@@ -256,24 +256,30 @@ async function fetchViaWorker(url){
     throw e1;
   }
 }
-function parseGemeenteOverviewWithDate(html){
-  const items=[]; const seen=new Set();
-  const re = /<a[^>]+href=["']([^"']+\/actueel\/[^"']+)["'][^>]*>([^<]{10,200})<\/a>/gi;
-  let m; let idx=0;
-  while((m=re.exec(html))!==null && items.length<15){
-    let link=m[1]; if(link.startsWith('/')) link='https://www.ommen.nl'+link;
-    if(seen.has(link)) continue;
-    const title=m[2].trim();
-    const pos=m.index;
-    const context = html.substring(Math.max(0,pos-300), Math.min(html.length, pos+800));
-    let pubDate=null;
-    let dm = context.match(/(\d{1,2}\s+[a-z]+\s+\d{4})/i);
-    if(dm) pubDate=parseGemeenteDateTime(dm[1]);
-    if(!pubDate){ dm = context.match(/(\d{4}-\d{2}-\d{2})/); if(dm) pubDate=parseGemeenteDateTime(dm[1]); }
-    if(!pubDate){ pubDate = new Date(Date.now() - (idx*3+5)*24*60*60*1000); pubDate.setHours(10,0,0,0); }
-    seen.add(link); items.push({title, link, pubDate, description:null, _needsDetail:true}); idx++;
-  }
-  return items;
+function parseGemeenteDateTime(str){
+  if(!str) return null;
+  try{
+    const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
+    let m = str.toLowerCase().match(/(\d{1,2})\s+([a-z]+)\s+(\d{4}),?\s*(\d{1,2}):(\d{2})/);
+    if(m && months[m[2]]!==undefined) return new Date(parseInt(m[3]), months[m[2]], parseInt(m[1]), parseInt(m[4]), parseInt(m[5]));
+    m = str.toLowerCase().match(/(\d{1,2})\s+([a-z]+)\s+(\d{4})/);
+    if(m && months[m[2]]!==undefined) return new Date(parseInt(m[3]), months[m[2]], parseInt(m[1]), 10,0,0);
+    m = str.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if(m) return new Date(parseInt(m[1]), parseInt(m[2])-1, parseInt(m[3]), 10,0,0);
+  }catch{} return null;
+}
+
+function extractGemeenteDescription(html){
+  try{
+    let m = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
+    if(m && m[1].length>20) return m[1].trim().slice(0,200);
+    m = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i);
+    if(m && m[1].length>20) return m[1].trim().slice(0,200);
+    m = html.match(/<h1[^>]*>[\s\S]*?<\/h1>[\s\S]{0,500}?<p[^>]*>([^<]{20,400})<\/p>/i);
+    if(m){ let txt=m[1].replace(/<[^>]*>/g,'').trim(); if(txt.length>20) return txt.slice(0,200); }
+    const ps = [...html.matchAll(/<p[^>]*>([^<]{30,400})<\/p>/gi)].map(x=>x[1].replace(/<[^>]*>/g,'').trim()).filter(t=>t.length>30 && !t.toLowerCase().includes('cookie'));
+    if(ps.length>0) return ps[0].slice(0,200);
+  }catch{} return null;
 }
 
 function parseGemeenteOverviewWithDate(html){
@@ -316,6 +322,7 @@ async function enrichGemeenteWithTimeAndDesc(items, fetchViaWorker){
   enriched.sort((a,b)=> b.pubDate - a.pubDate);
   return enriched;
 }
+
 
 async function loadOneSource(b){
   const cfg=BRON_URLS[b.id]; if(!cfg) throw new Error('no cfg '+b.id);
