@@ -1,4 +1,4 @@
-// app.js v308 - v297b opmaak OK + Gemeente echte beschrijving fix stabiel + alleen opmaak NieuwOmmen vet + Nieuwsbrief updates & releases klein
+// app.js v309 - v308 + alle 15 Gemeente echte beschrijving fix (was alleen 8) stabiel + alleen opmaak NieuwOmmen vet + Nieuwsbrief updates & releases klein
 // Dit is exact v297 die groen was, met 1 regel gewijzigd op regel 18
 // Was: {id:'Nieuwsbrief', name:'Nieuwsbrief', sub:'updates & releases van NieuwOmmen'}
 // Wordt: {id:'Nieuwsbrief', name:'NieuwOmmen', sub:'Nieuwsbrief updates & releases'}
@@ -147,7 +147,7 @@ async function enrichGemeenteWithTimeAndDesc(items, fetchViaWorker){
   for(let i=0; i<items.length; i++){
     const item=items[i];
     try{
-      if(i<8){
+      if(i<15){ // v309 FIX: was i<8 waardoor oudste 2 geen beschrijving kregen, nu alle 15
         const html = await fetchViaWorker(item.link);
         let match = html.match(/(\d{1,2}\s+[a-z]+\s+\d{4},?\s*\d{1,2}:\d{2})/i) || html.match(/<time[^>]*>([^<]+)<\/time>/i);
         if(match){ const parsed=parseGemeenteDateTime(match[1]||match[0]); if(parsed) item.pubDate=parsed; }
