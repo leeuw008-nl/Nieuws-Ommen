@@ -1,4 +1,4 @@
-// app.js v309 - v308 + alle 15 Gemeente echte beschrijving fix (was alleen 8) stabiel + alleen opmaak NieuwOmmen vet + Nieuwsbrief updates & releases klein
+// app.js v310 - v310 + alle 15 Gemeente echte beschrijving fix (was alleen 8) stabiel + alleen opmaak NieuwOmmen vet + Nieuwsbrief updates & releases klein
 // Dit is exact v297 die groen was, met 1 regel gewijzigd op regel 18
 // Was: {id:'Nieuwsbrief', name:'Nieuwsbrief', sub:'updates & releases van NieuwOmmen'}
 // Wordt: {id:'Nieuwsbrief', name:'NieuwOmmen', sub:'Nieuwsbrief updates & releases'}
@@ -147,7 +147,7 @@ async function enrichGemeenteWithTimeAndDesc(items, fetchViaWorker){
   for(let i=0; i<items.length; i++){
     const item=items[i];
     try{
-      if(i<15){ // v309 FIX: was i<8 waardoor oudste 2 geen beschrijving kregen, nu alle 15
+      if(i<15){ // v310 FIX: was i<8 waardoor oudste 2 geen beschrijving kregen, nu alle 15
         const html = await fetchViaWorker(item.link);
         let match = html.match(/(\d{1,2}\s+[a-z]+\s+\d{4},?\s*\d{1,2}:\d{2})/i) || html.match(/<time[^>]*>([^<]+)<\/time>/i);
         if(match){ const parsed=parseGemeenteDateTime(match[1]||match[0]); if(parsed) item.pubDate=parsed; }
@@ -264,9 +264,9 @@ function updateHeaderCount(){
   const btn = document.getElementById('btn-all');
   if(btn){
     btn.classList.remove('all-on','all-off','some-on');
-    if(aan===BRONNEN.length){ btn.classList.add('all-on'); btn.textContent='Alles aan'; }
-    else if(aan===0){ btn.classList.add('all-off'); btn.textContent='Alles uit'; }
-    else { btn.classList.add('some-on'); btn.textContent='Alles aan/uit'; }
+    if(aan===BRONNEN.length){ btn.classList.add('all-on'); btn.textContent='Alles uit'; btn.title='Klik om alle bronnen uit te zetten'; }
+    else if(aan===0){ btn.classList.add('all-off'); btn.textContent='Alles aan'; btn.title='Klik om alle bronnen aan te zetten'; }
+    else { btn.classList.add('some-on'); btn.textContent='Alles aan/uit'; btn.title='Klik om te wisselen'; }
   }
 }
 function openPanel(){ document.getElementById('filter-header')?.classList.add('open'); document.getElementById('source-panel')?.classList.add('open'); document.body.classList.add('panel-open'); try{ localStorage.setItem('ommen_filter_panel_open','1'); }catch{} }
@@ -276,12 +276,41 @@ function resetFilters(){ BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,
 function setupFilterHeader(){
   const fh = document.getElementById('filter-header'); if(!fh) return;
   fh.addEventListener('click', (e)=>{
-    if(e.target.closest('#bell-slot') || e.target.closest('#push-bell-btn')) return;
+    if(e.target.closest('#bell-slot') || e.target.closest('#push-bell-btn') || e.target.closest('#user-icon-btn') || e.target.closest('.info-icon-btn')) return;
     if(e.target.id==='btn-all' || e.target.closest('#btn-all')){
-      e.stopPropagation(); const allOn = Object.values(state).every(s=>s.aan); BRONNEN.forEach(b=>state[b.id].aan = !allOn); saveState(); renderFilters(); filterNews(); updateSourceLeds(); return;
+      e.stopPropagation(); 
+      const allOn = Object.values(state).every(s=>s.aan);
+      console.log('[v310] btn-all clicked, allOn=', allOn, ' -> set to', !allOn);
+      BRONNEN.forEach(b=>state[b.id].aan = !allOn); 
+      saveState(); renderFilters(); filterNews(); updateSourceLeds(); 
+      return;
     }
     const p = document.getElementById('source-panel'); if(p.classList.contains('open')) closePanel(); else openPanel();
   });
+}
+function setupAccountButton(){
+  const btn = document.getElementById('user-icon-btn'); if(!btn) return;
+  btn.style.pointerEvents='auto'; btn.style.position='relative'; btn.style.zIndex='10';
+  btn.addEventListener('click', (e)=>{
+    e.stopPropagation(); e.preventDefault();
+    console.log('[v310] account button clicked');
+    // Probeer originele handlers uit push.js / andere files
+    if(window.openUserPanel) return window.openUserPanel();
+    if(window.openAccountModal) return window.openAccountModal();
+    // Fallback: als push.js er is, trigger de bell of account flow
+    const bellBtn = document.getElementById('push-bell-btn');
+    if(bellBtn && bellBtn.click) {
+      // Als account gekoppeld is aan bell, open die
+      try{ bellBtn.click(); return; }catch{}
+    }
+    // Laatste fallback: navigeer naar informatie of toon alert
+    const infoBtn = document.querySelector('.info-icon-btn');
+    if(infoBtn && infoBtn.href){
+      window.location.href = infoBtn.href;
+    }
+  });
+  // Zorg dat icon zelf ook klikbaar is
+  const svg = btn.querySelector('svg'); if(svg){ svg.style.pointerEvents='none'; }
 }
 const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
 const SOURCE_CACHE_TTL = 1000 * 60 * 5; const SOURCE_CACHE_STALE = 1000 * 60 * 60; const SOURCE_CACHE_KEY = 'ommen_source_cache_v1';
