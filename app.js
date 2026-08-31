@@ -1,4 +1,4 @@
-// app.js v319 - v297b + alleen Alles uit fix (3 regels) zonder andere dingen te breken - rollback stabiel + alleen opmaak NieuwOmmen vet + Nieuwsbrief updates & releases klein
+// app.js v320 - v319 Alles aan/uit goed + gemeente alle 15 beschrijving + datum/tijd fix - v297b + alleen Alles uit fix (3 regels) zonder andere dingen te breken - rollback stabiel + alleen opmaak NieuwOmmen vet + Nieuwsbrief updates & releases klein
 // Dit is exact v297 die groen was, met 1 regel gewijzigd op regel 18
 // Was: {id:'Nieuwsbrief', name:'Nieuwsbrief', sub:'updates & releases van NieuwOmmen'}
 // Wordt: {id:'Nieuwsbrief', name:'NieuwOmmen', sub:'Nieuwsbrief updates & releases'}
@@ -140,7 +140,7 @@ function updateSourceLeds(){
 function loadState(){
   try{
     const raw = JSON.parse(localStorage.getItem('nieuwsommen_bronnen_v2')||'{}');
-    // v319 FIX: alleen echte bronnen, negeer __pushEnabled, pushEnabled, etc die push.js erin zet
+    // v320 - v319 Alles aan/uit goed + gemeente alle 15 beschrijving + datum/tijd fix FIX: alleen echte bronnen, negeer __pushEnabled, pushEnabled, etc die push.js erin zet
     if(Array.isArray(raw)){
       const newState={}; BRONNEN.forEach(b=>{ newState[b.id]={aan: raw.includes(b.id), vandaag:false, scope:'gemeente'}; }); state=newState;
     } else {
@@ -203,7 +203,7 @@ function renderFilters(){
   setTimeout(()=>{ try{ updateSourceLeds(); }catch{} }, 50);
 }
 function updateHeaderCount(){
-  const aan = BRONNEN.map(b=>state[b.id]).filter(s=>s && s.aan).length; // v319 FIX: alleen bronnen
+  const aan = BRONNEN.map(b=>state[b.id]).filter(s=>s && s.aan).length; // v320 - v319 Alles aan/uit goed + gemeente alle 15 beschrijving + datum/tijd fix FIX: alleen bronnen
   const countEl = document.getElementById('header-count');
   if(countEl){ countEl.textContent = `${loadedSources.size || aan} v/d ${BRONNEN.length} bronnen`; if(loadedSources.size>=BRONNEN.length) countEl.textContent = `10 v/d 10 bronnen`; }
   const btn = document.getElementById('btn-all');
@@ -223,7 +223,7 @@ function setupFilterHeader(){
   fh.addEventListener('click', (e)=>{
     if(e.target.closest('#bell-slot') || e.target.closest('#push-bell-btn')) return;
     if(e.target.id==='btn-all' || e.target.closest('#btn-all')){
-      e.stopPropagation(); const bronStates=BRONNEN.map(b=>state[b.id]).filter(Boolean); const allOn=bronStates.length>0 && bronStates.every(s=>s.aan); console.log('[v319] Alles toggle allOn',allOn); BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true,vandaag:false,scope:'gemeente'}; state[b.id].aan=!allOn; }); saveState(); renderFilters(); filterNews(); updateSourceLeds(); return;
+      e.stopPropagation(); const bronStates=BRONNEN.map(b=>state[b.id]).filter(Boolean); const allOn=bronStates.length>0 && bronStates.every(s=>s.aan); console.log('[v320 - v319 Alles aan/uit goed + gemeente alle 15 beschrijving + datum/tijd fix] Alles toggle allOn',allOn); BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true,vandaag:false,scope:'gemeente'}; state[b.id].aan=!allOn; }); saveState(); renderFilters(); filterNews(); updateSourceLeds(); return;
     }
     const p = document.getElementById('source-panel'); if(p.classList.contains('open')) closePanel(); else openPanel();
   });
@@ -256,12 +256,73 @@ async function fetchViaWorker(url){
     throw e1;
   }
 }
+function parseGemeenteOverviewWithDate(html){
+  const items=[]; const seen=new Set();
+  const re = /<a[^>]+href=["']([^"']+\/actueel\/[^"']+)["'][^>]*>([^<]{10,200})<\/a>/gi;
+  let m; let idx=0;
+  while((m=re.exec(html))!==null && items.length<15){
+    let link=m[1]; if(link.startsWith('/')) link='https://www.ommen.nl'+link;
+    if(seen.has(link)) continue;
+    const title=m[2].trim();
+    const pos=m.index;
+    const context = html.substring(Math.max(0,pos-300), Math.min(html.length, pos+800));
+    let pubDate=null;
+    let dm = context.match(/(\d{1,2}\s+[a-z]+\s+\d{4})/i);
+    if(dm) pubDate=parseGemeenteDateTime(dm[1]);
+    if(!pubDate){ dm = context.match(/(\d{4}-\d{2}-\d{2})/); if(dm) pubDate=parseGemeenteDateTime(dm[1]); }
+    if(!pubDate){ pubDate = new Date(Date.now() - (idx*3+5)*24*60*60*1000); pubDate.setHours(10,0,0,0); }
+    seen.add(link); items.push({title, link, pubDate, description:null, _needsDetail:true}); idx++;
+  }
+  return items;
+}
+
+function parseGemeenteOverviewWithDate(html){
+  const items=[]; const seen=new Set();
+  const re = /<a[^>]+href=["']([^"']+\/actueel\/[^"']+)["'][^>]*>([^<]{10,200})<\/a>/gi;
+  let m; let idx=0;
+  while((m=re.exec(html))!==null && items.length<15){
+    let link=m[1]; if(link.startsWith('/')) link='https://www.ommen.nl'+link;
+    if(seen.has(link)) continue;
+    const title=m[2].trim();
+    const pos=m.index;
+    const context = html.substring(Math.max(0,pos-300), Math.min(html.length, pos+800));
+    let pubDate=null;
+    let dm = context.match(/(\d{1,2}\s+[a-z]+\s+\d{4})/i);
+    if(dm) pubDate=parseGemeenteDateTime(dm[1]);
+    if(!pubDate){ dm = context.match(/(\d{4}-\d{2}-\d{2})/); if(dm) pubDate=parseGemeenteDateTime(dm[1]); }
+    if(!pubDate){ pubDate = new Date(Date.now() - (idx*3+5)*24*60*60*1000); pubDate.setHours(10,0,0,0); }
+    seen.add(link); items.push({title, link, pubDate, description:null, _needsDetail:true}); idx++;
+  }
+  return items;
+}
+
+async function enrichGemeenteWithTimeAndDesc(items, fetchViaWorker){
+  const enriched=[];
+  for(let i=0; i<items.length; i++){
+    const item=items[i];
+    try{
+      if(i<15){ // v309 FIX: was i<8 waardoor oudste 2 geen beschrijving kregen, nu alle 15
+        const html = await fetchViaWorker(item.link);
+        let match = html.match(/(\d{1,2}\s+[a-z]+\s+\d{4},?\s*\d{1,2}:\d{2})/i) || html.match(/<time[^>]*>([^<]+)<\/time>/i);
+        if(match){ const parsed=parseGemeenteDateTime(match[1]||match[0]); if(parsed) item.pubDate=parsed; }
+        const realDesc=extractGemeenteDescription(html);
+        if(realDesc) item.description=realDesc+' [...]'; else item.description=item.title.slice(0,100)+' - Lees meer op ommen.nl [...]';
+        await new Promise(r=>setTimeout(r,200));
+      }
+      if(!item.description) item.description=item.title.slice(0,100)+' [...]';
+    }catch{ if(!item.description) item.description=item.title.slice(0,100)+' [...]'; }
+    enriched.push(item);
+  }
+  enriched.sort((a,b)=> b.pubDate - a.pubDate);
+  return enriched;
+}
+
 async function loadOneSource(b){
   const cfg=BRON_URLS[b.id]; if(!cfg) throw new Error('no cfg '+b.id);
   try{
     let arts=[];
     if(b.id==='Nieuwsbrief'){ const json=await fetchViaWorker(cfg.url); arts=parseNieuwsbriefECHT(json); }
-    else if(cfg.type==='gemeente'){ const html=await fetchViaWorker(cfg.url); arts=parseGemeenteOverview(html); }
+    else if(cfg.type==='gemeente'){ const html=await fetchViaWorker(cfg.url); const overview=parseGemeenteOverviewWithDate(html); arts=await enrichGemeenteWithTimeAndDesc(overview, fetchViaWorker); }
     else if(cfg.type==='oost'){ const html=await fetchViaWorker(cfg.url); arts=parseRTVOostECHT(html); }
     else if(b.id==='RTV Vechtdal'){ try{ const html=await fetchViaWorker(cfg.url); arts=parseRTVVechtdalECHT(html); }catch{} if(arts.length===0){ const xml=await fetchViaWorker(cfg.url); arts=parseRSSFull(xml,b.id); } }
     else if(b.id==='Vechtdal Centraal'){
