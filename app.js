@@ -1,5 +1,5 @@
-// app.js v323 - v297 met account + Alles uit fix + low KV - Nieuwsbrief als 10e bron + test-push van echt artikel voor omlijnd artikel
-// CHANGELOG v323 - v297 met account + Alles uit fix + low KV:
+// app.js v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV - Nieuwsbrief als 10e bron + test-push van echt artikel voor omlijnd artikel
+// CHANGELOG v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV:
 // - NIEUW: 10e bron "Nieuwsbrief" - werkt exact als andere 9 bronnen
 // - Nieuwsbrief feed komt van /newsletter/feed (Worker KV)
 // - Kan gebruikt worden als test-push van ECHT artikel (isTest=false) om omlijnd artikel te testen
@@ -33,7 +33,7 @@ const BRON_URLS = {
 
 window._lastPushWasTest = false;
 window._lastPushSource = null;
-window._lastPushRealArticle = null; // v323 - v297 met account + Alles uit fix + low KV: voor omlijnd artikel test
+window._lastPushRealArticle = null; // v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV: voor omlijnd artikel test
 function isTestArticle(a){ if(!a) return false; return !!(a.isTest || a._isTestPush || a.data?.isTest || (a.id && String(a.id).startsWith('test-'))); }
 function shouldAutoEnableSource(sourceId){ if(window._lastPushWasTest) return false; try{ const vals = Object.values(state||{}); if(vals.length>0 && !vals.some(v=> v && (v.aan===true || v===true))){ return false; } }catch{} return true; }
 
@@ -144,9 +144,9 @@ function loadState(){
     if(v2){ 
       let parsed = JSON.parse(v2);
       if(Array.isArray(parsed)){
-        console.log('[v323 - v297 met account + Alles uit fix + low KV] oude array format gedetecteerd, converteer', parsed);
+        console.log('[v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV] oude array format gedetecteerd, converteer', parsed);
         const newState={}; BRONNEN.forEach(b=>{ newState[b.id]={aan: parsed.includes(b.id), vandaag:false, scope:'gemeente'}; }); state=newState;
-      } else { state = parsed; /* v323 FIX: verwijder __pushEnabled en non-bron keys */ Object.keys(state).forEach(k=>{ if(!BRONNEN.some(b=>b.id===k)) delete state[k]; }); }
+      } else { state = parsed; /* v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s FIX: verwijder __pushEnabled en non-bron keys */ Object.keys(state).forEach(k=>{ if(!BRONNEN.some(b=>b.id===k)) delete state[k]; }); }
       BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true, vandaag:false, scope:'gemeente'}; }); 
     }
     else { BRONNEN.forEach(b=> state[b.id] = {aan:true, vandaag:false, scope:'gemeente'}); }
@@ -193,14 +193,14 @@ function renderFilters(){
       if(type==='vandaag') state[id].vandaag = e.target.checked;
       if(type==='scope') state[id].scope = e.target.checked?'gemeente':'regio';
       if(type==='aan') state[id].aan = e.target.checked;
-      console.log('[v323 - v297 met account + Alles uit fix + low KV] toggle', id, type, e.target.checked);
+      console.log('[v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV] toggle', id, type, e.target.checked);
       saveState(); renderFilters(); filterNews(); updateSourceLeds();
     });
   });
   setTimeout(()=>{ try{ updateSourceLeds(); }catch{} }, 50);
 }
 function updateHeaderCount(){
-  const aan = BRONNEN.map(b=>state[b.id]).filter(s=>s && s.aan).length; // v323 FIX alleen bronnen
+  const aan = BRONNEN.map(b=>state[b.id]).filter(s=>s && s.aan).length; // v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s FIX alleen bronnen
   const countEl = document.getElementById('header-count');
   if(countEl){ countEl.textContent = `${loadedSources.size || aan} v/d ${BRONNEN.length} bronnen`; if(loadedSources.size>=BRONNEN.length) countEl.textContent = `10 v/d 10 bronnen`; }
   const btn = document.getElementById('btn-all');
@@ -240,7 +240,7 @@ async function fetchViaWorker(url){
     if(t.length<150) throw new Error('proxy empty len '+t.length); if(t.includes('Proxy blocked')||t.includes('Proxy error')||t.startsWith('Proxy err')) throw new Error(t.slice(0,200)); if(t.includes('<title>Just a moment</title>')||t.includes('Attention Required')) throw new Error('cf challenge'); putCachedSource(url, t); return t;
   }catch(e1){
     clearTimeout(to);
-    // v323 - v297 met account + Alles uit fix + low KV: nieuwsbrief probeer direct JSON
+    // v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV: nieuwsbrief probeer direct JSON
     if(url.includes('/newsletter/feed')){
       try{
         const r2 = await fetch(url, {cache:'no-store'}); if(r2.ok){ const t2 = await r2.text(); if(t2.length>10){ putCachedSource(url, t2); return t2; } }
@@ -277,7 +277,7 @@ async function loadOneSource(b){
 function isSameDay(d1,d2){ if(!d1 || !d2 || isNaN(d1.getTime()) || isNaN(d2.getTime())) return false; return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate(); }
 function formatDate(d, sourceId){ if(!d || isNaN(d.getTime()) || d.getTime()===0) return ''; const dateStr = d.toLocaleDateString('nl-NL',{day:'numeric', month:'short'}); if(d.getHours()===0 && d.getMinutes()===0 && d.getSeconds()===0){ return dateStr; } const timeStr = d.toLocaleTimeString('nl-NL',{hour:'2-digit', minute:'2-digit'}); return `${dateStr} ${timeStr}`; }
 
-// v323 - v297 met account + Alles uit fix + low KV NIEUW: highlight artikel dat via push is geopend (omlijnd)
+// v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV NIEUW: highlight artikel dat via push is geopend (omlijnd)
 function highlightArticleByLink(link){
   try{
     const container=document.getElementById('news-container');
@@ -291,7 +291,7 @@ function highlightArticleByLink(link){
           el.classList.add('highlight');
           el.scrollIntoView({behavior:'smooth', block:'center'});
           setTimeout(()=>{ el.classList.remove('highlight'); }, 5000);
-          console.log('[v323 - v297 met account + Alles uit fix + low KV] highlight article', link);
+          console.log('[v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV] highlight article', link);
           break;
         }
       }
@@ -319,7 +319,7 @@ function renderArticles(){
   filtered = filtered.sort((a,b)=>b.pubDate - a.pubDate);
   const realCount = filtered.filter(a=>!a.isFallback).length; const vandaagActive = Object.values(state).some(s=>s.aan && s.vandaag); const gemeenteActive = Object.values(state).some(s=>s.aan && s.scope==='gemeente'); let filterLabel = ''; if(vandaagActive) filterLabel += ' (alleen vandaag)'; if(gemeenteActive) filterLabel += vandaagActive ? ' + gemeente' : ' (alleen gemeente Ommen)'; const countHtml = `<div class="articles-count">${realCount} artikelen${filterLabel} - ${loadedSources.size} v/d ${BRONNEN.length} bronnen geladen</div>`;
   if(filtered.length===0){ if(vandaagActive || gemeenteActive) container.innerHTML = countHtml + '<div class="article" style="color:#666;padding:20px;text-align:center;">Geen artikelen gevonden met dit filter.<br>Zet op REGIO of MEER om meer te zien.</div>'; else container.innerHTML = countHtml + '<div class="article">Geen artikelen</div>'; return; }
-  // v323 - v297 met account + Alles uit fix + low KV: check of er een highlight link is uit push
+  // v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV: check of er een highlight link is uit push
   const highlightLink = localStorage.getItem('ommen_highlight_link');
   const html = filtered.map(a=>{
     const cleanTitle = a.title.replace(/^\[[^\]]+\]\s*/,'').trim() || a.title;
@@ -339,23 +339,23 @@ async function refreshNews(){
   if(hasStale && initialArts.length>0){ allArticles=initialArts; loadedSources=new Set(BRONNEN.map(b=>b.id)); updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds(); if(c) c.querySelector('.articles-count')?.insertAdjacentHTML('afterend', '<div style="font-size:11px;color:#16a34a;padding:0 2px 6px">⚡ Uit cache - wordt ververst...</div>'); }
   else { if(c) c.innerHTML='<div class="article">Bezig met laden... (10 bronnen) - eerste keer iets langer, daarna <1 sec</div>'; allArticles=[]; loadedSources=new Set(); updateHeaderCount(); }
   const loadWithTimeout = async (b) => { try { const timeout = new Promise((_,rej)=> setTimeout(()=>rej(new Error('timeout '+b.id)), 8000)); const arts = await Promise.race([loadOneSource(b), timeout]); return {b, arts}; } catch(e){ console.log('load timeout/fail', b.id, e.message); if(hasStale) return {b, arts:[]}; return {b, arts:[{title:b.name, link:BRON_URLS[b.id].homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - '+e.message.slice(0,80)+' [...]', source:b.name, id:b.id, isFallback:true}]}; } };
-  const results = await Promise.allSettled(BRONNEN.map(b=>loadWithTimeout(b))); const freshArts=[]; results.forEach(r=>{ if(r.status==='fulfilled'){ const {b, arts}=r.value; if(arts.length>0) freshArts.push(...arts); loadedSources.add(b.id); } }); if(freshArts.length>0) allArticles=freshArts; updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds(); console.log('refreshNews klaar v323 - v297 met account + Alles uit fix + low KV 10 bronnen incl Nieuwsbrief', allArticles.length, 'artikelen');
+  const results = await Promise.allSettled(BRONNEN.map(b=>loadWithTimeout(b))); const freshArts=[]; results.forEach(r=>{ if(r.status==='fulfilled'){ const {b, arts}=r.value; if(arts.length>0) freshArts.push(...arts); loadedSources.add(b.id); } }); if(freshArts.length>0) allArticles=freshArts; updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds(); console.log('refreshNews klaar v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV 10 bronnen incl Nieuwsbrief', allArticles.length, 'artikelen');
 }
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); restorePanelState(); setupFilterHeader();
   document.getElementById('search-input')?.addEventListener('input', filterNews);
-  // v323 - v297 met account + Alles uit fix + low KV: check of er een push link is om te highlighten
+  // v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV: check of er een push link is om te highlighten
   const urlParams = new URLSearchParams(window.location.search);
   const highlightParam = urlParams.get('highlight') || urlParams.get('link');
   if(highlightParam){ localStorage.setItem('ommen_highlight_link', highlightParam); }
   setTimeout(()=>refreshNews(), 200);
-  // v323 - v297 met account + Alles uit fix + low KV: luister naar service worker push click om te highlighten
+  // v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV: luister naar service worker push click om te highlighten
   if('serviceWorker' in navigator){
     navigator.serviceWorker.addEventListener('message', event=>{
       if(event.data && event.data.type==='PUSH_CLICKED'){
         const link = event.data.link || event.data.url;
         if(link){
-          console.log('[v323 - v297 met account + Alles uit fix + low KV] PUSH_CLICKED ontvangen, highlight', link);
+          console.log('[v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV] PUSH_CLICKED ontvangen, highlight', link);
           localStorage.setItem('ommen_highlight_link', link);
           window._lastPushRealArticle = event.data.article || null;
           highlightArticleByLink(link);
@@ -367,9 +367,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
 window.closePanel=closePanel; window.resetFilters=resetFilters; window.BRONNEN=BRONNEN; window.getAppState=()=>state;
 window.filterNews=filterNews; window.refreshNews=refreshNews; window.highlightArticleByLink=highlightArticleByLink;
 
-// LIVE SYNC + NOTIFICATIE v323 - v297 met account + Alles uit fix + low KV (zelfde als v296 met 10 bronnen support)
+// LIVE SYNC + NOTIFICATIE v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV (zelfde als v296 met 10 bronnen support)
 (function(){
-  const SYNC_ENABLED = true; const SYNC_INTERVAL_MS = 30000;
+  const SYNC_ENABLED = true; const SYNC_INTERVAL_MS = 300000; // v324 FIX: was 30 sec, nu 5 min voor free tier, eigenlijk alleen op visibilitychange
   let currentUser = null; let authToken = localStorage.getItem('ommen_auth_token') || null;
   let lastRemoteUpdated = parseInt(localStorage.getItem('ommen_last_sync')||'0', 10);
   let isSyncing = false; let notifPermissionAsked = false;
@@ -407,10 +407,10 @@ window.filterNews=filterNews; window.refreshNews=refreshNews; window.highlightAr
   }
   let pendingSave = false;
   async function saveToCloud(){
-    if(!authToken || !SYNC_ENABLED){ console.log('[sync v323 - v297 met account + Alles uit fix + low KV] save skipped - geen authToken'); return; }
+    if(!authToken || !SYNC_ENABLED){ console.log('[sync v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV] save skipped - geen authToken'); return; }
     if(isSyncing){ pendingSave = true; console.log('[sync] save queued'); return; }
     try{
-      isSyncing = true; console.log('[sync v323 - v297 met account + Alles uit fix + low KV] saving state, aan:', Object.keys(state).filter(k=>state[k]?.aan).join(', '));
+      isSyncing = true; console.log('[sync v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV] saving state, aan:', Object.keys(state).filter(k=>state[k]?.aan).join(', '));
       const r = await fetch(WORKER+'/sync/save', {method:'POST', headers: getAuthHeaders(), body: JSON.stringify({state})});
       const j = await r.json().catch(()=>({})); if(r.ok && (j.ok || j.updated)){ const updated = j.updated || Date.now(); lastRemoteUpdated = updated; localStorage.setItem('ommen_last_sync', String(updated)); }
     }catch(e){ console.log('Sync save fail', e.message); } finally{ isSyncing = false; if(pendingSave){ pendingSave = false; setTimeout(()=>saveToCloud(), 300); } }
@@ -430,7 +430,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews; window.highlightAr
       if(!force && remoteUpdated && remoteUpdated <= lastRemoteUpdated && lastRemoteUpdated!==0){ const localStr = JSON.stringify(state); const remoteStr = JSON.stringify(remoteState); if(localStr === remoteStr){ return false; } console.log('[sync] remote ouder, keep local'); return false; }
       if(!force){
         const localLastChange = parseInt(localStorage.getItem('ommen_last_local_change')||'0',10); const timeSinceLocalChange = Date.now() - localLastChange;
-        if(timeSinceLocalChange < 120000 && localAanCount > remoteAanCount && remoteAanCount===1){ console.log('[v323 - v297 met account + Alles uit fix + low KV] SKIP background load - local net gewijzigd'); return false; }
+        if(timeSinceLocalChange < 120000 && localAanCount > remoteAanCount && remoteAanCount===1){ console.log('[v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV] SKIP background load - local net gewijzigd'); return false; }
       }
       const localStr = JSON.stringify(state); const remoteStr = JSON.stringify(remoteState); if(localStr === remoteStr){ if(remoteUpdated) { lastRemoteUpdated = remoteUpdated; localStorage.setItem('ommen_last_sync', String(remoteUpdated)); } return false; }
       state = remoteState; try{ BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true, vandaag:false, scope:'gemeente'}; }); }catch{} localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state)); lastRemoteUpdated = remoteUpdated || Date.now(); localStorage.setItem('ommen_last_sync', String(lastRemoteUpdated));
@@ -447,7 +447,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews; window.highlightAr
         const overlay = document.createElement('div'); overlay.id='login-modal'; overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
         const box = document.createElement('div'); box.style.cssText='background:white;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.2);color:#111';
         const emailSafe = (currentUser.email || currentUser.user?.email || '').replace(/</g,'&lt;');
-        box.innerHTML = `<h3 style="margin:0 0 8px;font-size:18px">Ingelogd als</h3><p style="margin:0 0 16px;color:#374151;font-size:13px;word-break:break-all">${emailSafe}<br><span style="font-size:11px;color:#059669;font-weight:700">● live sync elke 30 sec - 10 bronnen</span></p><div style="display:flex;gap:8px"><button id="btn-sync-now" style="flex:1;padding:10px;background:#0b5bd3;color:white;border:0;border-radius:8px;font-weight:600;cursor:pointer">Sync nu</button><button id="btn-logout-now" style="flex:1;padding:10px;background:#fee2e2;color:#991b1b;border:0;border-radius:8px;font-weight:600;cursor:pointer">Uitloggen</button></div><div style="margin-top:12px;display:flex;gap:8px"><button id="btn-reset-cloud" style="flex:1;padding:8px;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:8px;font-weight:600;cursor:pointer;font-size:11px">🔄 Reset cloud naar deze telefoon</button></div><button id="btn-close-acc" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:0;color:#666;cursor:pointer">Sluiten</button><div id="sync-debug" style="margin-top:12px;font-size:10px;color:#666;background:#f3f4f6;padding:8px;border-radius:6px;max-height:100px;overflow:auto"></div>`;
+        box.innerHTML = `<h3 style="margin:0 0 8px;font-size:18px">Ingelogd als</h3><p style="margin:0 0 16px;color:#374151;font-size:13px;word-break:break-all">${emailSafe}<br><span style="font-size:11px;color:#059669;font-weight:700">● live sync bij openen + elke 5 min - 10 bronnen</span></p><div style="display:flex;gap:8px"><button id="btn-sync-now" style="flex:1;padding:10px;background:#0b5bd3;color:white;border:0;border-radius:8px;font-weight:600;cursor:pointer">Sync nu</button><button id="btn-logout-now" style="flex:1;padding:10px;background:#fee2e2;color:#991b1b;border:0;border-radius:8px;font-weight:600;cursor:pointer">Uitloggen</button></div><div style="margin-top:12px;display:flex;gap:8px"><button id="btn-reset-cloud" style="flex:1;padding:8px;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:8px;font-weight:600;cursor:pointer;font-size:11px">🔄 Reset cloud naar deze telefoon</button></div><button id="btn-close-acc" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:0;color:#666;cursor:pointer">Sluiten</button><div id="sync-debug" style="margin-top:12px;font-size:10px;color:#666;background:#f3f4f6;padding:8px;border-radius:6px;max-height:100px;overflow:auto"></div>`;
         overlay.appendChild(box); document.body.appendChild(overlay);
         const dbg=document.getElementById('sync-debug'); if(dbg){ dbg.textContent='Lokaal: '+Object.keys(state).filter(k=>state[k]?.aan).join(', ')+'\nToken: '+(authToken?authToken.slice(0,20)+'...':'geen')+'\nLaatste cloud sync: '+new Date(lastRemoteUpdated).toLocaleString(); }
         document.getElementById('btn-close-acc').onclick=()=>overlay.remove();
@@ -484,7 +484,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews; window.highlightAr
       try{ if(window._lastPushWasTest){ const before = JSON.parse(localStorage.getItem('nieuwsommen_bronnen_v2')||'{}'); const beforeAanCount = Object.values(before).filter(v=>v&&v.aan).length; const nowAanCount = Object.values(state).filter(v=>v&&v.aan).length; if(nowAanCount > beforeAanCount){ state = before; BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:false, vandaag:false, scope:'gemeente'}; }); localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state)); if(typeof renderFilters==='function') renderFilters(); if(typeof filterNews==='function') filterNews(); return; } } origSave(); }catch{}
       localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state)); localStorage.setItem('ommen_last_local_change', String(Date.now()));
       try{ if(typeof updateHiddenCompat==='function') updateHiddenCompat(); }catch{} try{ if(typeof updateHeaderCount==='function') updateHeaderCount(); }catch{} try{ if(window.updatePushBell) window.updatePushBell(); }catch{}
-      if(authToken){ if(saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(()=>{ saveToCloud(); if(window.updatePushSubscription) window.updatePushSubscription(); }, 500); }
+      if(authToken){ if(saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(()=>{ saveToCloud(); if(window.updatePushSubscription) window.updatePushSubscription(); }, 5000); /* v324 FIX: was 500ms, nu 5000ms voor free tier */ }
     };
   }
   document.addEventListener('DOMContentLoaded', function(){
@@ -504,18 +504,18 @@ window.filterNews=filterNews; window.refreshNews=refreshNews; window.highlightAr
     const sources = getSelectedSourcesForSW();
     try{ if(navigator.serviceWorker && navigator.serviceWorker.controller){ navigator.serviceWorker.controller.postMessage({type:'SET_FILTERS', sources: sources}); } navigator.serviceWorker.ready.then(reg=>{ if(reg.active) reg.active.postMessage({type:'SET_FILTERS', sources: sources}); }).catch(()=>{}); }catch(e){}
     try{ const req = indexedDB.open('nieuws-ommen', 1); req.onupgradeneeded = (e)=>{ const db = e.target.result; if(!db.objectStoreNames.contains('settings')){ db.createObjectStore('settings'); } }; req.onsuccess = (e)=>{ const db = e.target.result; try{ const tx = db.transaction('settings','readwrite'); const store = tx.objectStore('settings'); store.put(sources, 'selectedSources'); }catch(err){} }; }catch(e){}
-    console.log('[v323 - v297 met account + Alles uit fix + low KV] Filters naar SW gepusht:', sources);
+    console.log('[v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV] Filters naar SW gepusht:', sources);
   };
   if('serviceWorker' in navigator){
     navigator.serviceWorker.addEventListener('message', event=>{
-      if(event.data && (event.data.isTest || event.data._isTestPush || event.data.data?.isTest)){ console.log('[v323 - v297 met account + Alles uit fix + low KV] test-push via SW, blokkeer'); window._lastPushWasTest = true; window._lastPushSource = event.data.source || event.data.data?.source || null; setTimeout(()=>{ window._lastPushWasTest=false; window._lastPushSource=null; }, 10000); return; }
+      if(event.data && (event.data.isTest || event.data._isTestPush || event.data.data?.isTest)){ console.log('[v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV] test-push via SW, blokkeer'); window._lastPushWasTest = true; window._lastPushSource = event.data.source || event.data.data?.source || null; setTimeout(()=>{ window._lastPushWasTest=false; window._lastPushSource=null; }, 10000); return; }
       if(event.data && event.data.type === 'GET_FILTERS'){ const sources = getSelectedSourcesForSW(); if(event.ports && event.ports[0]){ event.ports[0].postMessage({sources: sources}); } }
       if(event.data && event.data.type==='PUSH_ARTICLE'){
         const art = event.data.article;
-        if(isTestArticle(art)){ console.log('[v323 - v297 met account + Alles uit fix + low KV] PUSH_ARTICLE is test, geen auto-enable'); window._lastPushWasTest = true; window._lastPushSource = art.source; setTimeout(()=>{ window._lastPushWasTest=false; }, 10000); return; }
-        // v323 - v297 met account + Alles uit fix + low KV NIEUW: echt artikel via push - highlight
+        if(isTestArticle(art)){ console.log('[v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV] PUSH_ARTICLE is test, geen auto-enable'); window._lastPushWasTest = true; window._lastPushSource = art.source; setTimeout(()=>{ window._lastPushWasTest=false; }, 10000); return; }
+        // v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV NIEUW: echt artikel via push - highlight
         if(art && art.source==='Nieuwsbrief' && !isTestArticle(art)){
-          console.log('[v323 - v297 met account + Alles uit fix + low KV] Nieuwsbrief echt artikel via push, highlight!', art);
+          console.log('[v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV] Nieuwsbrief echt artikel via push, highlight!', art);
           window._lastPushRealArticle = art;
           localStorage.setItem('ommen_highlight_link', art.link);
         }
@@ -530,7 +530,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews; window.highlightAr
       }
       if(event.data && event.data.type==='PUSH_CLICKED'){
         const link = event.data.link || event.data.url;
-        if(link){ console.log('[v323 - v297 met account + Alles uit fix + low KV] PUSH_CLICKED, highlight', link); localStorage.setItem('ommen_highlight_link', link); if(event.data.article){ window._lastPushRealArticle=event.data.article; } }
+        if(link){ console.log('[v324 - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV] PUSH_CLICKED, highlight', link); localStorage.setItem('ommen_highlight_link', link); if(event.data.article){ window._lastPushRealArticle=event.data.article; } }
       }
     });
   }
