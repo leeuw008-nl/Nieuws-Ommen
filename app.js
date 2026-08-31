@@ -1,9 +1,7 @@
-// app.js v306 FINALE - alles op de rit
-// - Base v297 stabiel groen 10/10
-// - Opmaak: NieuwOmmen vet + Nieuwsbrief updates & releases klein (jouw wens)
-// - Gemeente datum+tijd fix v305: overzicht datum + detail pagina tijd (9 maart 2026, 11:25)
-// - Filter blijft open na refresh
-// - Cache fix voor Gemeente
+// app.js v307 - FIX Gemeente titel 2x -> echte beschrijving terug, zoals vroeger
+// Alleen verschil met v306: parseGemeente haalt nu ook echte beschrijving uit detail pagina
+// Opmaak NieuwOmmen vet + Nieuwsbrief updates & releases klein blijft
+// Gemeente datum+tijd fix blijft
 
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
@@ -30,8 +28,7 @@ const BRON_URLS = {
   'Nieuwsbrief': {url:'https://ommen-push-v2.leeuw008.workers.dev/newsletter/feed', homepage:'https://nieuwommen.leeuw008.nl/', type:'nieuwsbrief'},
 };
 
-// v306 version check - clear cache bij nieuwe versie
-(function(){ const v='v306'; if(localStorage.getItem('ommen_app_version')!==v){ localStorage.removeItem('ommen_source_cache_v1'); localStorage.setItem('ommen_app_version', v); console.log('[v306] cache cleared'); } })();
+(function(){ const v='v307'; if(localStorage.getItem('ommen_app_version')!==v){ localStorage.removeItem('ommen_source_cache_v1'); localStorage.setItem('ommen_app_version', v); } })();
 
 function parseGemeenteDateTime(str){
   if(!str) return null;
@@ -45,6 +42,33 @@ function parseGemeenteDateTime(str){
     if(m) return new Date(parseInt(m[1]), parseInt(m[2])-1, parseInt(m[3]), 10,0,0);
   }catch{} return null;
 }
+
+function extractGemeenteDescription(html){
+  try{
+    // Probeer meta description
+    let m = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
+    if(m && m[1].length>20) return m[1].trim().slice(0,200);
+    m = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i);
+    if(m && m[1].length>20) return m[1].trim().slice(0,200);
+    // Probeer eerste paragraaf na h1
+    m = html.match(/<h1[^>]*>[\s\S]*?<\/h1>[\s\S]{0,500}?<p[^>]*>([^<]{20,400})<\/p>/i);
+    if(m){
+      let txt = m[1].replace(/<[^>]*>/g,'').trim();
+      if(txt.length>20) return txt.slice(0,200);
+    }
+    // Probeer article content eerste p
+    m = html.match(/<article[^>]*>[\s\S]*?<p[^>]*>([^<]{20,400})<\/p>/i);
+    if(m){
+      let txt = m[1].replace(/<[^>]*>/g,'').trim();
+      if(txt.length>20) return txt.slice(0,200);
+    }
+    // Fallback: zoek langste p tag
+    const ps = [...html.matchAll(/<p[^>]*>([^<]{30,400})<\/p>/gi)].map(x=>x[1].replace(/<[^>]*>/g,'').trim()).filter(t=>t.length>30 && !t.toLowerCase().includes('cookie') && !t.toLowerCase().includes('gemeente ommen gebruikt'));
+    if(ps.length>0) return ps[0].slice(0,200);
+  }catch{}
+  return null;
+}
+
 function parseGemeenteOverviewWithDate(html){
   const items=[]; const seen=new Set();
   const re = /<a[^>]+href=["']([^"']+\/actueel\/[^"']+)["'][^>]*>([^<]{10,200})<\/a>/gi;
@@ -60,41 +84,48 @@ function parseGemeenteOverviewWithDate(html){
     if(dm) pubDate=parseGemeenteDateTime(dm[1]);
     if(!pubDate){ dm = context.match(/(\d{4}-\d{2}-\d{2})/); if(dm) pubDate=parseGemeenteDateTime(dm[1]); }
     if(!pubDate){ pubDate = new Date(Date.now() - (idx*3+5)*24*60*60*1000); pubDate.setHours(10,0,0,0); }
-    seen.add(link); items.push({title, link, pubDate, description:title+' [...]', _needsDetail:true}); idx++;
+    seen.add(link); items.push({title, link, pubDate, description:null, _needsDetail:true}); idx++;
   }
   return items;
 }
-async function enrichGemeenteWithTime(items, fetchViaWorker){
+
+async function enrichGemeenteWithTimeAndDesc(items, fetchViaWorker){
   const enriched=[];
   for(let i=0; i<items.length; i++){
     const item=items[i];
     try{
       if(i<8){
         const html = await fetchViaWorker(item.link);
+        // datum + tijd
         let match = html.match(/(\d{1,2}\s+[a-z]+\s+\d{4},?\s*\d{1,2}:\d{2})/i) || html.match(/<time[^>]*>([^<]+)<\/time>/i);
         if(match){
           const parsed = parseGemeenteDateTime(match[1]||match[0]);
-          if(parsed){ item.pubDate = parsed; console.log('[v306] Gemeente echte tijd', item.title.slice(0,30), '->', parsed.toLocaleString('nl-NL')); }
+          if(parsed) item.pubDate = parsed;
+        }
+        // v307 FIX: echte beschrijving uit detail pagina, niet titel 2x
+        const realDesc = extractGemeenteDescription(html);
+        if(realDesc){
+          console.log('[v307] Gemeente echte beschrijving gevonden voor', item.title.slice(0,30), '->', realDesc.slice(0,50));
+          item.description = realDesc + ' [...]';
+        } else {
+          console.log('[v307] Gemeente geen beschrijving gevonden, gebruik fallback');
+          item.description = item.title.slice(0,100) + ' - Lees meer op ommen.nl [...]';
         }
         await new Promise(r=>setTimeout(r, 250));
       }
-    }catch(e){}
+      if(!item.description){
+        item.description = item.title.slice(0,100) + ' [...]';
+      }
+    }catch(e){
+      if(!item.description) item.description = item.title.slice(0,100) + ' [...]';
+    }
     enriched.push(item);
   }
   enriched.sort((a,b)=> b.pubDate - a.pubDate);
   return enriched;
 }
 
-function parseNieuwsbriefECHT(json){
-  try{
-    const data = typeof json === 'string' ? JSON.parse(json) : json;
-    const items = data.items || [];
-    return items.map(it=>{
-      let pubDate = new Date(); if(it.pubDate){ const d=new Date(it.pubDate); if(!isNaN(d.getTime())) pubDate=d; }
-      return {title: (it.title||'Nieuwsbrief').slice(0,120), link:it.link||'https://nieuwommen.leeuw008.nl/', pubDate, description:(it.description||it.title||'').slice(0,200)+' [...]', source:'Nieuwsbrief', id:'Nieuwsbrief'};
-    }).slice(0,10);
-  }catch{ return []; }
-}
+function parseNieuwsbriefECHT(json){ try{ const data=typeof json==='string'?JSON.parse(json):json; const items=data.items||[]; return items.map(it=>{ let pd=new Date(); if(it.pubDate){ const d=new Date(it.pubDate); if(!isNaN(d.getTime())) pd=d; } return {title:(it.title||'Nieuwsbrief').slice(0,120), link:it.link||'https://nieuwommen.leeuw008.nl/', pubDate:pd, description:(it.description||it.title||'').slice(0,200)+' [...]', source:'Nieuwsbrief', id:'Nieuwsbrief'}; }).slice(0,10); }catch{ return []; } }
 function parseRSSFull(xml){ const items=[...xml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)].slice(0,25); return items.map(m=>{ const it=m[1]; const title=(it.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i)||[])[1]||''; let link=(it.match(/<link[^>]*>([\s\S]*?)<\/link>/i)||[])[1]||''; link=link.replace(/<!\[CDATA\[|\]\]>/g,'').trim(); if(!link.startsWith('http')){ const mm=it.match(/https?:\/\/[^\s<"]+/); if(mm) link=mm[0]; } const desc=(it.match(/<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i)||[])[1]||''; const pub=(it.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i)||[])[1]||''; let pd=new Date(); if(pub){ const d=new Date(pub); if(!isNaN(d.getTime())) pd=d; } return {title:title.replace(/<[^>]*>/g,'').trim().slice(0,120), link, pubDate:pd, description:desc.replace(/<[^>]*>/g,' ').trim().slice(0,200)+' [...]'}; }).filter(x=>x.link && x.title); }
 
 const GEMEENTE_PLAATSEN = ['Ommen','Lemele','Vilsteren','Beerze','Beerzerveld','Witharen','Archem','Arriën','Arriërveld','Besthmen','Dalmsholte','Eerde','Emsland','Giethmen','Hoogengraven','Junne','Nieuwebrug','Ommerbosch','Ommerkanaal','Ommerschans','Ommerveld','Rotbrink','Stegeren','Stegerveld','Varsen','Vinkenbuurt','Zeesse','Stegeren','Beerzerpoort','Ommerschans'];
@@ -103,48 +134,28 @@ function isGemeenteArtikel(art){ const txt = (art.title + ' ' + (art.description
 
 let state = {}; let allArticles = []; let loadedSources = new Set();
 
-// STYLES - exact van v297 die werkte, inclusief jouw NieuwOmmen groen
-(function injectLedStyles(){
-  const css = `.source-row{position:relative}.source-led{width:12px;height:12px;border-radius:999px;display:block;flex-shrink:0;transition:all .25s}.source-led.loading{background:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,.25);animation:pulse-red 1.2s infinite}.source-led.ok{background:#16a34a;box-shadow:0 0 0 2px rgba(22,163,74,.22)}.source-led.fail{background:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,.2)}.source-led.empty{background:#f59e0b;box-shadow:0 0 0 2px rgba(245,158,11,.2)}@keyframes pulse-red{0%{transform:scale(1);opacity:1}50%{transform:scale(1.25);opacity:.7}100%{transform:scale(1);opacity:1}}.source-meta{display:flex;flex-direction:row;align-items:center;gap:0}.source-meta-text{display:flex;flex-direction:column;min-width:0}.source-led-wrap{display:flex;align-items:center;justify-content:center;width:22px;flex-shrink:0} .source-name{position:relative} .source-name span:first-child{flex:1}
-  .article.highlight{outline:3px solid #16a34a; outline-offset:2px; animation: highlight-pulse 2s ease-in-out;}
-  @keyframes highlight-pulse{0%{outline-color:#16a34a}50%{outline-color:#22c55e; box-shadow:0 0 20px rgba(34,197,94,0.4)}100%{outline-color:#16a34a}}
-  .source-row[data-id="Nieuwsbrief"]{background:linear-gradient(90deg, #f0fdf4 0%, #ffffff 100%); border-left:3px solid #16a34a;}
-  .source-row[data-id="Nieuwsbrief"] .source-name span:first-child{font-weight:800; letter-spacing:-0.02em;}
-  `;
-  const el=document.createElement('style'); el.id='led-status-style-v306'; el.textContent=css; if(!document.getElementById('led-status-style-v306')) document.head.appendChild(el);
+(function injectStyles(){
+  const css = `.source-led{width:12px;height:12px;border-radius:999px;display:block}.source-led.loading{background:#ef4444;animation:pulse-red 1.2s infinite}.source-led.ok{background:#16a34a}.source-led.fail{background:#ef4444}.source-led.empty{background:#f59e0b}@keyframes pulse-red{0%{transform:scale(1)}50%{transform:scale(1.25)}100%{transform:scale(1)}}.source-row[data-id="Nieuwsbrief"]{background:linear-gradient(90deg,#f0fdf4 0%,#fff 100%);border-left:3px solid #16a34a;}.source-row[data-id="Nieuwsbrief"] .source-name span:first-child{font-weight:800;}`;
+  const el=document.createElement('style'); el.id='led-v307'; el.textContent=css; if(!document.getElementById('led-v307')) document.head.appendChild(el);
 })();
-function updateSourceLeds(){
-  try{
-    BRONNEN.forEach(b=>{
-      const led=document.querySelector(`.source-led[data-id="${b.id}"]`); if(!led) return;
-      const realArts = allArticles.filter(a=>a.id===b.id && !a.isFallback);
-      const isLoaded = loadedSources.has(b.id);
-      led.classList.remove('loading','ok','fail','empty');
-      if(!isLoaded){ led.classList.add('loading'); led.style.background='#ef4444'; }
-      else if(realArts.length>0){ led.classList.add('ok'); led.style.background='#16a34a'; }
-      else { led.classList.add('fail'); led.style.background='#ef4444'; }
-    });
-  }catch{}
-}
+function updateSourceLeds(){ BRONNEN.forEach(b=>{ const led=document.querySelector(`.source-led[data-id="${b.id}"]`); if(!led) return; const realArts = allArticles.filter(a=>a.id===b.id && !a.isFallback); const isLoaded = loadedSources.has(b.id); led.className='source-led '+( !isLoaded?'loading' : realArts.length>0?'ok' : 'fail'); }); }
 function loadState(){ try{ const v2=localStorage.getItem('nieuwsommen_bronnen_v2'); if(v2){ let p=JSON.parse(v2); if(Array.isArray(p)){ const ns={}; BRONNEN.forEach(b=>{ ns[b.id]={aan:p.includes(b.id), vandaag:false, scope:'gemeente'}; }); state=ns; } else state=p; BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true,vandaag:false,scope:'gemeente'}; }); } else BRONNEN.forEach(b=> state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); }catch{ BRONNEN.forEach(b=> state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); } }
 function saveState(){ localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state)); updateHiddenCompat(); updateHeaderCount(); }
 function updateHiddenCompat(){ const cont=document.getElementById('compat-sources'); if(!cont) return; cont.innerHTML=''; BRONNEN.forEach(b=>{ const s=state[b.id]||{aan:true}; let cb=document.createElement('input'); cb.type='checkbox'; cb.className='source-filter'; cb.value=b.id; cb.checked=s.aan; cb.dataset.source=b.id; cont.appendChild(cb); cb.dispatchEvent(new Event('change',{bubbles:true})); }); }
 function renderFilters(){
   const list=document.getElementById('source-list'); if(!list) return; list.innerHTML='';
   BRONNEN.forEach(b=>{
-    const s=state[b.id]||{aan:true,vandaag:false,scope:'gemeente'}; const row=document.createElement('div'); row.className='source-row'+(s.aan?'':' off'); row.dataset.id=b.id; const scopeIsGemeente=s.scope==='gemeente'; const allForBron=allArticles.filter(a=>a.id===b.id && !a.isFallback); const loadedCount=allForBron.length; let selectedCount=allForBron.length; if(s.vandaag){ const today=new Date(); selectedCount=allForBron.filter(a=>a.pubDate && isSameDay(a.pubDate,today)).length; } if(s.scope==='gemeente'){ if(s.vandaag){ const today=new Date(); selectedCount=allForBron.filter(a=>a.pubDate && isSameDay(a.pubDate,today) && isGemeenteArtikel(a)).length; } else { selectedCount=allForBron.filter(a=>isGemeenteArtikel(a)).length; } } const isNieuwsbrief=b.id==='Nieuwsbrief'; row.innerHTML=`<div class="source-meta" style="display:flex;flex-direction:row;align-items:center;gap:8px;flex:1;min-width:0;"><div class="source-meta-text" style="display:flex;flex-direction:column;flex:1;min-width:0;"><div class="source-name" style="display:flex;align-items:center;gap:8px;min-width:0;"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${isNieuwsbrief?'📰 ':''}${b.name}</span><span class="led-col" style="width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span class="source-led loading" data-id="${b.id}" title="Laden..." style="width:12px;height:12px;border-radius:999px;background:#ef4444;display:block;"></span></span><span class="count-col" style="font-size:11px;font-weight:700;color:#374151;background:#f3f4f6;padding:2px 7px;border-radius:99px;white-space:nowrap;min-width:52px;text-align:center;flex-shrink:0;">${loadedCount} / ${selectedCount}</span></div><div class="source-sub">${b.sub}</div></div></div><div class="toggles"><div class="toggle-col"><label class="mini-switch vandaag ${s.vandaag?'checked':''}"><input type="checkbox" ${s.vandaag?'checked':''} data-type="vandaag" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${s.vandaag?'VANDAAG':'MEER'}</span></div><div class="toggle-col"><label class="mini-switch ${scopeIsGemeente?'checked':''}" style="background:${scopeIsGemeente?'#0b5bd3':'#7c3aed'}"><input type="checkbox" ${scopeIsGemeente?'checked':''} data-type="scope" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${scopeIsGemeente?'GEMEENTE':'REGIO'}</span></div><div class="toggle-col"><label class="mini-switch aan ${s.aan?'checked':''}"><input type="checkbox" ${s.aan?'checked':''} data-type="aan" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${s.aan?'AAN':'UIT'}</span></div></div>`;
+    const s=state[b.id]||{aan:true,vandaag:false,scope:'gemeente'}; const row=document.createElement('div'); row.className='source-row'+(s.aan?'':' off'); row.dataset.id=b.id; const scopeIsGemeente=s.scope==='gemeente'; const allForBron=allArticles.filter(a=>a.id===b.id && !a.isFallback); const loadedCount=allForBron.length; let selectedCount=allForBron.length; if(s.vandaag){ const today=new Date(); selectedCount=allForBron.filter(a=>a.pubDate && isSameDay(a.pubDate,today)).length; } if(s.scope==='gemeente'){ selectedCount=allForBron.filter(a=>isGemeenteArtikel(a)).length; } const isNieuwsbrief=b.id==='Nieuwsbrief'; row.innerHTML=`<div style="display:flex;align-items:center;gap:8px;flex:1;"><div style="display:flex;flex-direction:column;flex:1;"><div style="display:flex;align-items:center;gap:8px;"><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${isNieuwsbrief?'📰 ':''}${b.name}</span><span class="source-led loading" data-id="${b.id}" style="width:12px;height:12px;border-radius:999px;background:#ef4444;display:block;"></span><span style="font-size:11px;font-weight:700;background:#f3f4f6;padding:2px 7px;border-radius:99px;min-width:52px;text-align:center;">${loadedCount} / ${selectedCount}</span></div><div class="source-sub">${b.sub}</div></div></div><div class="toggles"><div class="toggle-col"><label class="mini-switch ${s.vandaag?'checked':''}"><input type="checkbox" ${s.vandaag?'checked':''} data-type="vandaag" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${s.vandaag?'VANDAAG':'MEER'}</span></div><div class="toggle-col"><label class="mini-switch ${scopeIsGemeente?'checked':''}" style="background:${scopeIsGemeente?'#0b5bd3':'#7c3aed'}"><input type="checkbox" ${scopeIsGemeente?'checked':''} data-type="scope" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${scopeIsGemeente?'GEMEENTE':'REGIO'}</span></div><div class="toggle-col"><label class="mini-switch ${s.aan?'checked':''}"><input type="checkbox" ${s.aan?'checked':''} data-type="aan" data-id="${b.id}"><span class="mini-slider"></span></label><span class="mini-label">${s.aan?'AAN':'UIT'}</span></div></div>`;
     list.appendChild(row);
   });
-  list.querySelectorAll('input').forEach(inp=>{ inp.addEventListener('change',e=>{ const id=e.target.dataset.id; const type=e.target.dataset.type; if(!state[id]) state[id]={aan:true,vandaag:false,scope:'gemeente'}; if(type==='vandaag') state[id].vandaag=e.target.checked; if(type==='scope') state[id].scope=e.target.checked?'gemeente':'regio'; if(type==='aan') state[id].aan=e.target.checked; saveState(); renderFilters(); filterNews(); updateSourceLeds(); }); });
-  setTimeout(()=>updateSourceLeds(),50);
+  list.querySelectorAll('input').forEach(inp=>{ inp.addEventListener('change',e=>{ const id=e.target.dataset.id; const type=e.target.dataset.type; if(!state[id]) state[id]={aan:true,vandaag:false,scope:'gemeente'}; if(type==='vandaag') state[id].vandaag=e.target.checked; if(type==='scope') state[id].scope=e.target.checked?'gemeente':'regio'; if(type==='aan') state[id].aan=e.target.checked; saveState(); renderFilters(); filterNews(); }); });
 }
-function updateHeaderCount(){ const aan=Object.values(state).filter(s=>s.aan).length; const el=document.getElementById('header-count'); if(el) el.textContent=`${loadedSources.size||aan} v/d ${BRONNEN.length} bronnen`; if(loadedSources.size>=BRONNEN.length) el.textContent=`10 v/d 10 bronnen`; }
-function openPanel(){ document.getElementById('filter-header')?.classList.add('open'); document.getElementById('source-panel')?.classList.add('open'); document.body.classList.add('panel-open'); try{ localStorage.setItem('ommen_filter_panel_open','1'); }catch{} }
-function closePanel(){ document.getElementById('filter-header')?.classList.remove('open'); document.getElementById('source-panel')?.classList.remove('open'); document.body.classList.remove('panel-open'); try{ localStorage.setItem('ommen_filter_panel_open','0'); }catch{} }
-// v306 FIX: filter blijft open - default open
+function updateHeaderCount(){ const aan=Object.values(state).filter(s=>s.aan).length; const el=document.getElementById('header-count'); if(el) el.textContent=`${loadedSources.size||aan} v/d ${BRONNEN.length} bronnen`; }
+function openPanel(){ document.getElementById('filter-header')?.classList.add('open'); document.getElementById('source-panel')?.classList.add('open'); }
+function closePanel(){ document.getElementById('filter-header')?.classList.remove('open'); document.getElementById('source-panel')?.classList.remove('open'); }
 function restorePanelState(){ try{ const open=localStorage.getItem('ommen_filter_panel_open'); if(open===null){ openPanel(); return; } if(open==='1') openPanel(); else closePanel(); }catch{ openPanel(); } }
 function resetFilters(){ BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); saveState(); renderFilters(); filterNews(); }
-function setupFilterHeader(){ const fh=document.getElementById('filter-header'); if(!fh) return; fh.addEventListener('click',e=>{ if(e.target.closest('#bell-slot')) return; if(e.target.id==='btn-all' || e.target.closest('#btn-all')){ e.stopPropagation(); const allOn=Object.values(state).every(s=>s.aan); BRONNEN.forEach(b=>state[b.id].aan=!allOn); saveState(); renderFilters(); filterNews(); updateSourceLeds(); return; } const p=document.getElementById('source-panel'); if(p.classList.contains('open')) closePanel(); else openPanel(); }); }
+function setupFilterHeader(){ const fh=document.getElementById('filter-header'); if(!fh) return; fh.addEventListener('click',e=>{ if(e.target.closest('#bell-slot')) return; if(e.target.id==='btn-all' || e.target.closest('#btn-all')){ e.stopPropagation(); const allOn=Object.values(state).every(s=>s.aan); BRONNEN.forEach(b=>state[b.id].aan=!allOn); saveState(); renderFilters(); filterNews(); return; } const p=document.getElementById('source-panel'); if(p.classList.contains('open')) closePanel(); else openPanel(); }); }
 
 const WORKER='https://ommen-push-v2.leeuw008.workers.dev';
 const SOURCE_CACHE_TTL = 1000 * 60 * 5; const SOURCE_CACHE_STALE = 1000 * 60 * 60; const SOURCE_CACHE_KEY = 'ommen_source_cache_v1';
@@ -152,7 +163,7 @@ function getSourceCache(){ try{return JSON.parse(localStorage.getItem(SOURCE_CAC
 function setSourceCache(c){ try{localStorage.setItem(SOURCE_CACHE_KEY, JSON.stringify(c));}catch{}}
 function getCachedSource(u){ const cache=getSourceCache(); const e=cache[u]; if(!e) return null; if(Date.now()-e.ts>SOURCE_CACHE_TTL) return null; return e.data; }
 function getStaleSource(u){ const cache=getSourceCache(); const e=cache[u]; if(!e) return null; if(Date.now()-e.ts>SOURCE_CACHE_STALE) return null; return e.data; }
-function putCachedSource(u,d){ if(!d||d.length<200) return; const c=getSourceCache(); c[u]={data:d, ts:Date.now()}; const k=Object.keys(c); if(k.length>25){ const o=k.sort((a,b)=>c[a].ts-c[b].ts)[0]; delete c[o]; } setSourceCache(c); }
+function putCachedSource(u,d){ if(!d||d.length<200) return; const c=getSourceCache(); c[u]={data:d, ts:Date.now()}; setSourceCache(c); }
 async function fetchViaWorker(url){
   const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(), 6000);
   try{
@@ -169,7 +180,7 @@ async function loadOneSource(b){
   try{
     let arts=[];
     if(b.id==='Nieuwsbrief'){ const j=await fetchViaWorker(cfg.url); arts=parseNieuwsbriefECHT(j); }
-    else if(cfg.type==='gemeente'){ const html=await fetchViaWorker(cfg.url); const overview=parseGemeenteOverviewWithDate(html); console.log('[v306] Gemeente overzicht', overview.length); arts=await enrichGemeenteWithTime(overview, fetchViaWorker); }
+    else if(cfg.type==='gemeente'){ const html=await fetchViaWorker(cfg.url); const overview=parseGemeenteOverviewWithDate(html); arts=await enrichGemeenteWithTimeAndDesc(overview, fetchViaWorker); }
     else { const xml=await fetchViaWorker(cfg.url); arts=parseRSSFull(xml); }
     if(arts.length===0) throw new Error('empty'); return arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
   }catch(e){ return [{title:b.name, link:cfg.homepage, pubDate:new Date(0), description:'Bron tijdelijk offline', source:b.name, id:b.id, isFallback:true}]; }
@@ -185,23 +196,25 @@ function renderArticles(){
   filtered=filtered.sort((a,b)=>b.pubDate-a.pubDate);
   const realCount=filtered.filter(a=>!a.isFallback).length;
   const countHtml=`<div class="articles-count">${realCount} artikelen - ${loadedSources.size} v/d ${BRONNEN.length} bronnen geladen</div>`;
-  if(filtered.length===0){ c.innerHTML=countHtml+'<div class="article">Geen artikelen - zet filter op MEER of REGIO</div>'; return; }
-  c.innerHTML=countHtml+filtered.map(a=>{ const t=a.title.replace(/^\[[^\]]+\]\s*/,'').trim(); if(a.isFallback) return `<div class="article fallback"><h2><a href="${a.link}" target="_blank">${a.source}</a></h2><small>${a.source}</small><div style="margin-top:6px;color:#666;">${a.description}</div></div>`; return `<div class="article" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${t}</a></h2><small>${a.source} - ${formatDate(a.pubDate)}</small><div style="margin-top:6px;color:#555;">${a.description}</div></div>`; }).join('');
+  if(filtered.length===0){ c.innerHTML=countHtml+'<div class="article">Geen artikelen</div>'; return; }
+  c.innerHTML=countHtml+filtered.map(a=>{
+    const t=a.title.replace(/^\[[^\]]+\]\s*/,'').trim();
+    if(a.isFallback) return `<div class="article fallback"><h2><a href="${a.link}" target="_blank">${a.source}</a></h2><small>${a.source}</small><div style="margin-top:6px;color:#666;">${a.description}</div></div>`;
+    return `<div class="article" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${t}</a></h2><small>${a.source} - ${formatDate(a.pubDate)}</small><div style="margin-top:6px;color:#555;">${a.description}</div></div>`;
+  }).join('');
 }
 function filterNews(){ renderArticles(); }
 async function refreshNews(){
-  const c=document.getElementById('news-container'); let hasStale=false; const initial=[];
-  try{ for(const b of BRONNEN){ const cfg=BRON_URLS[b.id]; const cached=getCachedSource(cfg.url)||getStaleSource(cfg.url); if(cached){ try{ let arts=[]; if(b.id==='Nieuwsbrief') arts=parseNieuwsbriefECHT(cached); else if(cfg.type==='gemeente') arts=parseGemeenteOverviewWithDate(cached); else arts=parseRSSFull(cached); if(arts.length>0){ initial.push(...arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}))); hasStale=true; } }catch{} } } }catch{}
-  if(hasStale && initial.length>0){ allArticles=initial; loadedSources=new Set(BRONNEN.map(b=>b.id)); updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds(); }
-  else { if(c) c.innerHTML='<div class="article">Bezig met laden... (10 bronnen) - Gemeente datum+tijd fix v306...</div>'; allArticles=[]; loadedSources=new Set(); updateHeaderCount(); }
+  const c=document.getElementById('news-container'); c.innerHTML='<div class="article">Bezig met laden... Gemeente fix v307 (echte beschrijving)...</div>';
+  allArticles=[]; loadedSources=new Set();
   const results=await Promise.allSettled(BRONNEN.map(async b=>{ const arts=await loadOneSource(b); return {b, arts}; }));
   const fresh=[]; results.forEach(r=>{ if(r.status==='fulfilled'){ const {b, arts}=r.value; if(arts.length>0) fresh.push(...arts); loadedSources.add(b.id); } });
-  if(fresh.length>0) allArticles=fresh; updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds();
+  allArticles=fresh; updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds();
 }
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); restorePanelState(); setupFilterHeader();
   document.getElementById('search-input')?.addEventListener('input', filterNews);
   setTimeout(()=>refreshNews(), 200);
-  console.log('[v306 FINALE] NieuwOmmen opmaak + Gemeente datum+tijd + filter open');
+  console.log('[v307] Gemeente beschrijving fix + NieuwOmmen opmaak');
 });
 window.closePanel=closePanel; window.openPanel=openPanel; window.resetFilters=resetFilters; window.BRONNEN=BRONNEN;
