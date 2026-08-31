@@ -1,4 +1,4 @@
-// app.js v311 - v311 + alle 15 Gemeente echte beschrijving fix (was alleen 8) stabiel + alleen opmaak NieuwOmmen vet + Nieuwsbrief updates & releases klein
+// app.js v312 - v312 + alle 15 Gemeente echte beschrijving fix (was alleen 8) stabiel + alleen opmaak NieuwOmmen vet + Nieuwsbrief updates & releases klein
 // Dit is exact v297 die groen was, met 1 regel gewijzigd op regel 18
 // Was: {id:'Nieuwsbrief', name:'Nieuwsbrief', sub:'updates & releases van NieuwOmmen'}
 // Wordt: {id:'Nieuwsbrief', name:'NieuwOmmen', sub:'Nieuwsbrief updates & releases'}
@@ -147,7 +147,7 @@ async function enrichGemeenteWithTimeAndDesc(items, fetchViaWorker){
   for(let i=0; i<items.length; i++){
     const item=items[i];
     try{
-      if(i<15){ // v311 FIX: was i<8 waardoor oudste 2 geen beschrijving kregen, nu alle 15
+      if(i<15){ // v312 FIX: was i<8 waardoor oudste 2 geen beschrijving kregen, nu alle 15
         const html = await fetchViaWorker(item.link);
         let match = html.match(/(\d{1,2}\s+[a-z]+\s+\d{4},?\s*\d{1,2}:\d{2})/i) || html.match(/<time[^>]*>([^<]+)<\/time>/i);
         if(match){ const parsed=parseGemeenteDateTime(match[1]||match[0]); if(parsed) item.pubDate=parsed; }
@@ -257,7 +257,6 @@ function renderFilters(){
   });
   setTimeout(()=>{ try{ updateSourceLeds(); }catch{} }, 50);
 }
-
 function updateHeaderCount(){
   const aan = Object.values(state).filter(s=>s.aan).length;
   const countEl = document.getElementById('header-count');
@@ -265,77 +264,162 @@ function updateHeaderCount(){
   const btn = document.getElementById('btn-all');
   if(btn){
     btn.classList.remove('all-on','all-off','some-on');
-    if(aan===BRONNEN.length){ btn.classList.add('all-on'); btn.textContent='Alles uit'; }
-    else if(aan===0){ btn.classList.add('all-off'); btn.textContent='Alles aan'; }
+    if(aan===BRONNEN.length){ btn.classList.add('all-on'); btn.textContent='Alles aan'; }
+    else if(aan===0){ btn.classList.add('all-off'); btn.textContent='Alles uit'; }
     else { btn.classList.add('some-on'); btn.textContent='Alles aan/uit'; }
-    console.log('[v311] updateHeaderCount aan=', aan, 'btn=', btn.textContent);
   }
 }
-function setupFilterHeader(){
-  const fh = document.getElementById('filter-header'); if(!fh) return;
-  fh.addEventListener('click', (e)=>{
-    if(e.target.closest('#bell-slot') || e.target.closest('#push-bell-btn') || e.target.closest('#btn-all') || e.target.closest('#user-icon-btn') || e.target.closest('.info-icon-btn') || e.target.closest('.user-icon-btn')) {
-      console.log('[v311] filter-header click ignored for button', e.target.id||e.target.className);
-      return;
-    }
-    const p = document.getElementById('source-panel'); if(p.classList.contains('open')) closePanel(); else openPanel();
-  });
-}
+
 function setupAllButtonsDirect(){
-  // DIRECT binding voor btn-all - niet via delegation
+  // Alles aan/uit direct binden
   const btnAll = document.getElementById('btn-all');
   if(btnAll){
-    btnAll.style.pointerEvents='auto';
-    btnAll.style.position='relative';
-    btnAll.style.zIndex='20';
-    // Verwijder oude listeners door clone
+    // clone om oude listeners te verwijderen
     const newBtn = btnAll.cloneNode(true);
+    newBtn.style.pointerEvents='auto'; newBtn.style.zIndex='20';
     btnAll.parentNode.replaceChild(newBtn, btnAll);
     newBtn.addEventListener('click', (e)=>{
       e.stopPropagation(); e.preventDefault();
       const allOn = Object.values(state).every(s=>s.aan);
-      console.log('[v311] DIRECT btn-all clicked! allOn=', allOn, 'state before', JSON.stringify(state).slice(0,200));
+      console.log('[v312] btn-all clicked allOn=', allOn);
       BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true,vandaag:false,scope:'gemeente'}; state[b.id].aan = !allOn; });
-      saveState(); renderFilters(); filterNews(); updateSourceLeds(); setupAllButtonsDirect(); // re-bind na render
-      console.log('[v311] after toggle allOn should be', !allOn);
+      saveState(); renderFilters(); filterNews(); updateSourceLeds(); 
+      setTimeout(()=>setupAllButtonsDirect(), 100);
     });
-    console.log('[v311] btn-all direct bound');
   }
-  
-  // DIRECT binding voor account button
+  // Account button direct binden
   const accBtn = document.getElementById('user-icon-btn');
   if(accBtn){
-    accBtn.style.pointerEvents='auto';
-    accBtn.style.position='relative';
-    accBtn.style.zIndex='30';
-    accBtn.style.cursor='pointer';
-    accBtn.style.display='inline-flex';
     const newAcc = accBtn.cloneNode(true);
+    newAcc.style.pointerEvents='auto'; newAcc.style.zIndex='30'; newAcc.style.cursor='pointer';
     accBtn.parentNode.replaceChild(newAcc, accBtn);
-    newAcc.style.pointerEvents='auto';
-    newAcc.style.zIndex='30';
     newAcc.addEventListener('click', (e)=>{
       e.stopPropagation(); e.preventDefault();
-      console.log('[v311] DIRECT account button clicked!');
-      alert('[v311] Account knopje werkt! (test) - originele functie wordt nu geprobeerd');
-      if(window.openUserPanel) { window.openUserPanel(); return; }
-      if(window.openAccountModal) { window.openAccountModal(); return; }
-      // Probeer push account modal
-      if(typeof window.showPushSettings === 'function'){ window.showPushSettings(); return; }
-      // Fallback naar informatie.html om te testen of navigatie werkt
-      window.location.href = 'informatie.html';
+      console.log('[v312] account button clicked');
+      if(window.openUserPanel) return window.openUserPanel();
+      if(window.openAccountModal) return window.openAccountModal();
+      alert('Account knopje werkt! (v312 test) - originele functie niet gevonden');
     });
-    const svg = newAcc.querySelector('svg'); if(svg){ svg.style.pointerEvents='none'; }
-    console.log('[v311] account button direct bound, visible?', newAcc.offsetParent!==null, 'rect', newAcc.getBoundingClientRect());
-  } else {
-    console.warn('[v311] user-icon-btn NOT FOUND in DOM!');
-  }
-  
-  // Info button check
-  const infoBtn = document.querySelector('.info-icon-btn');
-  if(infoBtn){
-    console.log('[v311] info button found', infoBtn.href);
+    const svg = newAcc.querySelector('svg'); if(svg) svg.style.pointerEvents='none';
   }
 }
 
-
+function openPanel(){ document.getElementById('filter-header')?.classList.add('open'); document.getElementById('source-panel')?.classList.add('open'); document.body.classList.add('panel-open'); try{ localStorage.setItem('ommen_filter_panel_open','1'); }catch{} }
+function closePanel(){ document.getElementById('filter-header')?.classList.remove('open'); document.getElementById('source-panel')?.classList.remove('open'); document.body.classList.remove('panel-open'); try{ localStorage.setItem('ommen_filter_panel_open','0'); }catch{} }
+function restorePanelState(){ try{ const open = localStorage.getItem('ommen_filter_panel_open'); if(open==='1'){ openPanel(); } else { closePanel(); } }catch{ closePanel(); } }
+function resetFilters(){ BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,scope:'gemeente'}); saveState(); renderFilters(); filterNews(); }
+function setupFilterHeader(){
+  const fh = document.getElementById('filter-header'); if(!fh) return;
+  fh.addEventListener('click', (e)=>{
+    if(e.target.closest('#bell-slot') || e.target.closest('#push-bell-btn')) return;
+    if(e.target.id==='btn-all' || e.target.closest('#btn-all')){
+      e.stopPropagation(); const allOn = Object.values(state).every(s=>s.aan); BRONNEN.forEach(b=>state[b.id].aan = !allOn); saveState(); renderFilters(); filterNews(); updateSourceLeds(); return;
+    }
+    const p = document.getElementById('source-panel'); if(p.classList.contains('open')) closePanel(); else openPanel();
+  });
+}
+const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
+const SOURCE_CACHE_TTL = 1000 * 60 * 5; const SOURCE_CACHE_STALE = 1000 * 60 * 60; const SOURCE_CACHE_KEY = 'ommen_source_cache_v1';
+function getSourceCache(){ try{return JSON.parse(localStorage.getItem(SOURCE_CACHE_KEY)||'{}');}catch{return {};}}
+function setSourceCache(cache){ try{localStorage.setItem(SOURCE_CACHE_KEY, JSON.stringify(cache));}catch{}}
+function getCachedSource(url){ const cache=getSourceCache(); const entry=cache[url]; if(!entry) return null; if(Date.now() - entry.ts > SOURCE_CACHE_TTL) return null; return entry.data; }
+function getStaleSource(url){ const cache=getSourceCache(); const entry=cache[url]; if(!entry) return null; if(Date.now() - entry.ts > SOURCE_CACHE_STALE) return null; return entry.data; }
+function putCachedSource(url, data){ if(!data || data.length<200) return; const cache=getSourceCache(); cache[url]={data, ts:Date.now()}; const keys=Object.keys(cache); if(keys.length>25){ const oldest=keys.sort((a,b)=>cache[a].ts-cache[b].ts)[0]; delete cache[oldest]; } setSourceCache(cache); }
+async function fetchViaWorker(url){
+  const controller = new AbortController(); const to = setTimeout(()=>controller.abort(), 6000);
+  try{
+    const r = await fetch(`${WORKER}/proxy?url=${encodeURIComponent(url)}&t=${Date.now()}`, {cache:'no-store', signal:controller.signal});
+    clearTimeout(to); if(!r.ok) throw new Error('proxy fail '+r.status); const t = await r.text();
+    if(t.length<150) throw new Error('proxy empty len '+t.length); if(t.includes('Proxy blocked')||t.includes('Proxy error')||t.startsWith('Proxy err')) throw new Error(t.slice(0,200)); if(t.includes('<title>Just a moment</title>')||t.includes('Attention Required')) throw new Error('cf challenge'); putCachedSource(url, t); return t;
+  }catch(e1){
+    clearTimeout(to);
+    if(url.includes('/newsletter/feed')){
+      try{ const r2 = await fetch(url, {cache:'no-store'}); if(r2.ok){ const t2 = await r2.text(); if(t2.length>10){ putCachedSource(url, t2); return t2; } } }catch{}
+    }
+    try{ const r2 = await fetch(url, {cache:'no-store', headers:{'Accept':'text/html'}}); if(r2.ok){ const t2 = await r2.text(); if(t2.length>500){ putCachedSource(url, t2); return t2; } } }catch(e2){}
+    try{
+      const ctrl2=new AbortController(); const to2=setTimeout(()=>ctrl2.abort(), 5000);
+      const fallbackUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&t=${Date.now()}`;
+      const r2 = await fetch(fallbackUrl, {cache:'no-store', signal:ctrl2.signal}); clearTimeout(to2);
+      if(r2.ok){ const j = await r2.json(); if(j.contents && j.contents.length>200) { putCachedSource(url, j.contents); return j.contents; } }
+    }catch(e3){}
+    throw e1;
+  }
+}
+async function loadOneSource(b){
+  const cfg=BRON_URLS[b.id]; if(!cfg) throw new Error('no cfg '+b.id);
+  try{
+    let arts=[];
+    if(b.id==='Nieuwsbrief'){ const json=await fetchViaWorker(cfg.url); arts=parseNieuwsbriefECHT(json); }
+    else if(cfg.type==='gemeente'){ const html=await fetchViaWorker(cfg.url); const overview=parseGemeenteOverviewWithDate(html); arts=await enrichGemeenteWithTimeAndDesc(overview, fetchViaWorker); }
+    else if(cfg.type==='oost'){ const html=await fetchViaWorker(cfg.url); arts=parseRTVOostECHT(html); }
+    else if(b.id==='RTV Vechtdal'){ try{ const html=await fetchViaWorker(cfg.url); arts=parseRTVVechtdalECHT(html); }catch{} if(arts.length===0){ const xml=await fetchViaWorker(cfg.url); arts=parseRSSFull(xml,b.id); } }
+    else if(b.id==='Vechtdal Centraal'){
+      try{ const xml=await fetchViaWorker(cfg.url); arts=parseRSSFull(xml,b.id); if(arts.length===0 && cfg.fallback){ const html2=await fetchViaWorker(cfg.fallback); arts=parseVechtdalCentraalECHT(html2); } }
+      catch(e){ if(cfg.fallback){ const html2=await fetchViaWorker(cfg.fallback); arts=parseVechtdalCentraalECHT(html2); } else throw e; }
+    } else { const xml=await fetchViaWorker(cfg.url); arts=parseRSSFull(xml,b.id); }
+    if(arts.length===0) throw new Error('empty'); return arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
+  }catch(e){ return [{title:b.name, link:cfg.homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - homepage [...]', source:b.name, id:b.id, isFallback:true}]; }
+}
+function isSameDay(d1,d2){ if(!d1 || !d2 || isNaN(d1.getTime()) || isNaN(d2.getTime())) return false; return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate(); }
+function formatDate(d, sourceId){ if(!d || isNaN(d.getTime()) || d.getTime()===0) return ''; const dateStr = d.toLocaleDateString('nl-NL',{day:'numeric', month:'short'}); if(d.getHours()===0 && d.getMinutes()===0 && d.getSeconds()===0){ return dateStr; } const timeStr = d.toLocaleTimeString('nl-NL',{hour:'2-digit', minute:'2-digit'}); return `${dateStr} ${timeStr}`; }
+function highlightArticleByLink(link){
+  try{
+    const container=document.getElementById('news-container'); if(!container) return;
+    setTimeout(()=>{
+      const articles = container.querySelectorAll('.article');
+      for(const el of articles){
+        const a = el.querySelector('a'); if(a && a.href && link && (a.href===link || link.includes(a.href) || a.href.includes(link) || el.dataset.link===link)){
+          el.classList.add('highlight'); el.scrollIntoView({behavior:'smooth', block:'center'}); setTimeout(()=>{ el.classList.remove('highlight'); }, 5000); break;
+        }
+      }
+      if(window._lastPushRealArticle && window._lastPushRealArticle.link===link){
+        const art = window._lastPushRealArticle; const div=document.createElement('div'); div.className='article highlight'; div.innerHTML=`<h2><a href="${art.link}" target="_blank">${art.title}</a> <span style="background:#16a34a;color:white;padding:2px 6px;border-radius:4px;font-size:11px">NIEUW via push</span></h2><small>${art.source} - zojuist</small><div style="margin-top:6px;color:#555;">${art.description||art.title}</div>`; container.prepend(div); div.scrollIntoView({behavior:'smooth', block:'center'}); setTimeout(()=>{ div.classList.remove('highlight'); }, 5000);
+      }
+    }, 500);
+  }catch(e){}
+}
+function renderArticles(){
+  const container=document.getElementById('news-container'); if(!container) return;
+  const search = (document.getElementById('search-input')?.value||'').toLowerCase();
+  const today = new Date();
+  let filtered = allArticles.filter(a=>{ const s=state[a.id]; if(!s || !s.aan) return false; if(isTestArticle(a)) return false; if(s.vandaag){ if(a.isFallback) return false; if(!a.pubDate || isNaN(a.pubDate.getTime())) return false; if(!isSameDay(a.pubDate, today)) return false; } if(s.scope==='gemeente'){ if(!isGemeenteArtikel(a)) return false; } return true; });
+  if(search) filtered = filtered.filter(a=> (a.title+' '+a.description+' '+a.source).toLowerCase().includes(search));
+  filtered = filtered.sort((a,b)=>b.pubDate - a.pubDate);
+  const realCount = filtered.filter(a=>!a.isFallback).length; const vandaagActive = Object.values(state).some(s=>s.aan && s.vandaag); const gemeenteActive = Object.values(state).some(s=>s.aan && s.scope==='gemeente'); let filterLabel = ''; if(vandaagActive) filterLabel += ' (alleen vandaag)'; if(gemeenteActive) filterLabel += vandaagActive ? ' + gemeente' : ' (alleen gemeente Ommen)'; const countHtml = `<div class="articles-count">${realCount} artikelen${filterLabel} - ${loadedSources.size} v/d ${BRONNEN.length} bronnen geladen</div>`;
+  if(filtered.length===0){ if(vandaagActive || gemeenteActive) container.innerHTML = countHtml + '<div class="article" style="color:#666;padding:20px;text-align:center;">Geen artikelen gevonden met dit filter.<br>Zet op REGIO of MEER om meer te zien.</div>'; else container.innerHTML = countHtml + '<div class="article">Geen artikelen</div>'; return; }
+  const highlightLink = localStorage.getItem('ommen_highlight_link');
+  const html = filtered.map(a=>{
+    const cleanTitle = a.title.replace(/^\[[^\]]+\]\s*/,'').trim() || a.title;
+    const isHighlighted = highlightLink && a.link===highlightLink;
+    if(a.isFallback){ return `<div class="article fallback ${isHighlighted?'highlight':''}" data-source="${a.id}" data-link="${a.link}"><h2><a href="${a.link}" target="_blank">${a.source}</a></h2><small>${a.source}${a.pubDate.getTime()?` - ${formatDate(a.pubDate, a.id)}`:''}</small><div style="margin-top:6px;color:#666;">${a.description}</div></div>`; }
+    return `<div class="article ${isHighlighted?'highlight':''}" data-source="${a.id}" data-link="${a.link}"><h2><a href="${a.link}" target="_blank">${cleanTitle}</a></h2><small>${a.source} - ${formatDate(a.pubDate, a.id)}</small>${a.description?`<div style="margin-top:6px;color:#555;">${a.description}</div>`:''}</div>`;
+  }).join('');
+  container.innerHTML = countHtml + html;
+  if(highlightLink){ setTimeout(()=>{ localStorage.removeItem('ommen_highlight_link'); }, 5000); }
+  window.getAllArticles = ()=> filtered;
+  try{ if(typeof updateSourceLeds==='function') setTimeout(()=>updateSourceLeds(), 20); }catch{}
+}
+function filterNews(){ renderArticles(); }
+async function refreshNews(){
+  const c=document.getElementById('news-container'); let hasStale=false; const initialArts=[];
+  try{ for(const b of BRONNEN){ const cfg=BRON_URLS[b.id]; const cachedData=getCachedSource(cfg.url) || getStaleSource(cfg.url); if(cachedData){ try{ let arts=[]; if(b.id==='Nieuwsbrief'){ arts=parseNieuwsbriefECHT(cachedData); } else if(cfg.type==='gemeente') arts=parseGemeenteOverview(cachedData); else if(cfg.type==='oost') arts=parseRTVOostECHT(cachedData); else if(b.id==='RTV Vechtdal'){ try{ arts=parseRTVVechtdalECHT(cachedData); }catch{} if(arts.length===0) arts=parseRSSFull(cachedData,b.id); } else if(b.id==='Vechtdal Centraal'){ if(cachedData.includes('<rss')||cachedData.includes('<item')) arts=parseRSSFull(cachedData,b.id); else arts=parseVechtdalCentraalECHT(cachedData); } else arts=parseRSSFull(cachedData,b.id); if(arts.length>0){ initialArts.push(...arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}))); hasStale=true; } }catch(e){} } } }catch(e){}
+  if(hasStale && initialArts.length>0){ allArticles=initialArts; loadedSources=new Set(BRONNEN.map(b=>b.id)); updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds(); if(c) c.querySelector('.articles-count')?.insertAdjacentHTML('afterend', '<div style="font-size:11px;color:#16a34a;padding:0 2px 6px">⚡ Uit cache - wordt ververst...</div>'); }
+  else { if(c) c.innerHTML='<div class="article">Bezig met laden... (10 bronnen) - eerste keer iets langer, daarna <1 sec</div>'; allArticles=[]; loadedSources=new Set(); updateHeaderCount(); }
+  const loadWithTimeout = async (b) => { try { const timeout = new Promise((_,rej)=> setTimeout(()=>rej(new Error('timeout '+b.id)), 8000)); const arts = await Promise.race([loadOneSource(b), timeout]); return {b, arts}; } catch(e){ if(hasStale) return {b, arts:[]}; return {b, arts:[{title:b.name, link:BRON_URLS[b.id].homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - '+e.message.slice(0,80)+' [...]', source:b.name, id:b.id, isFallback:true}]}; } };
+  const results = await Promise.allSettled(BRONNEN.map(b=>loadWithTimeout(b))); const freshArts=[]; results.forEach(r=>{ if(r.status==='fulfilled'){ const {b, arts}=r.value; if(arts.length>0) freshArts.push(...arts); loadedSources.add(b.id); } }); if(freshArts.length>0) allArticles=freshArts; updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds();
+}
+document.addEventListener('DOMContentLoaded', ()=>{
+  loadState(); renderFilters(); saveState(); restorePanelState(); setupFilterHeader(); setupAllButtonsDirect();
+  setTimeout(()=>setupAllButtonsDirect(), 1000);
+  document.getElementById('search-input')?.addEventListener('input', filterNews);
+  const urlParams = new URLSearchParams(window.location.search); const highlightParam = urlParams.get('highlight') || urlParams.get('link'); if(highlightParam){ localStorage.setItem('ommen_highlight_link', highlightParam); }
+  setTimeout(()=>refreshNews(), 200);
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.addEventListener('message', event=>{
+      if(event.data && event.data.type==='PUSH_CLICKED'){ const link = event.data.link || event.data.url; if(link){ localStorage.setItem('ommen_highlight_link', link); window._lastPushRealArticle = event.data.article || null; highlightArticleByLink(link); } }
+    });
+  }
+});
+window.closePanel=closePanel; window.resetFilters=resetFilters; window.BRONNEN=BRONNEN; window.getAppState=()=>state;
+window.filterNews=filterNews; window.refreshNews=refreshNews; window.highlightArticleByLink=highlightArticleByLink;
