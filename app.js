@@ -1,4 +1,4 @@
-// app.js v321 - v319 Alles uit goed + gemeente fix compleet (date, desc helpers) - v297b + alleen Alles uit fix (3 regels) zonder andere dingen te breken - rollback stabiel + alleen opmaak NieuwOmmen vet + Nieuwsbrief updates & releases klein
+// app.js v322 - v321 + account terug + gemeente zonder KV storm (free tier) - v297b + alleen Alles uit fix (3 regels) zonder andere dingen te breken - rollback stabiel + alleen opmaak NieuwOmmen vet + Nieuwsbrief updates & releases klein
 // Dit is exact v297 die groen was, met 1 regel gewijzigd op regel 18
 // Was: {id:'Nieuwsbrief', name:'Nieuwsbrief', sub:'updates & releases van NieuwOmmen'}
 // Wordt: {id:'Nieuwsbrief', name:'NieuwOmmen', sub:'Nieuwsbrief updates & releases'}
@@ -140,7 +140,7 @@ function updateSourceLeds(){
 function loadState(){
   try{
     const raw = JSON.parse(localStorage.getItem('nieuwsommen_bronnen_v2')||'{}');
-    // v321 - v319 Alles uit goed + gemeente fix compleet (date, desc helpers) FIX: alleen echte bronnen, negeer __pushEnabled, pushEnabled, etc die push.js erin zet
+    // v322 - v321 + account terug + gemeente zonder KV storm (free tier) FIX: alleen echte bronnen, negeer __pushEnabled, pushEnabled, etc die push.js erin zet
     if(Array.isArray(raw)){
       const newState={}; BRONNEN.forEach(b=>{ newState[b.id]={aan: raw.includes(b.id), vandaag:false, scope:'gemeente'}; }); state=newState;
     } else {
@@ -203,7 +203,7 @@ function renderFilters(){
   setTimeout(()=>{ try{ updateSourceLeds(); }catch{} }, 50);
 }
 function updateHeaderCount(){
-  const aan = BRONNEN.map(b=>state[b.id]).filter(s=>s && s.aan).length; // v321 - v319 Alles uit goed + gemeente fix compleet (date, desc helpers) FIX: alleen bronnen
+  const aan = BRONNEN.map(b=>state[b.id]).filter(s=>s && s.aan).length; // v322 - v321 + account terug + gemeente zonder KV storm (free tier) FIX: alleen bronnen
   const countEl = document.getElementById('header-count');
   if(countEl){ countEl.textContent = `${loadedSources.size || aan} v/d ${BRONNEN.length} bronnen`; if(loadedSources.size>=BRONNEN.length) countEl.textContent = `10 v/d 10 bronnen`; }
   const btn = document.getElementById('btn-all');
@@ -223,7 +223,7 @@ function setupFilterHeader(){
   fh.addEventListener('click', (e)=>{
     if(e.target.closest('#bell-slot') || e.target.closest('#push-bell-btn')) return;
     if(e.target.id==='btn-all' || e.target.closest('#btn-all')){
-      e.stopPropagation(); const bronStates=BRONNEN.map(b=>state[b.id]).filter(Boolean); const allOn=bronStates.length>0 && bronStates.every(s=>s.aan); console.log('[v321 - v319 Alles uit goed + gemeente fix compleet (date, desc helpers)] Alles toggle allOn',allOn); BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true,vandaag:false,scope:'gemeente'}; state[b.id].aan=!allOn; }); saveState(); renderFilters(); filterNews(); updateSourceLeds(); return;
+      e.stopPropagation(); const bronStates=BRONNEN.map(b=>state[b.id]).filter(Boolean); const allOn=bronStates.length>0 && bronStates.every(s=>s.aan); console.log('[v322 - v321 + account terug + gemeente zonder KV storm (free tier)] Alles toggle allOn',allOn); BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true,vandaag:false,scope:'gemeente'}; state[b.id].aan=!allOn; }); saveState(); renderFilters(); filterNews(); updateSourceLeds(); return;
     }
     const p = document.getElementById('source-panel'); if(p.classList.contains('open')) closePanel(); else openPanel();
   });
@@ -303,20 +303,14 @@ function parseGemeenteOverviewWithDate(html){
 }
 
 async function enrichGemeenteWithTimeAndDesc(items, fetchViaWorker){
+  // v322 FIX: geen 15 extra Worker fetches meer (veroorzaakte KV 429 en "Bron tijdelijk offline")
+  // Gebruik alleen overview data, met echte beschrijving = titel + lees meer, geen 2x titel
   const enriched=[];
   for(let i=0; i<items.length; i++){
     const item=items[i];
-    try{
-      if(i<15){ // v309 FIX: was i<8 waardoor oudste 2 geen beschrijving kregen, nu alle 15
-        const html = await fetchViaWorker(item.link);
-        let match = html.match(/(\d{1,2}\s+[a-z]+\s+\d{4},?\s*\d{1,2}:\d{2})/i) || html.match(/<time[^>]*>([^<]+)<\/time>/i);
-        if(match){ const parsed=parseGemeenteDateTime(match[1]||match[0]); if(parsed) item.pubDate=parsed; }
-        const realDesc=extractGemeenteDescription(html);
-        if(realDesc) item.description=realDesc+' [...]'; else item.description=item.title.slice(0,100)+' - Lees meer op ommen.nl [...]';
-        await new Promise(r=>setTimeout(r,200));
-      }
-      if(!item.description) item.description=item.title.slice(0,100)+' [...]';
-    }catch{ if(!item.description) item.description=item.title.slice(0,100)+' [...]'; }
+    if(!item.description || item.description===item.title+' [...]'){
+      item.description=item.title.slice(0,150)+' - Lees meer op ommen.nl [...]';
+    }
     enriched.push(item);
   }
   enriched.sort((a,b)=> b.pubDate - a.pubDate);
@@ -381,7 +375,7 @@ function renderArticles(){
 function filterNews(){ renderArticles(); }
 async function refreshNews(){
   const c=document.getElementById('news-container'); let hasStale=false; const initialArts=[];
-  try{ for(const b of BRONNEN){ const cfg=BRON_URLS[b.id]; const cachedData=getCachedSource(cfg.url) || getStaleSource(cfg.url); if(cachedData){ try{ let arts=[]; if(b.id==='Nieuwsbrief'){ arts=parseNieuwsbriefECHT(cachedData); } else if(cfg.type==='gemeente') arts=parseGemeenteOverview(cachedData); else if(cfg.type==='oost') arts=parseRTVOostECHT(cachedData); else if(b.id==='RTV Vechtdal'){ try{ arts=parseRTVVechtdalECHT(cachedData); }catch{} if(arts.length===0) arts=parseRSSFull(cachedData,b.id); } else if(b.id==='Vechtdal Centraal'){ if(cachedData.includes('<rss')||cachedData.includes('<item')) arts=parseRSSFull(cachedData,b.id); else arts=parseVechtdalCentraalECHT(cachedData); } else arts=parseRSSFull(cachedData,b.id); if(arts.length>0){ initialArts.push(...arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}))); hasStale=true; } }catch(e){} } } }catch(e){}
+  try{ for(const b of BRONNEN){ const cfg=BRON_URLS[b.id]; const cachedData=getCachedSource(cfg.url) || getStaleSource(cfg.url); if(cachedData){ try{ let arts=[]; if(b.id==='Nieuwsbrief'){ arts=parseNieuwsbriefECHT(cachedData); } else if(cfg.type==='gemeente') arts=parseGemeenteOverviewWithDate(cachedData); // v322 FIX: gebruik WithDate, niet oude else if(cfg.type==='oost') arts=parseRTVOostECHT(cachedData); else if(b.id==='RTV Vechtdal'){ try{ arts=parseRTVVechtdalECHT(cachedData); }catch{} if(arts.length===0) arts=parseRSSFull(cachedData,b.id); } else if(b.id==='Vechtdal Centraal'){ if(cachedData.includes('<rss')||cachedData.includes('<item')) arts=parseRSSFull(cachedData,b.id); else arts=parseVechtdalCentraalECHT(cachedData); } else arts=parseRSSFull(cachedData,b.id); if(arts.length>0){ initialArts.push(...arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}))); hasStale=true; } }catch(e){} } } }catch(e){}
   if(hasStale && initialArts.length>0){ allArticles=initialArts; loadedSources=new Set(BRONNEN.map(b=>b.id)); updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds(); if(c) c.querySelector('.articles-count')?.insertAdjacentHTML('afterend', '<div style="font-size:11px;color:#16a34a;padding:0 2px 6px">⚡ Uit cache - wordt ververst...</div>'); }
   else { if(c) c.innerHTML='<div class="article">Bezig met laden... (10 bronnen) - eerste keer iets langer, daarna <1 sec</div>'; allArticles=[]; loadedSources=new Set(); updateHeaderCount(); }
   const loadWithTimeout = async (b) => { try { const timeout = new Promise((_,rej)=> setTimeout(()=>rej(new Error('timeout '+b.id)), 8000)); const arts = await Promise.race([loadOneSource(b), timeout]); return {b, arts}; } catch(e){ if(hasStale) return {b, arts:[]}; return {b, arts:[{title:b.name, link:BRON_URLS[b.id].homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - '+e.message.slice(0,80)+' [...]', source:b.name, id:b.id, isFallback:true}]}; } };
@@ -398,5 +392,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   }
 });
+
+
+
+
 window.closePanel=closePanel; window.resetFilters=resetFilters; window.BRONNEN=BRONNEN; window.getAppState=()=>state;
 window.filterNews=filterNews; window.refreshNews=refreshNews; window.highlightArticleByLink=highlightArticleByLink;
