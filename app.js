@@ -1,4 +1,4 @@
-// app.js v312 - v312 + alle 15 Gemeente echte beschrijving fix (was alleen 8) stabiel + alleen opmaak NieuwOmmen vet + Nieuwsbrief updates & releases klein
+// app.js v313 - v313 + alle 15 Gemeente echte beschrijving fix (was alleen 8) stabiel + alleen opmaak NieuwOmmen vet + Nieuwsbrief updates & releases klein
 // Dit is exact v297 die groen was, met 1 regel gewijzigd op regel 18
 // Was: {id:'Nieuwsbrief', name:'Nieuwsbrief', sub:'updates & releases van NieuwOmmen'}
 // Wordt: {id:'Nieuwsbrief', name:'NieuwOmmen', sub:'Nieuwsbrief updates & releases'}
@@ -147,7 +147,7 @@ async function enrichGemeenteWithTimeAndDesc(items, fetchViaWorker){
   for(let i=0; i<items.length; i++){
     const item=items[i];
     try{
-      if(i<15){ // v312 FIX: was i<8 waardoor oudste 2 geen beschrijving kregen, nu alle 15
+      if(i<15){ // v313 FIX: was i<8 waardoor oudste 2 geen beschrijving kregen, nu alle 15
         const html = await fetchViaWorker(item.link);
         let match = html.match(/(\d{1,2}\s+[a-z]+\s+\d{4},?\s*\d{1,2}:\d{2})/i) || html.match(/<time[^>]*>([^<]+)<\/time>/i);
         if(match){ const parsed=parseGemeenteDateTime(match[1]||match[0]); if(parsed) item.pubDate=parsed; }
@@ -258,7 +258,7 @@ function renderFilters(){
   setTimeout(()=>{ try{ updateSourceLeds(); }catch{} }, 50);
 }
 function updateHeaderCount(){
-  const aan = Object.values(state).filter(s=>s.aan).length;
+  const aan = BRONNEN.map(b=>state[b.id]).filter(s=>s && s.aan).length;
   const countEl = document.getElementById('header-count');
   if(countEl){ countEl.textContent = `${loadedSources.size || aan} v/d ${BRONNEN.length} bronnen`; if(loadedSources.size>=BRONNEN.length) countEl.textContent = `10 v/d 10 bronnen`; }
   const btn = document.getElementById('btn-all');
@@ -280,25 +280,44 @@ function setupAllButtonsDirect(){
     btnAll.parentNode.replaceChild(newBtn, btnAll);
     newBtn.addEventListener('click', (e)=>{
       e.stopPropagation(); e.preventDefault();
-      const allOn = Object.values(state).every(s=>s.aan);
-      console.log('[v312] btn-all clicked allOn=', allOn);
+      const bronStates = BRONNEN.map(b=>state[b.id]).filter(Boolean); const allOn = bronStates.length>0 && bronStates.every(s=>s.aan);
+      console.log('[v313] btn-all clicked allOn=', allOn);
       BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true,vandaag:false,scope:'gemeente'}; state[b.id].aan = !allOn; });
       saveState(); renderFilters(); filterNews(); updateSourceLeds(); 
       setTimeout(()=>setupAllButtonsDirect(), 100);
     });
   }
-  // Account button direct binden
-  const accBtn = document.getElementById('user-icon-btn');
+const accBtn = document.getElementById('user-icon-btn');
   if(accBtn){
     const newAcc = accBtn.cloneNode(true);
     newAcc.style.pointerEvents='auto'; newAcc.style.zIndex='30'; newAcc.style.cursor='pointer';
     accBtn.parentNode.replaceChild(newAcc, accBtn);
     newAcc.addEventListener('click', (e)=>{
       e.stopPropagation(); e.preventDefault();
-      console.log('[v312] account button clicked');
+      console.log('[v313] account button clicked, state keys', Object.keys(state));
+      // Zoek naar bestaande account modal / login elementen
+      const loginModal = document.getElementById('login-modal') || document.getElementById('account-modal') || document.querySelector('.account-modal') || document.querySelector('[data-account-modal]');
+      if(loginModal){
+        loginModal.style.display='block'; loginModal.classList.add('open');
+        console.log('[v313] found modal', loginModal.id);
+        return;
+      }
       if(window.openUserPanel) return window.openUserPanel();
       if(window.openAccountModal) return window.openAccountModal();
-      alert('Account knopje werkt! (v312 test) - originele functie niet gevonden');
+      if(window.showLogin) return window.showLogin();
+      // Fallback: ga naar informatie pagina waar login staat?
+      // Laat user zien dat knop werkt, maar vraag wat het moet doen
+      const hasPush = !!document.getElementById('push-bell-btn');
+      alert('Account knopje is nu wel klikbaar! (v313)
+
+Wat moet dit knopje doen?
+- Inloggen?
+- Profiel?
+- Push instellingen?
+
+Laat het me weten, dan koppel ik de echte functie.
+
+Push bell gevonden: ' + hasPush);
     });
     const svg = newAcc.querySelector('svg'); if(svg) svg.style.pointerEvents='none';
   }
@@ -313,7 +332,7 @@ function setupFilterHeader(){
   fh.addEventListener('click', (e)=>{
     if(e.target.closest('#bell-slot') || e.target.closest('#push-bell-btn')) return;
     if(e.target.id==='btn-all' || e.target.closest('#btn-all')){
-      e.stopPropagation(); const allOn = Object.values(state).every(s=>s.aan); BRONNEN.forEach(b=>state[b.id].aan = !allOn); saveState(); renderFilters(); filterNews(); updateSourceLeds(); return;
+      e.stopPropagation(); const bronStates = BRONNEN.map(b=>state[b.id]).filter(Boolean); const allOn = bronStates.length>0 && bronStates.every(s=>s.aan); BRONNEN.forEach(b=>state[b.id].aan = !allOn); saveState(); renderFilters(); filterNews(); updateSourceLeds(); return;
     }
     const p = document.getElementById('source-panel'); if(p.classList.contains('open')) closePanel(); else openPanel();
   });
