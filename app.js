@@ -1,4 +1,4 @@
-// app.js v314 - v314 + alle 15 Gemeente echte beschrijving fix (was alleen 8) stabiel + alleen opmaak NieuwOmmen vet + Nieuwsbrief updates & releases klein
+// app.js v315 - v308 + alle 15 Gemeente echte beschrijving fix (was alleen 8) stabiel + alleen opmaak NieuwOmmen vet + Nieuwsbrief updates & releases klein
 // Dit is exact v297 die groen was, met 1 regel gewijzigd op regel 18
 // Was: {id:'Nieuwsbrief', name:'Nieuwsbrief', sub:'updates & releases van NieuwOmmen'}
 // Wordt: {id:'Nieuwsbrief', name:'NieuwOmmen', sub:'Nieuwsbrief updates & releases'}
@@ -147,7 +147,7 @@ async function enrichGemeenteWithTimeAndDesc(items, fetchViaWorker){
   for(let i=0; i<items.length; i++){
     const item=items[i];
     try{
-      if(i<15){ // v314 FIX: was i<8 waardoor oudste 2 geen beschrijving kregen, nu alle 15
+      if(i<15){ // v315 FIX: was i<8 waardoor oudste 2 geen beschrijving kregen, nu alle 15
         const html = await fetchViaWorker(item.link);
         let match = html.match(/(\d{1,2}\s+[a-z]+\s+\d{4},?\s*\d{1,2}:\d{2})/i) || html.match(/<time[^>]*>([^<]+)<\/time>/i);
         if(match){ const parsed=parseGemeenteDateTime(match[1]||match[0]); if(parsed) item.pubDate=parsed; }
@@ -258,7 +258,7 @@ function renderFilters(){
   setTimeout(()=>{ try{ updateSourceLeds(); }catch{} }, 50);
 }
 function updateHeaderCount(){
-  const aan = BRONNEN.map(b=>state[b.id]).filter(s=>s && s.aan).length;
+  const aan = Object.values(state).filter(s=>s.aan).length;
   const countEl = document.getElementById('header-count');
   if(countEl){ countEl.textContent = `${loadedSources.size || aan} v/d ${BRONNEN.length} bronnen`; if(loadedSources.size>=BRONNEN.length) countEl.textContent = `10 v/d 10 bronnen`; }
   const btn = document.getElementById('btn-all');
@@ -270,128 +270,26 @@ function updateHeaderCount(){
   }
 }
 
-function setupAllButtonsDirect(){
-  // Alles aan/uit direct binden
-  const btnAll = document.getElementById('btn-all');
-  if(btnAll){
-    // clone om oude listeners te verwijderen
-    const newBtn = btnAll.cloneNode(true);
-    newBtn.style.pointerEvents='auto'; newBtn.style.zIndex='20';
-    btnAll.parentNode.replaceChild(newBtn, btnAll);
-    newBtn.addEventListener('click', (e)=>{
-      e.stopPropagation(); e.preventDefault();
-      const bronStates = BRONNEN.map(b=>state[b.id]).filter(Boolean); const allOn = bronStates.length>0 && bronStates.every(s=>s.aan);
-      console.log('[v314] btn-all clicked allOn=', allOn);
-      BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true,vandaag:false,scope:'gemeente'}; state[b.id].aan = !allOn; });
-      saveState(); renderFilters(); filterNews(); updateSourceLeds(); 
-      setTimeout(()=>setupAllButtonsDirect(), 100);
-    });
-  }
-const accBtn = document.getElementById('user-icon-btn');
-  if(accBtn){
-    const newAcc = accBtn.cloneNode(true);
-    newAcc.style.pointerEvents='auto'; newAcc.style.zIndex='30'; newAcc.style.cursor='pointer';
-    accBtn.parentNode.replaceChild(newAcc, accBtn);
-    newAcc.addEventListener('click', (e)=>{
-      e.stopPropagation(); e.preventDefault();
-      console.log('[v314] account button clicked');
-      openAccountModal(); return;
-      // old debug
-      console.log('[v314] account button clicked, state keys', Object.keys(state));
-      // Zoek naar bestaande account modal / login elementen
-      const loginModal = document.getElementById('login-modal') || document.getElementById('account-modal') || document.querySelector('.account-modal') || document.querySelector('[data-account-modal]');
-      if(loginModal){
-        loginModal.style.display='block'; loginModal.classList.add('open');
-        console.log('[v314] found modal', loginModal.id);
-        return;
-      }
-      if(window.openUserPanel) return window.openUserPanel();
-      if(window.openAccountModal) return window.openAccountModal();
-      if(window.showLogin) return window.showLogin();
-      // Fallback: ga naar informatie pagina waar login staat?
-      // Laat user zien dat knop werkt, maar vraag wat het moet doen
-      const hasPush = !!document.getElementById('push-bell-btn');
-      alert('Account knopje is nu wel klikbaar! (v314)
-
-Wat moet dit knopje doen?
-- Inloggen?
-- Profiel?
-- Push instellingen?
-
-Laat het me weten, dan koppel ik de echte functie.
-
-Push bell gevonden: ' + hasPush);
-    });
-    const svg = newAcc.querySelector('svg'); if(svg) svg.style.pointerEvents='none';
-  }
-}
-
-
 function ensureAccountModal(){
-  let modal = document.getElementById('account-modal-v314');
-  if(modal) return modal;
-  const style = document.createElement('style');
-  style.id='account-modal-style-v314';
-  style.textContent=`
-    #account-modal-v314{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:none;align-items:center;justify-content:center;}
-    #account-modal-v314.open{display:flex;}
-    #account-modal-v314 .acc-content{background:white;border-radius:12px;padding:20px;max-width:360px;width:90%;box-shadow:0 10px 30px rgba(0,0,0,0.2);}
-    #account-modal-v314 .acc-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
-    #account-modal-v314 .acc-header h3{margin:0;font-size:18px;}
-    #account-modal-v314 .acc-close{border:none;background:#f3f4f6;border-radius:999px;width:28px;height:28px;cursor:pointer;}
-    #account-modal-v314 .acc-row{padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;display:flex;justify-content:space-between;}
-    #account-modal-v314 .acc-actions{margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;}
-    #account-modal-v314 .acc-btn{padding:8px 12px;border-radius:8px;border:none;cursor:pointer;font-size:13px;}
-    #account-modal-v314 .acc-btn.primary{background:#0b5bd3;color:white;}
-    #account-modal-v314 .acc-btn.secondary{background:#f3f4f6;color:#333;}
-  `;
-  if(!document.getElementById('account-modal-style-v314')) document.head.appendChild(style);
-  
-  modal = document.createElement('div');
-  modal.id='account-modal-v314';
-  modal.innerHTML=`
-    <div class="acc-content">
-      <div class="acc-header"><h3>👤 Account</h3><button class="acc-close" id="acc-close">✕</button></div>
-      <div id="acc-body"></div>
-      <div class="acc-actions">
-        <button class="acc-btn secondary" id="acc-close2">Sluiten</button>
-        <a class="acc-btn secondary" href="informatie.html" style="text-decoration:none;">Info pagina</a>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-  modal.addEventListener('click', (e)=>{ if(e.target===modal) closeAccountModal(); });
-  document.getElementById('acc-close').addEventListener('click', closeAccountModal);
-  document.getElementById('acc-close2').addEventListener('click', closeAccountModal);
-  return modal;
+  if(document.getElementById('acc-modal')) return document.getElementById('acc-modal');
+  const d=document.createElement('div');
+  d.id='acc-modal';
+  d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:none;align-items:center;justify-content:center;';
+  d.innerHTML='<div style="background:white;padding:20px;border-radius:12px;max-width:320px;width:90%"><h3 style="margin:0 0 12px">👤 Account</h3><div id="acc-body-min" style="font-size:14px"></div><div style="margin-top:12px;display:flex;gap:8px"><button onclick="document.getElementById(\'acc-modal\').style.display=\'none\'" style="padding:6px 12px;border-radius:8px;border:none;background:#f3f4f6;cursor:pointer">Sluiten</button><a href="informatie.html" style="padding:6px 12px;border-radius:8px;background:#0b5bd3;color:white;text-decoration:none;font-size:13px">Info</a></div></div>';
+  d.addEventListener('click', e=>{ if(e.target===d) d.style.display='none'; });
+  document.body.appendChild(d);
+  return d;
 }
 function openAccountModal(){
-  const modal = ensureAccountModal();
-  const body = document.getElementById('acc-body');
-  const token = localStorage.getItem('ommen_auth_token') || localStorage.getItem('ommen_token') || '';
-  const pushSub = localStorage.getItem('ommen_push_subscribed');
-  const bronnen = (()=>{ try{ const v=JSON.parse(localStorage.getItem('nieuwsommen_bronnen_v2')||'{}'); return Object.keys(v).filter(k=>v[k]?.aan).length; }catch{ return 0; } })();
-  const isLogged = !!token;
-  body.innerHTML=`
-    <div class="acc-row"><span>Status</span><span style="font-weight:600;color:${isLogged?'#16a34a':'#6b7280'}">${isLogged?'Ingelogd':'Gast'}</span></div>
-    <div class="acc-row"><span>Push meldingen</span><span style="font-weight:600">${pushSub==='1'?'🔔 Aan':'🔕 Uit'}</span></div>
-    <div class="acc-row"><span>Bronnen aan</span><span>${bronnen} / 10</span></div>
-    <div class="acc-row"><span>Versie</span><span>v314</span></div>
-    ${isLogged?`<div style="margin-top:12px;font-size:11px;word-break:break-all;color:#6b7280;">Token: ${token.slice(0,20)}...</div>`:''}
-    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
-      ${isLogged?`<button class="acc-btn secondary" onclick="localStorage.removeItem('ommen_auth_token');localStorage.removeItem('ommen_token');alert('Uitgelogd');closeAccountModal();location.reload();">Uitloggen</button>`:''}
-      <button class="acc-btn secondary" onclick="localStorage.clear();alert('Cache gewist - herladen');closeAccountModal();location.reload();">Cache wissen</button>
-    </div>
-    <div style="margin-top:12px;font-size:12px;color:#6b7280;">Account login komt later - voor nu gast modus met push.</div>
-  `;
-  modal.classList.add('open');
+  const m=ensureAccountModal();
+  const b=document.getElementById('acc-body-min');
+  const token=localStorage.getItem('ommen_auth_token')||'';
+  const push=localStorage.getItem('ommen_push_subscribed')==='1'?'Aan':'Uit';
+  b.innerHTML=`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee"><span>Push</span><b>${push}</b></div><div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee"><span>Bronnen</span><b>${BRONNEN.map(x=>state[x.id]).filter(s=>s&&s.aan).length}/10</b></div><div style="font-size:11px;color:#666;margin-top:8px;word-break:break-all">${token?`Ingelogd: ${token.slice(0,20)}...`:'Gast modus'}</div>`;
+  m.style.display='flex';
 }
-function closeAccountModal(){
-  const m=document.getElementById('account-modal-v314'); if(m) m.classList.remove('open');
-}
-window.openAccountModal = openAccountModal;
-window.openUserPanel = openAccountModal;
-window.closeAccountModal = closeAccountModal;
+window.openAccountModal=openAccountModal;
+window.openUserPanel=openAccountModal;
 
 function openPanel(){ document.getElementById('filter-header')?.classList.add('open'); document.getElementById('source-panel')?.classList.add('open'); document.body.classList.add('panel-open'); try{ localStorage.setItem('ommen_filter_panel_open','1'); }catch{} }
 function closePanel(){ document.getElementById('filter-header')?.classList.remove('open'); document.getElementById('source-panel')?.classList.remove('open'); document.body.classList.remove('panel-open'); try{ localStorage.setItem('ommen_filter_panel_open','0'); }catch{} }
@@ -402,7 +300,7 @@ function setupFilterHeader(){
   fh.addEventListener('click', (e)=>{
     if(e.target.closest('#bell-slot') || e.target.closest('#push-bell-btn')) return;
     if(e.target.id==='btn-all' || e.target.closest('#btn-all')){
-      e.stopPropagation(); const bronStates = BRONNEN.map(b=>state[b.id]).filter(Boolean); const allOn = bronStates.length>0 && bronStates.every(s=>s.aan); BRONNEN.forEach(b=>state[b.id].aan = !allOn); saveState(); renderFilters(); filterNews(); updateSourceLeds(); return;
+      e.stopPropagation(); const allOn = Object.values(state).every(s=>s.aan); BRONNEN.forEach(b=>state[b.id].aan = !allOn); saveState(); renderFilters(); filterNews(); updateSourceLeds(); return;
     }
     const p = document.getElementById('source-panel'); if(p.classList.contains('open')) closePanel(); else openPanel();
   });
@@ -499,9 +397,9 @@ async function refreshNews(){
   const results = await Promise.allSettled(BRONNEN.map(b=>loadWithTimeout(b))); const freshArts=[]; results.forEach(r=>{ if(r.status==='fulfilled'){ const {b, arts}=r.value; if(arts.length>0) freshArts.push(...arts); loadedSources.add(b.id); } }); if(freshArts.length>0) allArticles=freshArts; updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds();
 }
 document.addEventListener('DOMContentLoaded', ()=>{
-  loadState(); renderFilters(); saveState(); restorePanelState(); setupFilterHeader(); setupAllButtonsDirect();
-  setTimeout(()=>setupAllButtonsDirect(), 1000);
+  loadState(); renderFilters(); saveState(); restorePanelState(); setupFilterHeader();
   document.getElementById('search-input')?.addEventListener('input', filterNews);
+  const accBtn=document.getElementById('user-icon-btn'); if(accBtn){ accBtn.addEventListener('click', (e)=>{ e.stopPropagation(); openAccountModal(); }); accBtn.style.pointerEvents='auto'; accBtn.style.zIndex='30'; accBtn.style.cursor='pointer'; }
   const urlParams = new URLSearchParams(window.location.search); const highlightParam = urlParams.get('highlight') || urlParams.get('link'); if(highlightParam){ localStorage.setItem('ommen_highlight_link', highlightParam); }
   setTimeout(()=>refreshNews(), 200);
   if('serviceWorker' in navigator){
