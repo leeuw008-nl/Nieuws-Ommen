@@ -65,7 +65,7 @@ function parseVechtdalCentraalECHT(html){
     /<h2[^>]*>\s*<a href="([^"]+)"[^>]*>([^<]{8,200})<\/a>\s*<\/h2>/gi,
     /<article[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>([\s\S]{0,300}?)<\/a>[\s\S]*?<h[23]/gi,
     /<a[^>]+href="(https:\/\/www\.vechtdalcentraal\.nl\/[^"']{5,150})"[^>]*class="[^"]*entry-title[^"]*"[^>]*>([^<]+)</gi,
-    /<a href="(\/[^"']{5,150})"[^>]*>[^<]*<h[2-3][^>]*>([^<]{8,200})<\/h3>/gi
+    /<a href="(\/[^"']{5,150})"[^>]*>[^<]*<h3[^>]*>([^<]{8,200})<\/h3>/gi
   ];
   for(const pat of patterns){
     let mm;
@@ -121,8 +121,7 @@ function parseGemeenteDateTime(str){
 
 function parseGemeenteOverviewWithDate(html){
   const items=[]; const seen=new Set();
-  const today=new Date(); today.setHours(0,0,0,0);
-  // HERSTEL uit v297: echte datum + echte intro (geen 2x titel) - was eerder goed
+  // OUDE GOEDE CODE v297: allmode_date + intro = echte tijd + echte beschrijving
   const reFull=/<div class="allmode_date">([^<]+)<\/div>[\s\S]{0,600}?<h3 class="allmode_title"><a href="([^"]+)">([^<]+)<\/a>[\s\S]{0,800}?<div class="allmode_(?:intro|text|introtext)[^>]*>([\s\S]*?)<\/div>/gi;
   let m;
   while((m=reFull.exec(html))!==null && items.length<15){
@@ -150,10 +149,9 @@ function parseGemeenteOverviewWithDate(html){
       let pubDate=null;
       let dm = context.match(/(\d{1,2}\s+[a-z]+\s+\d{4})/i);
       if(dm) pubDate=parseGemeenteDateTime(dm[1]);
-      if(!pubDate){ dm = context.match(/(\d{4}-\d{2}-\d{2})/); if(dm) pubDate=parseGemeenteDateTime(dm[1]); }
-      if(!pubDate){ pubDate = new Date(); pubDate.setHours(10,0,0,0); }
+      if(!pubDate) pubDate=new Date();
+      pubDate.setHours(10,0,0,0);
       seen.add(link);
-      // FIX 1: geen 2x titel meer, maar eigen beschrijving
       items.push({title, link, pubDate, description:'Bekijk het volledige bericht op ommen.nl'});
       idx++;
     }
@@ -507,7 +505,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews; window.highlightAr
         const overlay = document.createElement('div'); overlay.id='login-modal'; overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
         const box = document.createElement('div'); box.style.cssText='background:white;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.2);color:#111';
         const emailSafe = (currentUser.email || currentUser.user?.email || '').replace(/</g,'&lt;');
-        box.innerHTML = `<h3 style="margin:0 0 8px;font-size:18px">Ingelogd als</h[2-3]><p style="margin:0 0 16px;color:#374151;font-size:13px;word-break:break-all">${emailSafe}<br><span style="font-size:11px;color:#059669;font-weight:700">● live sync bij openen + elke 5 min - 10 bronnen</span></p><div style="display:flex;gap:8px"><button id="btn-sync-now" style="flex:1;padding:10px;background:#0b5bd3;color:white;border:0;border-radius:8px;font-weight:600;cursor:pointer">Sync nu</button><button id="btn-logout-now" style="flex:1;padding:10px;background:#fee2e2;color:#991b1b;border:0;border-radius:8px;font-weight:600;cursor:pointer">Uitloggen</button></div><div style="margin-top:12px;display:flex;gap:8px"><button id="btn-reset-cloud" style="flex:1;padding:8px;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:8px;font-weight:600;cursor:pointer;font-size:11px">🔄 Reset cloud naar deze telefoon</button></div><button id="btn-close-acc" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:0;color:#666;cursor:pointer">Sluiten</button><div id="sync-debug" style="margin-top:12px;font-size:10px;color:#666;background:#f3f4f6;padding:8px;border-radius:6px;max-height:100px;overflow:auto"></div>`;
+        box.innerHTML = `<h3 style="margin:0 0 8px;font-size:18px">Ingelogd als</h3><p style="margin:0 0 16px;color:#374151;font-size:13px;word-break:break-all">${emailSafe}<br><span style="font-size:11px;color:#059669;font-weight:700">● live sync bij openen + elke 5 min - 10 bronnen</span></p><div style="display:flex;gap:8px"><button id="btn-sync-now" style="flex:1;padding:10px;background:#0b5bd3;color:white;border:0;border-radius:8px;font-weight:600;cursor:pointer">Sync nu</button><button id="btn-logout-now" style="flex:1;padding:10px;background:#fee2e2;color:#991b1b;border:0;border-radius:8px;font-weight:600;cursor:pointer">Uitloggen</button></div><div style="margin-top:12px;display:flex;gap:8px"><button id="btn-reset-cloud" style="flex:1;padding:8px;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:8px;font-weight:600;cursor:pointer;font-size:11px">🔄 Reset cloud naar deze telefoon</button></div><button id="btn-close-acc" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:0;color:#666;cursor:pointer">Sluiten</button><div id="sync-debug" style="margin-top:12px;font-size:10px;color:#666;background:#f3f4f6;padding:8px;border-radius:6px;max-height:100px;overflow:auto"></div>`;
         overlay.appendChild(box); document.body.appendChild(overlay);
         const dbg=document.getElementById('sync-debug'); if(dbg){ dbg.textContent='Lokaal: '+Object.keys(state).filter(k=>state[k]?.aan).join(', ')+'\nToken: '+(authToken?authToken.slice(0,20)+'...':'geen')+'\nLaatste cloud sync: '+new Date(lastRemoteUpdated).toLocaleString(); }
         document.getElementById('btn-close-acc').onclick=()=>overlay.remove();
