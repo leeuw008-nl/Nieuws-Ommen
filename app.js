@@ -777,6 +777,85 @@ async function enrichGemeenteWithDetail(arts){
   return arts;
 }
 
+
+// NIEUW: RTV Oost detail enrich - haalt beschrijving op tegelijk met datum/tijd detail
+// Respecteert free tier: client-side via WORKER/proxy, max 3 tegelijk, cache in localStorage, geen KV writes
+function getOostDetailCache(){
+  try{ return JSON.parse(localStorage.getItem('ommen_oost_detail_cache')||'{}'); }catch{ return {}; }
+}
+function setOostDetailCache(c){
+  try{ localStorage.setItem('ommen_oost_detail_cache', JSON.stringify(c)); }catch{}
+}
+async function enrichOostWithDetail(overview){
+  if(!overview || overview.length===0) return overview;
+  const cache = getOostDetailCache();
+  const now = Date.now();
+  // Alleen artikelen zonder echte beschrijving (nu titel == beschrijving)
+  const toEnrich = overview.filter(a => {
+    const hasCache = cache[a.link] && (now - cache[a.link].ts < 24*60*60*1000);
+    return !hasCache && (!a.description || a.description.replace(' [...]','').trim() === a.title.trim() || a.description.length < 20);
+  }).slice(0,5); // max 5 per keer voor free tier
+
+  if(toEnrich.length===0){
+    // Vul uit cache
+    return overview.map(a => {
+      const c = cache[a.link];
+      if(c && c.desc) return {...a, description: c.desc};
+      return a;
+    });
+  }
+
+  // Fetch max 3 tegelijk
+  const fetchOne = async (art) => {
+    try{
+      const html = await fetchViaWorker(art.link);
+      // Probeer meta description
+      let desc = '';
+      let m = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']{20,300})["']/i);
+      if(m) desc = m[1];
+      if(!desc){
+        m = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']{20,300})["']/i);
+        if(m) desc = m[1];
+      }
+      if(!desc){
+        // Eerste p na h1
+        m = html.match(/<article[^>]*>[\s\S]{0,2000}?<p[^>]*>([\s\S]{30,400})<\/p>/i);
+        if(m) desc = m[1].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+      }
+      if(!desc){
+        m = html.match(/<div[^>]*class=["'][^"']*article__intro[^"']*["'][^>]*>([\s\S]{20,400})<\/div>/i);
+        if(m) desc = m[1].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+      }
+      if(desc && desc.length>15){
+        if(desc.length>200) desc = desc.slice(0,200)+' [...]';
+        else if(!desc.endsWith('[...]')) desc = desc+' [...]';
+        cache[art.link] = {desc, ts: now};
+        setOostDetailCache(cache);
+        return {...art, description: desc};
+      }
+    }catch(e){
+      console.log('[Oost enrich] fail', art.link, e.message);
+    }
+    return art;
+  };
+
+  const results = await Promise.all(toEnrich.map(fetchOne));
+  setOostDetailCache(cache);
+  
+  // Merge terug
+  const enrichedMap = new Map(results.map(r => [r.link, r]));
+  const final = overview.map(a => enrichedMap.get(a.link) || (cache[a.link]?.desc ? {...a, description: cache[a.link].desc} : a));
+  
+  // Update UI als we nog op zelfde bron zitten
+  try{
+    allArticles = allArticles.filter(x=>x.id!=='RTV Oost').concat(final.map(a=>({...a, source:'RTV Oost', id:'RTV Oost', isFallback:false})));
+    renderArticles();
+  }catch{}
+
+  return final;
+}
+
+
 function parseOostFull_OLD(html){
   const max = MAX_PER_BRON['RTV Oost'];
   const patterns = [
@@ -850,7 +929,14 @@ async function loadOneSource(b){
     else if(b.id==='Nieuwsbrief'){ const json=await fetchViaWorker(cfg.url); arts=parseNieuwsbriefECHT(json); }
     else if(cfg.type==='oost'){ 
       const html=await fetchViaWorker(cfg.url); 
-      arts=parseOostFull(html); 
+      arts=parseOostFull(html);
+      // Enrich met beschrijving uit detail pagina (free tier: client-side, max 5, cache)
+      if(arts.length>0){
+        const tempArts=arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
+        allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts);
+        loadedSources.add(b.id); updateHeaderCount(); renderArticles();
+        enrichOostWithDetail(arts).catch(()=>{});
+      }
     }
     else if(b.id==='RTV Vechtdal'){ 
       try{
