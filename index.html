@@ -6,37 +6,20 @@
 <title>Nieuw(s)Ommen</title>
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="styles.css?v=340">
-<link rel="icon" href="icons/icon-192x192.png" type="image/png">
+<link rel="icon" href="icons/icon-192x192.png">
 <meta name="theme-color" content="#0b5bd3">
 </head>
 <body>
 <header>
-  <h1>
-    <span class="title-left">📰 Nieuw(s)Ommen</span>
-    <span class="header-icons">
-      <a href="informatie.html" class="info-icon-btn" title="Info">i</a>
-    </span>
-  </h1>
-  <div class="search-row"><input type="text" id="search-input" placeholder="Zoek in nieuws..."></div>
-  <div class="filter-header" id="filter-header">
-    <div class="filter-header-center"><span class="filter-header-count" id="header-count">10 v/d 10 bronnen</span></div>
-    <div class="filter-header-right">
-      <div class="bell-slot" id="bell-slot"></div>
-      <button class="btn-all-toets" id="btn-all">Alles aan</button>
-      <span class="filter-header-arrow">▼</span>
-    </div>
-  </div>
-  <div id="source-panel">
-    <div class="source-list" id="source-list"></div>
-  </div>
-  <div id="news-container-anchor"></div>
+<h1>Nieuw(s)Ommen</h1>
+<div class="search-row"><input type="text" id="search-input" placeholder="Zoek..."></div>
+<div class="filter-header"><span id="header-count">10 v/d 10 bronnen</span></div>
+<div id="source-panel"><div id="source-list"></div></div>
 </header>
 <main><div id="news-container">Bezig met laden...</div></main>
-<footer><button onclick="refreshNews()">🔄 Vernieuwen</button></footer>
-
 <script>
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js?v=340',{scope:'./'}).then(r=>{console.log('SW v340',r.scope);}).catch(()=>{});
+  navigator.serviceWorker.register('./service-worker.js?v=340',{scope:'./'}).then(r=>console.log('SW v340')).catch(()=>{});
 }
 </script>
 <script src="app.js?v=293"></script>
