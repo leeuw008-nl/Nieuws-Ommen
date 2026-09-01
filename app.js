@@ -65,7 +65,7 @@ function parseVechtdalCentraalECHT(html){
     /<h2[^>]*>\s*<a href="([^"]+)"[^>]*>([^<]{8,200})<\/a>\s*<\/h2>/gi,
     /<article[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>([\s\S]{0,300}?)<\/a>[\s\S]*?<h[23]/gi,
     /<a[^>]+href="(https:\/\/www\.vechtdalcentraal\.nl\/[^"']{5,150})"[^>]*class="[^"]*entry-title[^"]*"[^>]*>([^<]+)</gi,
-    /<a href="(\/[^"']{5,150})"[^>]*>[^<]*<h3[^>]*>([^<]{8,200})<\/h3>/gi
+    /<a href="(\/[^"']{5,150})"[^>]*>[^<]*<h[2-3][^>]*>([^<]{8,200})<\/h3>/gi
   ];
   for(const pat of patterns){
     let mm;
@@ -101,6 +101,9 @@ function parseRTVVechtdalECHT(html){
   }
   return items;
 }
+
+
+
 function parseGemeenteDateTime(str){
   if(!str) return null;
   try{
@@ -111,32 +114,55 @@ function parseGemeenteDateTime(str){
     if(m && months[m[2]]!==undefined) return new Date(parseInt(m[3]), months[m[2]], parseInt(m[1]), 10,0,0);
     m = str.match(/(\d{4})-(\d{2})-(\d{2})/);
     if(m) return new Date(parseInt(m[1]), parseInt(m[2])-1, parseInt(m[3]), 10,0,0);
+    m = str.match(/(\d{1,2})-(\d{1,2})-(\d{4})/);
+    if(m) return new Date(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1]), 10,0,0);
   }catch{} return null;
 }
+
 function parseGemeenteOverviewWithDate(html){
   const items=[]; const seen=new Set();
-  const re = /<a[^>]+href=["']([^"']+\/actueel\/[^"']+)["'][^>]*>([^<]{10,200})<\/a>/gi;
-  let m; let idx=0;
-  while((m=re.exec(html))!==null && items.length<15){
-    let link=m[1]; if(link.startsWith('/')) link='https://www.ommen.nl'+link;
+  const today=new Date(); today.setHours(0,0,0,0);
+  // HERSTEL uit v297: echte datum + echte intro (geen 2x titel) - was eerder goed
+  const reFull=/<div class="allmode_date">([^<]+)<\/div>[\s\S]{0,600}?<h3 class="allmode_title"><a href="([^"]+)">([^<]+)<\/a>[\s\S]{0,800}?<div class="allmode_(?:intro|text|introtext)[^>]*>([\s\S]*?)<\/div>/gi;
+  let m;
+  while((m=reFull.exec(html))!==null && items.length<15){
+    let dateStr=m[1].trim();
+    let link=m[2].trim();
+    let title=m[3].trim();
+    let intro=m[4].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+    if(link.startsWith('/')) link='https://www.ommen.nl'+link;
     if(seen.has(link)) continue;
-    const title=m[2].trim();
-    const pos=m.index;
-    const context = html.substring(Math.max(0,pos-300), Math.min(html.length, pos+800));
-    let pubDate=null;
-    let dm = context.match(/(\d{1,2}\s+[a-z]+\s+\d{4})/i);
-    if(dm) pubDate=parseGemeenteDateTime(dm[1]);
-    if(!pubDate){ dm = context.match(/(\d{4}-\d{2}-\d{2})/); if(dm) pubDate=parseGemeenteDateTime(dm[1]); }
-    if(!pubDate){ pubDate = new Date(Date.now() - (idx*3+5)*24*60*60*1000); pubDate.setHours(10,0,0,0); }
     seen.add(link);
-    items.push({title, link, pubDate, description:title.slice(0,150)+' - Lees meer op ommen.nl [...]'});
-    idx++;
+    let pd=parseGemeenteDateTime(dateStr);
+    if(!pd) pd=new Date();
+    if(intro.length<10) intro='Bekijk het volledige bericht op ommen.nl';
+    items.push({title: title.slice(0,120), link, pubDate: pd, description: intro.slice(0,200)+' [...]'});
+  }
+  if(items.length===0){
+    const re = /<a[^>]+href=["']([^"']+\/actueel\/[^"']+)["'][^>]*>([^<]{10,200})<\/a>/gi;
+    let idx=0;
+    while((m=re.exec(html))!==null && items.length<15){
+      let link=m[1]; if(link.startsWith('/')) link='https://www.ommen.nl'+link;
+      if(seen.has(link)) continue;
+      const title=m[2].trim();
+      const pos=m.index;
+      const context = html.substring(Math.max(0,pos-300), Math.min(html.length, pos+800));
+      let pubDate=null;
+      let dm = context.match(/(\d{1,2}\s+[a-z]+\s+\d{4})/i);
+      if(dm) pubDate=parseGemeenteDateTime(dm[1]);
+      if(!pubDate){ dm = context.match(/(\d{4}-\d{2}-\d{2})/); if(dm) pubDate=parseGemeenteDateTime(dm[1]); }
+      if(!pubDate){ pubDate = new Date(); pubDate.setHours(10,0,0,0); }
+      seen.add(link);
+      // FIX 1: geen 2x titel meer, maar eigen beschrijving
+      items.push({title, link, pubDate, description:'Bekijk het volledige bericht op ommen.nl'});
+      idx++;
+    }
   }
   return items;
 }
 function parseGemeenteOverview(html){ return parseGemeenteOverviewWithDate(html); }
 
-function parseRTVOostECHT(html){ const items=[]; const re=/<a[^>]+href=["'](\/nieuws\/[^"']{10,})["'][^>]*>[\s\S]*?<h3[^>]*>([^<]{12,})<\/h3>/gi; let m; while((m=re.exec(html))!==null && items.length<15){ const link='https://www.oost.nl'+m[1]; const title=m[2].trim(); items.push({title, link, pubDate:new Date(), description:title+' [...]'}); } return items; }
+function parseRTVOostECHT(html){ const items=[]; const re=/<a[^>]+href=["'](\/nieuws\/[^"']{5,})["'][^>]*>[\s\S]*?<h[2-3][^>]*>([^<]{8,})<\/h[2-3]>/gi; let m; while((m=re.exec(html))!==null && items.length<15){ const link='https://www.oost.nl'+m[1]; const title=m[2].trim(); items.push({title, link, pubDate:new Date(), description:title.slice(0,150)+' [...]'}); } return items; }
 function parseOostFull_OLD(html){ return parseRTVOostECHT(html); }
 function parseRSSFull(xml, bronId){ const items=[...xml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)].slice(0,25); return items.map(m=>{ const it=m[1]; const title=(it.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i)||[])[1]||''; let link=(it.match(/<link[^>]*>([\s\S]*?)<\/link>/i)||[])[1]||''; link=link.replace(/<!\[CDATA\[|\]\]>/g,'').trim(); if(!link.startsWith('http')){ const mm=it.match(/https?:\/\/[^\s<"]+/); if(mm) link=mm[0]; } const desc=(it.match(/<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i)||[])[1]||''; const pub=(it.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i)||[])[1]||''; let pd=new Date(); if(pub) { const d=new Date(pub); if(!isNaN(d.getTime())) pd=d; } return {title:title.replace(/<[^>]*>/g,'').trim().slice(0,120), link, pubDate:pd, description:desc.replace(/<[^>]*>/g,' ').trim().slice(0,200)+' [...]'}; }).filter(x=>x.link && x.title); }
 
@@ -481,7 +507,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews; window.highlightAr
         const overlay = document.createElement('div'); overlay.id='login-modal'; overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
         const box = document.createElement('div'); box.style.cssText='background:white;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.2);color:#111';
         const emailSafe = (currentUser.email || currentUser.user?.email || '').replace(/</g,'&lt;');
-        box.innerHTML = `<h3 style="margin:0 0 8px;font-size:18px">Ingelogd als</h3><p style="margin:0 0 16px;color:#374151;font-size:13px;word-break:break-all">${emailSafe}<br><span style="font-size:11px;color:#059669;font-weight:700">● live sync bij openen + elke 5 min - 10 bronnen</span></p><div style="display:flex;gap:8px"><button id="btn-sync-now" style="flex:1;padding:10px;background:#0b5bd3;color:white;border:0;border-radius:8px;font-weight:600;cursor:pointer">Sync nu</button><button id="btn-logout-now" style="flex:1;padding:10px;background:#fee2e2;color:#991b1b;border:0;border-radius:8px;font-weight:600;cursor:pointer">Uitloggen</button></div><div style="margin-top:12px;display:flex;gap:8px"><button id="btn-reset-cloud" style="flex:1;padding:8px;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:8px;font-weight:600;cursor:pointer;font-size:11px">🔄 Reset cloud naar deze telefoon</button></div><button id="btn-close-acc" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:0;color:#666;cursor:pointer">Sluiten</button><div id="sync-debug" style="margin-top:12px;font-size:10px;color:#666;background:#f3f4f6;padding:8px;border-radius:6px;max-height:100px;overflow:auto"></div>`;
+        box.innerHTML = `<h3 style="margin:0 0 8px;font-size:18px">Ingelogd als</h[2-3]><p style="margin:0 0 16px;color:#374151;font-size:13px;word-break:break-all">${emailSafe}<br><span style="font-size:11px;color:#059669;font-weight:700">● live sync bij openen + elke 5 min - 10 bronnen</span></p><div style="display:flex;gap:8px"><button id="btn-sync-now" style="flex:1;padding:10px;background:#0b5bd3;color:white;border:0;border-radius:8px;font-weight:600;cursor:pointer">Sync nu</button><button id="btn-logout-now" style="flex:1;padding:10px;background:#fee2e2;color:#991b1b;border:0;border-radius:8px;font-weight:600;cursor:pointer">Uitloggen</button></div><div style="margin-top:12px;display:flex;gap:8px"><button id="btn-reset-cloud" style="flex:1;padding:8px;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:8px;font-weight:600;cursor:pointer;font-size:11px">🔄 Reset cloud naar deze telefoon</button></div><button id="btn-close-acc" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:0;color:#666;cursor:pointer">Sluiten</button><div id="sync-debug" style="margin-top:12px;font-size:10px;color:#666;background:#f3f4f6;padding:8px;border-radius:6px;max-height:100px;overflow:auto"></div>`;
         overlay.appendChild(box); document.body.appendChild(overlay);
         const dbg=document.getElementById('sync-debug'); if(dbg){ dbg.textContent='Lokaal: '+Object.keys(state).filter(k=>state[k]?.aan).join(', ')+'\nToken: '+(authToken?authToken.slice(0,20)+'...':'geen')+'\nLaatste cloud sync: '+new Date(lastRemoteUpdated).toLocaleString(); }
         document.getElementById('btn-close-acc').onclick=()=>overlay.remove();

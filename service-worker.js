@@ -92,8 +92,9 @@ self.addEventListener('push', event => {
   
   const options = {
     body: body,
-    icon: 'https://nieuwommen.leeuw008.nl/icon-192.png',
-    badge: 'https://nieuwommen.leeuw008.nl/icon-192.png',
+    icon: '/icons/icons/icon-192x192.png',
+    badge: '/icons/badge-lion-96x96.png', // old badge
+      _old_badge: '/icons/icons/icon-192x192.png',
     data: {
       link: link,
       url: link,
