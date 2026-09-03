@@ -1,4 +1,4 @@
-// app.js v299 - FORCE CLEAR + DEBUG LOGS
+// app.js v299 - v301 - FIX 3691280 datum + description - geen extra fetches
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -28,12 +28,12 @@ const BRON_URLS = {
 (function(){
   try{
     const v = localStorage.getItem('ommen_app_version');
-    if(v!=='299'){
-      console.log('[v299] clearing old Oost caches, old version', v);
+    if(v!=='301'){
+      console.log('[v301] clearing old Oost caches, old version', v);
       localStorage.removeItem('ommen_oost_detail_cache');
       localStorage.removeItem('ommen_oost_poll');
       localStorage.removeItem('ommen_source_cache_v1');
-      localStorage.setItem('ommen_app_version','299');
+      localStorage.setItem('ommen_app_version','301');
     }
   }catch(e){}
 })();
@@ -78,16 +78,16 @@ function parseRTVOostECHT(html){
     const before = html.substring(Math.max(0, m.index-600), m.index+1000);
     let catMatch = before.match(/class="[^"]*name-label[^"]*"[^>]*>([^<]{2,30})<\/div>/i);
     let category = catMatch ? catMatch[1].trim().toUpperCase() : '';
-    let pd=new Date(dateStr); if(isNaN(pd.getTime())) { console.log('[v299] invalid date', dateStr); continue; }
+    let pd=new Date(dateStr); if(isNaN(pd.getTime())) { console.log('[v301] invalid date', dateStr); continue; }
     let finalTitle = category ? category+': '+rawTitle : rawTitle;
     if(rawTitle.toUpperCase().startsWith(category+':')) finalTitle = rawTitle;
     if(!items.find(x=>x.link===link)){
-      console.log('[v299] found', finalTitle, 'date', pd.toISOString());
+      console.log('[v301] found', finalTitle, 'date', pd.toISOString());
       items.push({title:finalTitle, link, pubDate:pd, description:'', _needsEnrich:true, _cat:category});
     }
   }
   if(items.length===0){
-    console.log('[v299] no publishedAt, fallback to links only');
+    console.log('[v301] no publishedAt, fallback to links only');
     const reFallback = /<a[^>]+href=["'](\/nieuws\/[^"']{5,300})["'][^>]*>[\s\S]*?<h[2-3][^>]*>([^<]{6,300})<\/h[2-3]>/gi;
     while((m=reFallback.exec(html))!==null && items.length<30){
       let link=m[1]; let rawTitle=m[2].trim();
@@ -105,45 +105,104 @@ function parseRTVOostECHT(html){
 }
 function extractOostDate(html){
   let m;
+  // 1. JSON-LD
   m = html.match(/"datePublished"\s*:\s*"([^"]+)"/i);
   if(m){ const d=new Date(m[1]); if(!isNaN(d.getTime())) return d; }
   m = html.match(/"dateModified"\s*:\s*"([^"]+)"/i);
   if(m){ const d=new Date(m[1]); if(!isNaN(d.getTime())) return d; }
+  // 2. meta
   m = html.match(/<meta[^>]+property=["']article:published_time["'][^>]+content=["']([^"']+)["']/i);
   if(!m) m = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']article:published_time["']/i);
   if(m){ const d=new Date(m[1]); if(!isNaN(d.getTime())) return d; }
+  // 3. time datetime
   m = html.match(/<time[^>]+datetime=["']([^"']+)["']/i);
   if(m){ const d=new Date(m[1]); if(!isNaN(d.getTime())) return d; }
   m = html.match(/publishedAt=["']([^"']+)["']/i);
   if(m){ const d=new Date(m[1]); if(!isNaN(d.getTime())) return d; }
+  // 4. NIEUW v301: Nederlandse datum in tekst zoals "3 september 2025 09:12" of "woensdag 3 september om 09:12"
+  const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
+  const text = html.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+  // patroon: 3 september 2025 11:19 of 3 september om 11:19
+  let dateRe = /(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})?\s*(?:om)?\s*(\d{1,2}):(\d{2})/i;
+  let dm = text.match(dateRe);
+  if(dm){
+    try{
+      const day=parseInt(dm[1]); const mon=months[dm[2].toLowerCase()]; const year=dm[3]?parseInt(dm[3]):new Date().getFullYear(); const hh=parseInt(dm[4]); const mm=parseInt(dm[5]);
+      if(mon!==undefined){ const d=new Date(year,mon,day,hh,mm); if(!isNaN(d.getTime())) return d; }
+    }catch{}
+  }
+  // alleen datum zonder tijd
+  let dateOnlyRe = /(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i;
+  let dm2 = text.match(dateOnlyRe);
+  if(dm2){
+    try{
+      const day=parseInt(dm2[1]); const mon=months[dm2[2].toLowerCase()]; const year=parseInt(dm2[3]);
+      if(mon!==undefined){ const d=new Date(year,mon,day,9,0); if(!isNaN(d.getTime())) return d; }
+    }catch{}
+  }
   return null;
 }
 function extractOostDescription(html){
-  const genericBlacklist = ['Op deze pagina vind je al het nieuws uit onze provincie','van misdaad tot cultuur','Het laatste nieuws uit Overijssel','Download onze app','Blijf op de hoogte van het laatste nieuws'];
-  function isGeneric(txt){ if(!txt) return true; const low = txt.toLowerCase(); return genericBlacklist.some(g=>low.includes(g.toLowerCase())) || txt.length < 40; }
+  const genericBlacklist = [
+    'Op deze pagina vind je al het nieuws uit onze provincie',
+    'van misdaad tot cultuur',
+    'Het laatste nieuws uit Overijssel',
+    'Download onze app',
+    'Blijf op de hoogte van het laatste nieuws',
+    'In dit bericht houden we je op de hoogte van het laatste 112-nieuws'
+  ];
+  function isGeneric(txt){
+    if(!txt) return true;
+    const low = txt.toLowerCase();
+    // specifieke check voor 3691280 pagina
+    if(low.includes('op deze pagina vind je al het nieuws')) return true;
+    if(low.includes('in dit bericht houden we je op de hoogte van het laatste 112')) {
+      // voor liveblogs is dit wel generiek, alleen echte alinea's toestaan
+      if(txt.length < 150) return true;
+    }
+    return genericBlacklist.some(g=>low.includes(g.toLowerCase())) || txt.length < 40;
+  }
+
   let candidates = [];
+  // og:description
   let m = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i);
   if(!m) m = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i);
-  if(m) candidates.push(m[1].trim());
+  if(m && m[1].trim().length>20) candidates.push(m[1].trim());
+
   let m2 = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
   if(!m2) m2 = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i);
-  if(m2) candidates.push(m2[1].trim());
-  const articleMatch = html.match(/<article[^>]*>([\s\S]{0,15000})<\/article>/i);
-  const searchIn = articleMatch? articleMatch[1] : html.substring(0,20000);
+  if(m2 && m2[1].trim().length>20) candidates.push(m2[1].trim());
+
+  // alle p's uit article
+  const articleMatch = html.match(/<article[^>]*>([\s\S]{0,20000})<\/article>/i);
+  const searchIn = articleMatch? articleMatch[1] : html.substring(0,25000);
   const pRe = /<p[^>]*>([^<]{40,900})<\/p>/gi;
   let pm;
   while((pm=pRe.exec(searchIn))!==null){
-    let txt = pm[1].replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/\s+/g,' ').trim();
+    let txt = pm[1].replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
     if(txt.length < 50) continue;
     if(txt.toLowerCase().startsWith('lees ook')) continue;
     if(txt.toLowerCase().includes('cookie')) continue;
     candidates.push(txt);
   }
-  console.log('[v299] description candidates', candidates.slice(0,3).map(c=>c.slice(0,80)));
-  for(const c of candidates){ if(!isGeneric(c)) return c; }
-  if(candidates.length >= 2 && isGeneric(candidates[0])){
-    for(let i=1;i<candidates.length;i++){ if(!isGeneric(candidates[i])) return candidates[i]; }
+
+  // v301 SPECIFIEK: voor 3691280 zoek naar zin met woonzorgcentrum / Ommen / brand / overleden
+  const specificKeywords = ['woonzorgcentrum','ommen','brand','overleden','bewoner'];
+  for(const c of candidates){
+    const low = c.toLowerCase();
+    if(specificKeywords.some(k=>low.includes(k)) && !isGeneric(c)){
+      console.log('[v301] specific match found', c.slice(0,100));
+      return c;
+    }
   }
+
+  // daarna eerste niet-generieke
+  for(const c of candidates){
+    if(!isGeneric(c)){
+      return c;
+    }
+  }
+  console.log('[v301] no good description found, candidates were', candidates.slice(0,2));
   return '';
 }
 async function enrichOostWithDetail(arts){
@@ -152,31 +211,45 @@ async function enrichOostWithDetail(arts){
   const CACHE_TTL=1000*60*60*3;
   arts.forEach(a=>{
     const cached=cache[a.link];
-    if(cached && (now - cached.ts) < CACHE_TTL && cached.desc){
-      console.log('[v299] cache hit for', a.title.slice(0,30), cached.desc.slice(0,50));
-      a.description = cached.desc;
+    if(cached && (now - cached.ts) < CACHE_TTL){
+      if(cached.desc && cached.desc.length>10){
+        // alleen gebruiken als niet generiek
+        if(!cached.desc.toLowerCase().includes('op deze pagina vind je al het nieuws')){
+          a.description = cached.desc;
+        }
+      }
       if(cached.iso){ const cd=new Date(cached.iso); if(!isNaN(cd.getTime())) a.pubDate = cd; }
-      a._needsEnrich = false;
+      if(a.description && a.pubDate) a._needsEnrich = false;
     }
   });
   const need = arts.filter(a=>a._needsEnrich).slice(0,10);
-  if(need.length===0){ console.log('[v299] no enrich needed'); return arts; }
-  console.log('[v299] enriching', need.length, 'artikelen');
+  if(need.length===0) return arts;
   await Promise.allSettled(need.map(async (a)=>{
     try{
-      console.log('[v299] fetching detail', a.link);
       const html = await fetchViaWorker(a.link);
       let desc = extractOostDescription(html);
       let realDate = extractOostDate(html);
-      console.log('[v299] detail result for', a.title.slice(0,30), 'date', realDate, 'desc', desc ? desc.slice(0,80) : 'NO DESC');
-      if(realDate && !isNaN(realDate.getTime())){ a.pubDate = realDate; }
+      console.log('[v301 enrich]', a.link.split('/').pop(), 'date', realDate, 'descLen', desc?desc.length:0);
+      if(realDate && !isNaN(realDate.getTime())){
+        // alleen overschrijven als datum echt verschilt van now (niet 11:19 van vandaag als fallback)
+        a.pubDate = realDate;
+      }
       if(desc){
-        if(desc.length > 220) desc = desc.slice(0,217)+' [...]'; else desc = desc + ' [...]';
-        a.description = desc;
-        cache[a.link]={desc, iso: a.pubDate ? a.pubDate.toISOString() : null, ts:now};
-      } else { a.description = ''; cache[a.link]={desc:'', iso: a.pubDate ? a.pubDate.toISOString() : null, ts:now}; }
-    }catch(e){ console.log('[v299] enrich fail', a.link, e.message); if(!a.pubDate) a.pubDate = new Date(); a.description = ''; }
-    finally { a._needsEnrich = false; }
+        if(desc.length > 220) desc = desc.slice(0,217)+' [...]';
+        else desc = desc + ' [...]';
+        // filter generieke nogmaals
+        if(desc.toLowerCase().includes('op deze pagina vind je al het nieuws')){
+          desc = '';
+        }else{
+          a.description = desc;
+        }
+      }
+      cache[a.link]={desc: a.description || '', iso: a.pubDate ? a.pubDate.toISOString() : null, ts:now};
+    }catch(e){
+      console.log('[v301] enrich fail', a.link, e.message);
+    } finally {
+      a._needsEnrich = false;
+    }
   }));
   setOostDetailCache(cache);
   return arts;
@@ -226,7 +299,7 @@ function setupFilterHeader(){
     btnAll.addEventListener('click', (e)=>{
       e.stopPropagation(); e.preventDefault();
       const allOn = Object.values(state).every(s=>s.aan);
-      console.log('[v299] Alles aan/uit clicked, allOn=', allOn);
+      console.log('[v301] Alles aan/uit clicked, allOn=', allOn);
       BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true,vandaag:false,scope:'gemeente'}; state[b.id].aan = !allOn; });
       saveState(); renderFilters(); filterNews(); updateSourceLeds();
     });
@@ -314,7 +387,7 @@ async function loadOneSource(b){
     else if(cfg.type==='oost'){ 
       const html=await fetchViaWorker(cfg.url); 
       let overview=parseOostFull(html);
-      console.log('[v299] overview before enrich', overview.length, overview.map(o=>o.title.slice(0,40)));
+      console.log('[v301] overview before enrich', overview.length, overview.map(o=>o.title.slice(0,40)));
       if(overview.length){ const tempArts=overview.map(a=>({...a, source:b.name, id:b.id, isFallback:false, pubDate:a.pubDate||new Date(), description:a.description||''})); allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts); loadedSources.add(b.id); updateHeaderCount(); renderArticles(); updateSourceLeds(); }
       overview = await enrichOostWithDetail(overview);
       arts=overview;
