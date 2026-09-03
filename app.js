@@ -1,4 +1,4 @@
-// app.js v299 - v302 - FIX 3691280 + mobile Alles aan/uit datum + description - geen extra fetches
+// app.js v299 - v301 - FIX 3691280 datum + description - geen extra fetches
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -28,12 +28,12 @@ const BRON_URLS = {
 (function(){
   try{
     const v = localStorage.getItem('ommen_app_version');
-    if(v!=='302'){
-      console.log('[v302] clearing old Oost caches, old version', v);
+    if(v!=='301'){
+      console.log('[v301] clearing old Oost caches, old version', v);
       localStorage.removeItem('ommen_oost_detail_cache');
       localStorage.removeItem('ommen_oost_poll');
       localStorage.removeItem('ommen_source_cache_v1');
-      localStorage.setItem('ommen_app_version','302');
+      localStorage.setItem('ommen_app_version','301');
     }
   }catch(e){}
 })();
@@ -78,16 +78,16 @@ function parseRTVOostECHT(html){
     const before = html.substring(Math.max(0, m.index-600), m.index+1000);
     let catMatch = before.match(/class="[^"]*name-label[^"]*"[^>]*>([^<]{2,30})<\/div>/i);
     let category = catMatch ? catMatch[1].trim().toUpperCase() : '';
-    let pd=new Date(dateStr); if(isNaN(pd.getTime())) { console.log('[v302] invalid date', dateStr); continue; }
+    let pd=new Date(dateStr); if(isNaN(pd.getTime())) { console.log('[v301] invalid date', dateStr); continue; }
     let finalTitle = category ? category+': '+rawTitle : rawTitle;
     if(rawTitle.toUpperCase().startsWith(category+':')) finalTitle = rawTitle;
     if(!items.find(x=>x.link===link)){
-      console.log('[v302] found', finalTitle, 'date', pd.toISOString());
+      console.log('[v301] found', finalTitle, 'date', pd.toISOString());
       items.push({title:finalTitle, link, pubDate:pd, description:'', _needsEnrich:true, _cat:category});
     }
   }
   if(items.length===0){
-    console.log('[v302] no publishedAt, fallback to links only');
+    console.log('[v301] no publishedAt, fallback to links only');
     const reFallback = /<a[^>]+href=["'](\/nieuws\/[^"']{5,300})["'][^>]*>[\s\S]*?<h[2-3][^>]*>([^<]{6,300})<\/h[2-3]>/gi;
     while((m=reFallback.exec(html))!==null && items.length<30){
       let link=m[1]; let rawTitle=m[2].trim();
@@ -191,7 +191,7 @@ function extractOostDescription(html){
   for(const c of candidates){
     const low = c.toLowerCase();
     if(specificKeywords.some(k=>low.includes(k)) && !isGeneric(c)){
-      console.log('[v302] specific match found', c.slice(0,100));
+      console.log('[v301] specific match found', c.slice(0,100));
       return c;
     }
   }
@@ -202,7 +202,7 @@ function extractOostDescription(html){
       return c;
     }
   }
-  console.log('[v302] no good description found, candidates were', candidates.slice(0,2));
+  console.log('[v301] no good description found, candidates were', candidates.slice(0,2));
   return '';
 }
 async function enrichOostWithDetail(arts){
@@ -229,7 +229,7 @@ async function enrichOostWithDetail(arts){
       const html = await fetchViaWorker(a.link);
       let desc = extractOostDescription(html);
       let realDate = extractOostDate(html);
-      console.log('[v302 enrich]', a.link.split('/').pop(), 'date', realDate, 'descLen', desc?desc.length:0);
+      console.log('[v301 enrich]', a.link.split('/').pop(), 'date', realDate, 'descLen', desc?desc.length:0);
       if(realDate && !isNaN(realDate.getTime())){
         // alleen overschrijven als datum echt verschilt van now (niet 11:19 van vandaag als fallback)
         a.pubDate = realDate;
@@ -246,7 +246,7 @@ async function enrichOostWithDetail(arts){
       }
       cache[a.link]={desc: a.description || '', iso: a.pubDate ? a.pubDate.toISOString() : null, ts:now};
     }catch(e){
-      console.log('[v302] enrich fail', a.link, e.message);
+      console.log('[v301] enrich fail', a.link, e.message);
     } finally {
       a._needsEnrich = false;
     }
@@ -296,25 +296,13 @@ function setupFilterHeader(){
   const fh = document.getElementById('filter-header'); if(!fh) return;
   const btnAll = document.getElementById('btn-all');
   if(btnAll){
-    // v302 MOBILE FIX: zowel click als touchend, met directe handler en stopImmediatePropagation
-    function toggleAll(e){
-      if(e) { e.stopPropagation(); e.preventDefault(); if(e.stopImmediatePropagation) e.stopImmediatePropagation(); }
+    btnAll.addEventListener('click', (e)=>{
+      e.stopPropagation(); e.preventDefault();
       const allOn = Object.values(state).every(s=>s.aan);
-      console.log('[v302 mobile] Alles aan/uit clicked, allOn=', allOn, 'event', e ? e.type : 'manual');
+      console.log('[v301] Alles aan/uit clicked, allOn=', allOn);
       BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true,vandaag:false,scope:'gemeente'}; state[b.id].aan = !allOn; });
       saveState(); renderFilters(); filterNews(); updateSourceLeds();
-      // na render opnieuw listener zetten (renderFilters maakt DOM opnieuw, maar btn-all blijft in header)
-      setTimeout(setupFilterHeader, 100);
-    }
-    // verwijder oude listeners door clone te vervangen (voorkomt dubbele)
-    const newBtn = btnAll.cloneNode(true);
-    btnAll.parentNode.replaceChild(newBtn, btnAll);
-    newBtn.addEventListener('click', toggleAll, {passive:false});
-    newBtn.addEventListener('touchend', toggleAll, {passive:false});
-    // zorg dat knop bovenop ligt op mobiel
-    newBtn.style.touchAction = 'manipulation';
-    newBtn.style.position = 'relative';
-    newBtn.style.zIndex = '10';
+    });
   }
   fh.addEventListener('click', (e)=>{
     if(e.target.closest('#bell-slot') || e.target.closest('#push-bell-btn')) return;
@@ -322,20 +310,7 @@ function setupFilterHeader(){
     const p = document.getElementById('source-panel');
     if(p.classList.contains('open')) closePanel(); else openPanel();
   });
-  // ook touch voor header zelf, maar niet voor btn-all
-  fh.addEventListener('touchend', (e)=>{
-    if(e.target.closest('#bell-slot') || e.target.closest('#push-bell-btn')) return;
-    if(e.target.id==='btn-all' || e.target.closest('#btn-all')) return;
-    // kleine delay om dubbele trigger met click te voorkomen
-    setTimeout(()=>{
-      const p = document.getElementById('source-panel');
-      if(p && !e.target.closest('#btn-all')){
-        if(p.classList.contains('open')) closePanel(); else openPanel();
-      }
-    }, 50);
-  }, {passive:true});
 }
-
 const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
 const SOURCE_CACHE_TTL = 1000 * 60 * 5;
 const SOURCE_CACHE_STALE = 1000 * 60 * 60;
@@ -412,7 +387,7 @@ async function loadOneSource(b){
     else if(cfg.type==='oost'){ 
       const html=await fetchViaWorker(cfg.url); 
       let overview=parseOostFull(html);
-      console.log('[v302] overview before enrich', overview.length, overview.map(o=>o.title.slice(0,40)));
+      console.log('[v301] overview before enrich', overview.length, overview.map(o=>o.title.slice(0,40)));
       if(overview.length){ const tempArts=overview.map(a=>({...a, source:b.name, id:b.id, isFallback:false, pubDate:a.pubDate||new Date(), description:a.description||''})); allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts); loadedSources.add(b.id); updateHeaderCount(); renderArticles(); updateSourceLeds(); }
       overview = await enrichOostWithDetail(overview);
       arts=overview;
