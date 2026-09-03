@@ -1,5 +1,6 @@
-// app.js v294 - FIX RTV Oost dubbele titel + echte description via detail enrich (geen title [...] meer)
-// Gebaseerd op v293 - alleen RTV Oost parser gefixt
+// app.js v293 - FIX echte tijd 11:27 via allorigins, geen fake 12:47 ipv middernacht teruggeven - LED rechts + telling 10/10 + SYNC RACE FIX + LION BADGE - terug naar vanavond werkend
+// app.js v275 - SYNC RACE FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
+// Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -25,10 +26,12 @@ const BRON_URLS = {
   'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/', fallback:'https://www.vechtdalcentraal.nl/'},
   'Nieuwsbrief': {url:'https://ommen-push-v2.leeuw008.workers.dev/newsletter/feed', homepage:'https://nieuwommen.leeuw008.nl/', type:'nieuwsbrief'},
 };
+// PLAATSEN FILTER - HERSTELD: alle kernen en buurtschappen gemeente Ommen
 
 // ===== v238 DEFINITIEF - ECHTE HTML PARSERS =====
 function parseVechtdalCentraalECHT(html){
   const items=[]; const seen=new Set();
+  // Originele parser - behouden
   let re=/<h[2-3] class="entry-title[^>]*>\s*<a href="([^"]+)"[^>]*>([^<]+)<\/a>/gi; let m;
   while((m=re.exec(html))!==null && items.length<25){
     let link=m[1]; if(link.startsWith('/')) link='https://www.vechtdalcentraal.nl'+link;
@@ -37,6 +40,7 @@ function parseVechtdalCentraalECHT(html){
     if(title.length>4) items.push({title, link, pubDate:new Date(), description:title+' [...]'});
   }
   if(items.length>0) return items;
+  // FIX 25-08-2026: nieuwe thema varianten - vechtdalcentraal gebruikt nu ook <h2><a> en article
   const patterns=[
     /<h2[^>]*>\s*<a href="([^"]+)"[^>]*>([^<]{8,200})<\/a>\s*<\/h2>/gi,
     /<article[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>([\s\S]{0,300}?)<\/a>[\s\S]*?<h[23]/gi,
@@ -76,6 +80,7 @@ function parseRTVVechtdalECHT(html){
       if(isToday){
         pd = new Date(pollingMoment);
       }else{
+        // geen tijd op bron -> polling-tijd (zoals gevraagd)
         pd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), pollingMoment.getHours(), pollingMoment.getMinutes(), pollingMoment.getSeconds());
       }
     }else{
@@ -99,6 +104,7 @@ function parseRTVVechtdalECHT(html){
         if(isToday){
           pd = new Date(pollingMoment);
         }else{
+          // geen tijd op bron -> polling-tijd
           pd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), pollingMoment.getHours(), pollingMoment.getMinutes(), pollingMoment.getSeconds());
         }
       }else{
@@ -110,14 +116,15 @@ function parseRTVVechtdalECHT(html){
   }
   return items;
 }
+
 async function enrichVechtdalWithDetail(arts){
   console.log('[v228] RTV Vechtdal enrich DISABLED - polling moment gebruikt, geen extra fetches');
   return arts;
 }
+
+
 function getOostPollCache(){try{return JSON.parse(localStorage.getItem('ommen_oost_poll')||'{}');}catch{return {};}}
 function setOostPollCache(c){try{localStorage.setItem('ommen_oost_poll', JSON.stringify(c));}catch{}}
-function getOostDetailCache(){try{return JSON.parse(localStorage.getItem('ommen_oost_detail_cache')||'{}');}catch{return {};}}
-function setOostDetailCache(c){try{localStorage.setItem('ommen_oost_detail_cache', JSON.stringify(c));}catch{}}
 function parseNieuwsbriefECHT(json){
   try{
     const data = typeof json === 'string' ? JSON.parse(json) : json;
@@ -132,8 +139,6 @@ function parseNieuwsbriefECHT(json){
     }).slice(0,10);
   }catch(e){ console.log('parse nieuwsbrief fail', e.message); return []; }
 }
-
-// ===== FIXED RTV OOST PARSER v294 - GEEN DUBBELE TITEL =====
 function parseRTVOostECHT(html){
   const items=[]; let m;
   console.log('[RTV Oost vechtdal] HTML len', html.length);
@@ -144,7 +149,7 @@ function parseRTVOostECHT(html){
     if(['ALLE NIEUWS','ZWOLLE','TWENTE'].includes(title.toUpperCase())) continue;
     let pd=new Date(dateStr); if(isNaN(pd.getTime())) pd=new Date();
     let finalTitle = ['NIEUWS','112','ECONOMIE','SPORT'].includes(category) ? category+': '+title : title;
-    if(!items.find(x=>x.link===link)) items.push({title:finalTitle, link, pubDate:pd, description:'', _needsEnrich:true});
+    if(!items.find(x=>x.link===link)) items.push({title:finalTitle, link, pubDate:pd, description:title+' [...]'});
   }
   if(items.length===0){
     const re2 = /<div[^>]*publishedAt=["']([^"']+)["'][^>]*>[\s\S]*?<a[^>]+href=["'](\/nieuws\/[^"']{10,150})["'][^>]*>[\s\S]*?<h[2-3][^>]*>([^<]{12,200})<\/h3>/gi;
@@ -152,7 +157,7 @@ function parseRTVOostECHT(html){
       let dateStr=m[1]; let link=m[2]; if(link.startsWith('/')) link='https://www.oost.nl'+link;
       let title=m[3].trim(); if(title.toLowerCase().includes('alle nieuws')) continue;
       let pd=new Date(dateStr); if(isNaN(pd.getTime())) continue;
-      if(!items.find(x=>x.link===link)) items.push({title, link, pubDate:pd, description:'', _needsEnrich:true});
+      if(!items.find(x=>x.link===link)) items.push({title, link, pubDate:pd, description:title+' [...]'});
     }
   }
   if(items.length>0){ items.sort((a,b)=>b.pubDate-a.pubDate); console.log('[RTV Oost] gevonden', items.length, 'met echte publishedAt'); return items; }
@@ -164,76 +169,14 @@ function parseRTVOostECHT(html){
     let inner=blockMatch[2]; let catMatch=inner.match(/<(?:span|div)[^>]*>\s*(NIEUWS|112|ECONOMIE|SPORT)\s*<\/(?:span|div)>/i); let category=catMatch?catMatch[1].toUpperCase():''; let titleMatch=inner.match(/<h[23][^>]*>([^<]{12,180})<\/h[23]>/i); let title=titleMatch?titleMatch[1].trim():''; if(!title||title.length<12) continue;
     if(['alle nieuws','zwolle','twente','enschede','vechtdal','salland','kop van overijssel'].includes(title.toLowerCase())) continue;
     let finalTitle=category?category+': '+title:title;
-    if(!items.find(x=>x.link===link)) items.push({title:finalTitle, link, pubDate:getPoll(link), description:'', _needsEnrich:true});
+    if(!items.find(x=>x.link===link)) items.push({title:finalTitle, link, pubDate:getPoll(link), description:title+' [...]'});
   }
   if(dirty) setOostPollCache(pollCache);
   items.sort((a,b)=>b.pubDate-a.pubDate);
   console.log('[RTV Oost] gevonden', items.length, 'met fallback');
   return items;
 }
-function extractOostDescription(html){
-  let m = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i);
-  if(!m) m = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i);
-  if(m && m[1].length > 20) return m[1].trim();
-  let m2 = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
-  if(!m2) m2 = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i);
-  if(m2 && m2[1].length > 20) return m2[1].trim();
-  const articleMatch = html.match(/<article[^>]*>([\s\S]{0,8000})<\/article>/i);
-  const searchIn = articleMatch? articleMatch[1] : html;
-  const pRe = /<p[^>]*>([^<]{30,600})<\/p>/gi;
-  let pm;
-  while((pm=pRe.exec(searchIn))!==null){
-    let txt = pm[1].replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();
-    if(txt.length < 40) continue;
-    if(txt.includes('©') || txt.toLowerCase().includes('rtv oost') && txt.length<80) continue;
-    if(txt.startsWith('Lees ook')) continue;
-    return txt;
-  }
-  return '';
-}
-async function enrichOostWithDetail(arts){
-  let cache=getOostDetailCache();
-  const now=Date.now();
-  const CACHE_TTL=1000*60*60*3;
-  console.log('[Oost enrich v294] start voor', arts.length);
-  arts.forEach(a=>{
-    const cached=cache[a.link];
-    if(cached && (now - cached.ts) < CACHE_TTL && cached.desc){
-      a.description = cached.desc;
-      a._needsEnrich = false;
-    }
-  });
-  const need = arts.filter(a=>a._needsEnrich).slice(0,8);
-  if(need.length===0) return arts;
-  await Promise.allSettled(need.map(async (a)=>{
-    try{
-      const html = await fetchViaWorker(a.link);
-      let desc = extractOostDescription(html);
-      if(desc){
-        const cleanTitle = a.title.replace(/^(112|NIEUWS|ECONOMIE|SPORT|VECHTDAL):\s*/i,'').toLowerCase().trim();
-        // als description bijna identiek aan titel, pak volgende alinea
-        if(desc.toLowerCase() === cleanTitle || (desc.toLowerCase().includes(cleanTitle) && desc.length < cleanTitle.length + 25)){
-          const paras = [...html.matchAll(/<p[^>]*>([^<]{30,600})<\/p>/gi)].map(x=>x[1].replace(/<[^>]*>/g,'').trim());
-          const better = paras.find(p=>p.length>40 && !p.toLowerCase().includes(cleanTitle.slice(0,20)));
-          if(better) desc = better;
-        }
-        if(desc.length > 220) desc = desc.slice(0,217)+' [...]';
-        else desc = desc + ' [...]';
-        a.description = desc;
-        cache[a.link]={desc, ts:now};
-      } else {
-        a.description = ''; // liever leeg dan dubbele titel
-      }
-    }catch(e){
-      console.log('[Oost enrich] fail', a.link, e.message);
-      a.description = '';
-    } finally {
-      a._needsEnrich = false;
-    }
-  }));
-  setOostDetailCache(cache);
-  return arts;
-}
+
 function parseOostFull_OLD(html){
   const max = MAX_PER_BRON['RTV Oost'];
   const patterns = [
@@ -250,7 +193,7 @@ function parseOostFull_OLD(html){
       if(!uniqMap.has(full)) uniqMap.set(full, text);
     }
   }
-  return Array.from(uniqMap.entries()).slice(0,max).map(([link,title])=>({title:title.slice(0,120), link, pubDate:new Date(), description:'', _needsEnrich:true}));
+  return Array.from(uniqMap.entries()).slice(0,max).map(([link,title])=>({title:title.slice(0,120), link, pubDate:new Date(), description:'[...]'}));
 }
 function parseVechtdalCentraalFallback_OLD(html){
   const max = MAX_PER_BRON['Vechtdal Centraal'];
@@ -280,6 +223,7 @@ function parseRTVVechtdalFull(html){
   return parseRTVVechtdalECHT(html);
 }
 
+
 const GEMEENTE_PLAATSEN = [
   'Ommen','Lemele','Vilsteren','Beerze','Beerzerveld','Witharen','Archem','Arriën','Arriërveld',
   'Besthmen','Dalmsholte','Eerde','Emsland','Giethmen','Hoogengraven','Junne','Nieuwebrug',
@@ -287,11 +231,15 @@ const GEMEENTE_PLAATSEN = [
   'Varsen','Vinkenbuurt','Zeesse','Stegeren','Beerzerpoort','Ommerschans'
 ];
 const GEMEENTE_ZOEK = GEMEENTE_PLAATSEN.map(p=>p.toLowerCase());
+
 function isGemeenteArtikel(art){
   const txt = (art.title + ' ' + (art.description||'')).toLowerCase();
   return GEMEENTE_ZOEK.some(pl => txt.includes(pl));
 }
+
 let state = {}; let allArticles = []; let loadedSources = new Set();
+
+// LED STATUS CSS - injected via JS zodat styles.css niet vervangen hoeft te worden
 (function injectLedStyles(){
   const css = `
   .source-row{position:relative}
@@ -310,6 +258,7 @@ let state = {}; let allArticles = []; let loadedSources = new Set();
   el.textContent=css;
   if(!document.getElementById('led-status-style')) document.head.appendChild(el);
 })();
+
 function updateSourceLeds(){
   try{
     BRONNEN.forEach(b=>{
@@ -342,6 +291,8 @@ function updateSourceLeds(){
     });
   }catch(e){ console.log('led update fail', e.message); }
 }
+
+
 function loadState(){
   try{
     const v2 = localStorage.getItem('nieuwsommen_bronnen_v2');
@@ -354,7 +305,10 @@ function saveState(){
   updateHiddenCompat(); updateHeaderCount();
   if(window.updatePushBell) window.updatePushBell();
   try{ if(window.updatePushSubscription) window.updatePushSubscription(); }catch(e){}
-  try{ if(window.pushFiltersToSW) window.pushFiltersToSW(); }catch(e){}
+  // v227 - push filters naar SW voor notificatie filtering
+  try{
+    if(window.pushFiltersToSW) window.pushFiltersToSW();
+  }catch(e){}
 }
 function updateHiddenCompat(){
   const cont = document.getElementById('compat-sources'); if(!cont) return;
@@ -420,6 +374,8 @@ function renderFilters(){
   });
   setTimeout(()=>{ try{ updateSourceLeds(); }catch{} }, 50);
 }
+
+
 function updateHeaderCount(){
   const aan = Object.values(state).filter(s=>s.aan).length;
   const countEl = document.getElementById('header-count');
@@ -469,8 +425,9 @@ function setupFilterHeader(){
   });
 }
 const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
-const SOURCE_CACHE_TTL = 1000 * 60 * 5;
-const SOURCE_CACHE_STALE = 1000 * 60 * 60;
+// PERF v239 - CACHE + SNELLER - RTV Oost & Vechtdal parsers 100% intact
+const SOURCE_CACHE_TTL = 1000 * 60 * 5; // 5 min vers
+const SOURCE_CACHE_STALE = 1000 * 60 * 60; // 60 min stale voor instant load
 const SOURCE_CACHE_KEY = 'ommen_source_cache_v1';
 function getSourceCache(){ try{return JSON.parse(localStorage.getItem(SOURCE_CACHE_KEY)||'{}');}catch{return {};}}
 function setSourceCache(cache){ try{localStorage.setItem(SOURCE_CACHE_KEY, JSON.stringify(cache));}catch{}}
@@ -512,6 +469,7 @@ async function fetchViaWorker(url){
   }catch(e1){
     clearTimeout(to);
     console.log('[perf v239] worker fail, trying direct fetch', url, e1.message);
+    // FIX v288: fallback direct fetch als worker geblokkeerd is door KV limit (429)
     try{
       const r2 = await fetch(url, {cache:'no-store', headers:{'Accept':'text/html'}});
       if(r2.ok){
@@ -573,6 +531,8 @@ function parseRSSFull(xml, bronId){
   }).filter(x=>x.link && x.title);
 }
 function extractGemeenteDate(html){
+  // v291 debug
+  // console.log('[v291] extractGemeenteDate html len', html.length);
   const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
   function mkDate(m){
     try{
@@ -581,8 +541,12 @@ function extractGemeenteDate(html){
       return new Date(year, mon, day, hh, mm);
     }catch{ return null; }
   }
+  // Strip tags to spaces for date+time that are split over divs like "28 juli 2026,</div><div>17:17"
   const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const htmlNoTags = text;
+
+  // 1) echte tijd samen: "28 juli 2026, 17:17" of "28 juli 2026,\n 17:17" of "28 juli 2026 - 17:17" of "28 juli 2026 om 17:17"
+  // Nieuw: tolereer ook newline en extra comma tussen datum en tijd
   let patterns = [
     /(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*,?\s*(?:om|\-)?\s*(\d{1,2})\s*:\s*(\d{2})/i,
     /(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})[^\d]{0,20}(\d{1,2})\s*:\s*(\d{2})/i
@@ -593,12 +557,15 @@ function extractGemeenteDate(html){
       const d=mkDate(m);
       if(d && !isNaN(d.getTime())) return d;
     }
+    // Also try on raw html with tags replaced by space (covers <div> split)
     m = html.replace(/<[^>]*>/g, ' ').match(re);
     if(m){
       const d=mkDate(m);
       if(d && !isNaN(d.getTime())) return d;
     }
   }
+
+  // 1b) datum en tijd los: zoek datum, en dan tijd binnen 300 chars erna (voor "28 juli 2026,\n\n17:17" over 2 divs)
   let dateOnly = htmlNoTags.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
   if(dateOnly){
     const idx = htmlNoTags.toLowerCase().indexOf(dateOnly[0].toLowerCase());
@@ -613,6 +580,8 @@ function extractGemeenteDate(html){
       }
     }
   }
+
+  // 2) meta article:published_time
   let m = html.match(/<meta[^>]+property=["']article:published_time["'][^>]+content=["']([^"']+)["']/i);
   if(m){
     const d=new Date(m[1]);
@@ -623,22 +592,26 @@ function extractGemeenteDate(html){
     const d=new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
   }
+  // 3) JSON-LD datePublished
   m = html.match(/"datePublished"\s*:\s*"([^"]+)"/i);
   if(m){
     const d=new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
   }
+  // 4) time datetime
   m = html.match(/<time[^>]+datetime=["']([^"']+)["']/i);
   if(m){
     const d=new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
   }
+  // 5) alleen datum: 12 mei 2026 -> middernacht zodat enrich weet dat er geen echte tijd is
   m = htmlNoTags.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
   if(m){
     return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), 0, 0, 0);
   }
   return null;
 }
+
 function extractDescAfter(pos, clean){
   const slice = clean.substring(pos, pos+1500);
   const re = /<(p|div)[^>]*>([\s\S]*?)<\/\1>/gi;
@@ -680,6 +653,7 @@ function getGemeenteCache(){
     const raw = localStorage.getItem('ommen_gemeente_cache');
     if(!raw) return {};
     const obj = JSON.parse(raw);
+    // v291 auto-migratie: als cache alleen datum zonder tijd bevat, wis hem zodat echte tijd opnieuw gehaald wordt
     let hasMidnight=false;
     for(const k in obj){
       try{
@@ -703,6 +677,7 @@ async function enrichGemeenteWithDetail(arts){
   const now=Date.now();
   const pollingNow=new Date();
   const CACHE_TTL=1000*60*60*2;
+  // v288 FIX: wis oude cache entries met 00:00 (middernacht) - die verbergen echte tijd
   let cleaned=false;
   for(const k in cache){
     try{
@@ -725,6 +700,7 @@ async function enrichGemeenteWithDetail(arts){
     return true;
   }).slice(0,10);
   if(needEnrich.length===0){
+    // v293 FIX: als we niks hoeven te enrichen, gebruik dan de echte tijden uit cache (niet de middernacht uit overzicht)
     console.log('[v293] geen enrich nodig, gebruik cache tijden voor', arts.length, 'artikelen');
     arts.forEach(a=>{
       const cached=cache[a.link];
@@ -744,6 +720,7 @@ async function enrichGemeenteWithDetail(arts){
   }
   await Promise.allSettled(needEnrich.map(async (a)=>{
     try{
+      // v293: gebruik allorigins direct voor gemeente details om KV block te omzeilen
       let html=null;
       try{
         const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(a.link)}&t=${Date.now()}`, {cache:'no-store'});
@@ -751,9 +728,10 @@ async function enrichGemeenteWithDetail(arts){
           const j = await r.json();
           if(j.contents && j.contents.length>500){
             html=j.contents;
+            console.log('[v293] allorigins OK voor', a.link.slice(-30));
           }
         }
-      }catch(e){}
+      }catch(e){ console.log('[v293] allorigins fail', e.message); }
       if(!html){
         html = await fetchViaWorker(a.link);
       }
@@ -783,12 +761,66 @@ async function enrichGemeenteWithDetail(arts){
     }
   }));
   arts.forEach(a=>{
+    // v293: alleen echte tijd bewaren, geen fake polling tijd - als geen echte tijd gevonden, laat middernacht staan (wordt later echte tijd na retry)
+    if(!a.pubDate || isNaN(a.pubDate.getTime())){
+      console.log('[v293] geen datum gevonden voor', a.link);
+    } else if(a.pubDate.getHours()===0 && a.pubDate.getMinutes()===0 && a.pubDate.getSeconds()===0){
+      console.log('[v293] nog steeds middernacht na detail fetch voor', a.link, '- behoud middernacht, retry later');
+    } else {
+      console.log('[v293] echte tijd gevonden voor', a.title.slice(0,30), a.pubDate.toLocaleString('nl-NL'));
+    }
     if(a.pubDate && !isNaN(a.pubDate.getTime()) && (a.pubDate.getHours()!==0 || a.pubDate.getMinutes()!==0)){
       cache[a.link]={iso:a.pubDate.toISOString(), ts:now};
     }
   });
   setGemeenteCache(cache);
   return arts;
+}
+
+function parseOostFull_OLD(html){
+  const max = MAX_PER_BRON['RTV Oost'];
+  const patterns = [
+    /<a[^>]+href=["'](\/nieuws\/[^"']*ommen[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
+    /<a[^>]+href=["'](https:\/\/www\.oost\.nl\/nieuws\/[^"']*ommen[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
+  ];
+  const uniqMap=new Map();
+  for(const re of patterns){
+    let mm;
+    while((mm=re.exec(html))!==null && uniqMap.size<max){
+      const href=mm[1]; let text=mm[2].replace(/<[^>]*>/g,'').trim();
+      if(text.length<10 || text.length>200) continue;
+      const full=href.startsWith('http')?href:'https://www.rtvoost.nl'+href;
+      if(!uniqMap.has(full)) uniqMap.set(full, text);
+    }
+  }
+  return Array.from(uniqMap.entries()).slice(0,max).map(([link,title])=>({title:title.slice(0,120), link, pubDate:new Date(), description:'[...]'}));
+}
+function parseVechtdalCentraalFallback_OLD(html){
+  const max = MAX_PER_BRON['Vechtdal Centraal'];
+  const re = /<a[^>]+href=["']([^"']*\/[^"']+)["'][^>]*>\s*<h[23][^>]*>([^<]{8,120})<\/h[23]>/gi;
+  const map=new Map();
+  let m;
+  while((m=re.exec(html))!==null && map.size<max){
+    let href=m[1], title=m[2].trim();
+    if(href.startsWith('/')) href='https://www.vechtdalcentraal.nl'+href;
+    if(!href.includes('vechtdalcentraal.nl')) continue;
+    if(href.includes('/category/') || href.includes('/tag/') || href.includes('#')) continue;
+    if(!map.has(href)) map.set(href, title);
+  }
+  return Array.from(map.entries()).slice(0,max).map(([link,title])=>({title, link, pubDate:new Date(), description:'[...]'}));
+}
+function parseOostFull(html){
+  const echt = parseRTVOostECHT(html);
+  if(echt.length>0) return echt;
+  return parseOostFull_OLD(html);
+}
+function parseVechtdalCentraalFallback(html){
+  const echt = parseVechtdalCentraalECHT(html);
+  if(echt.length>0) return echt;
+  return parseVechtdalCentraalFallback_OLD(html);
+}
+function parseRTVVechtdalFull(html){
+  return parseRTVVechtdalECHT(html);
 }
 async function loadOneSource(b){
   const cfg = BRON_URLS[b.id];
@@ -807,6 +839,7 @@ async function loadOneSource(b){
         allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts);
         loadedSources.add(b.id); updateHeaderCount(); renderArticles(); updateSourceLeds();
       }
+      // v291 FIX: altijd enrich voor echte tijd, ook bij cached overview (overzicht heeft nu alleen datum, geen tijd)
       enrichGemeenteWithDetail(overview).then(enriched=>{
         const enrichedArts=enriched.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
         allArticles = allArticles.filter(x=>x.id!==b.id).concat(enrichedArts);
@@ -817,15 +850,7 @@ async function loadOneSource(b){
     else if(b.id==='Nieuwsbrief'){ const json=await fetchViaWorker(cfg.url); arts=parseNieuwsbriefECHT(json); }
     else if(cfg.type==='oost'){ 
       const html=await fetchViaWorker(cfg.url); 
-      let overview=parseOostFull(html);
-      if(overview.length){
-        const tempArts=overview.map(a=>({...a, source:b.name, id:b.id, isFallback:false, pubDate:a.pubDate, description:a.description||''}));
-        allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts);
-        loadedSources.add(b.id); updateHeaderCount(); renderArticles(); updateSourceLeds();
-      }
-      // FIX v294: enrich voor echte description ipv title [...]
-      overview = await enrichOostWithDetail(overview);
-      arts=overview;
+      arts=parseOostFull(html); 
     }
     else if(b.id==='RTV Vechtdal'){ 
       try{
@@ -835,6 +860,7 @@ async function loadOneSource(b){
           const tempArts=overview.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
           allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts);
           loadedSources.add(b.id); updateHeaderCount(); renderArticles();
+          // v228: geen enrich meer, polling moment al gezet
           arts = overview;
         } else {
           arts = overview;
@@ -845,27 +871,33 @@ async function loadOneSource(b){
       }
     }
     else if(b.id==='Vechtdal Centraal'){
+      // ROBUUSTE FIX: probeer feed, daarna homepage, daarna direct rss2json als laatste redmiddel
       try{
         const xml=await fetchViaWorker(cfg.url);
         if(xml.includes('<rss')||xml.includes('<feed')||xml.includes('<item')){
           arts=parseRSSFull(xml,b.id);
+          console.log('[Vechtdal] RSS OK', arts.length);
         } else {
           arts=parseVechtdalCentraalFallback(xml);
+          console.log('[Vechtdal] HTML fallback parser', arts.length);
         }
-      }catch(e){}
+      }catch(e){ console.log('vc feed fail', e.message); }
       if(arts.length===0){
         try{
           const html=await fetchViaWorker(cfg.fallback || cfg.homepage);
           arts=parseVechtdalCentraalFallback(html);
-        }catch(e){}
+          console.log('[Vechtdal] homepage parser', arts.length);
+        }catch(e){ console.log('vc html fail', e.message); }
       }
       if(arts.length===0){
+        // LAATSTE REDMIDDEL: rss2json direct (om Cloudflare te omzeilen)
         try{
           const rss2jsonUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://www.vechtdalcentraal.nl/feed/')}&t=${Date.now()}`;
           const rRss = await fetch(rss2jsonUrl, {cache:'no-store'});
           if(rRss.ok){
             const j = await rRss.json();
             if(j.status==='ok' && j.items && j.items.length>0){
+              console.log('[Vechtdal] rss2json OK', j.items.length);
               arts = j.items.slice(0,10).map(it=>({
                 title: it.title.replace(/<[^>]*>/g,'').trim(),
                 link: it.link,
@@ -874,7 +906,7 @@ async function loadOneSource(b){
               }));
             }
           }
-        }catch(e){}
+        }catch(e){ console.log('[Vechtdal] rss2json fail', e.message); }
       }
     }
     else {
@@ -903,6 +935,7 @@ function highlightArticleByLink(link){
   try{
     const container=document.getElementById('news-container');
     if(!container) return;
+    // wacht tot artikelen gerenderd zijn
     setTimeout(()=>{
       const articles = container.querySelectorAll('.article');
       for(const el of articles){
@@ -911,10 +944,13 @@ function highlightArticleByLink(link){
           el.classList.add('highlight');
           el.scrollIntoView({behavior:'smooth', block:'center'});
           setTimeout(()=>{ el.classList.remove('highlight'); }, 5000);
+          console.log('[v325 - datum uit overzicht (free tier, geen detail fetch) - free tier: geen 30 sec sync, alleen 5 min + visibilitychange, debounce 5s - v297 met account + Alles uit fix + low KV] highlight article', link);
           break;
         }
       }
+      // als niet gevonden, check of het nieuwsbrief artikel is dat net gepusht is
       if(window._lastPushRealArticle && window._lastPushRealArticle.link===link){
+        // voeg tijdelijk toe bovenaan als highlight
         const art = window._lastPushRealArticle;
         const div=document.createElement('div');
         div.className='article highlight';
@@ -975,17 +1011,18 @@ function renderArticles(){
     if(a.isFallback){
       return `<div class="article fallback" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${a.source}</a></h2><small>${a.source}${a.pubDate.getTime()?` - ${formatDate(a.pubDate, a.id)}`:''}</small><div style="margin-top:6px;color:#666;">${a.description}</div></div>`;
     }
-    // v294: als description leeg is, toon geen tweede regel (voorkomt dubbele titel)
-    const descHtml = a.description && a.description.trim().length>5 ? `<div style="margin-top:6px;color:#555;">${a.description}</div>` : '';
-    return `<div class="article" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${cleanTitle}</a></h2><small>${a.source} - ${formatDate(a.pubDate, a.id)}</small>${descHtml}</div>`;
+    return `<div class="article" data-source="${a.id}"><h2><a href="${a.link}" target="_blank">${cleanTitle}</a></h2><small>${a.source} - ${formatDate(a.pubDate, a.id)}</small>${a.description?`<div style="margin-top:6px;color:#555;">${a.description}</div>`:''}</div>`;
   }).join('');
   container.innerHTML = countHtml + html;
   window.getAllArticles = ()=> filtered;
   try{ if(typeof updateSourceLeds==='function') setTimeout(()=>updateSourceLeds(), 20); }catch{}
+  // v275 fix 0/0 - update filter counts after articles filtered
+  try{ const list=document.getElementById('source-list'); if(list && list.children.length>0){ /* counts will be updated on next renderFilters */ } }catch{}
 }
 function filterNews(){ renderArticles(); }
 async function refreshNews(){
   const c=document.getElementById('news-container');
+  // PERF v239: 1. Direct stale cache tonen (<200ms)
   let hasStale=false;
   const initialArts=[];
   try{
@@ -996,8 +1033,8 @@ async function refreshNews(){
         try{
           let arts=[];
           if(cfg.type==='gemeente') arts=parseGemeenteOverview(cachedData);
-          else if(b.id==='Nieuwsbrief'){ arts=[]; }
-          else if(cfg.type==='oost') arts=parseOostFull(cachedData);
+          else if(b.id==='Nieuwsbrief'){ const json=await fetchViaWorker(cfg.url); arts=parseNieuwsbriefECHT(json); }
+    else if(cfg.type==='oost') arts=parseOostFull(cachedData);
           else if(b.id==='RTV Vechtdal'){ try{ arts=parseRTVVechtdalFull(cachedData); }catch{} if(arts.length===0) arts=parseRSSFull(cachedData,b.id); }
           else if(b.id==='Vechtdal Centraal'){ if(cachedData.includes('<rss')||cachedData.includes('<item')) arts=parseRSSFull(cachedData,b.id); else arts=parseVechtdalCentraalFallback(cachedData); }
           else arts=parseRSSFull(cachedData,b.id);
@@ -1011,6 +1048,7 @@ async function refreshNews(){
     loadedSources=new Set(BRONNEN.map(b=>b.id));
     updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds();
     if(c) c.querySelector('.articles-count')?.insertAdjacentHTML('afterend', '<div style="font-size:11px;color:#16a34a;padding:0 2px 6px">⚡ Uit cache - wordt ververst...</div>');
+    console.log('[perf v239] stale cache getoond', initialArts.length);
   } else {
     if(c) c.innerHTML='<div class="article">Bezig met laden... (9 bronnen) - eerste keer iets langer, daarna <1 sec</div>';
     allArticles=[]; loadedSources=new Set(); updateHeaderCount();
@@ -1021,6 +1059,7 @@ async function refreshNews(){
       const arts = await Promise.race([loadOneSource(b), timeout]);
       return {b, arts};
     } catch(e){
+      console.log('load timeout/fail', b.id, e.message);
       if(hasStale) return {b, arts:[]};
       return {b, arts:[{title:b.name, link:BRON_URLS[b.id].homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - '+e.message.slice(0,80)+' [...]', source:b.name, id:b.id, isFallback:true}]};
     }
@@ -1036,7 +1075,7 @@ async function refreshNews(){
   });
   if(freshArts.length>0) allArticles=freshArts;
   updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds();
-  console.log('refreshNews klaar v294 RTV Oost fix', allArticles.length, 'artikelen');
+  console.log('refreshNews klaar v275 FIX 0/0', allArticles.length, 'artikelen');
 }
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState(); renderFilters(); saveState(); restorePanelState(); setupFilterHeader();
@@ -1046,7 +1085,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 window.closePanel=closePanel; window.resetFilters=resetFilters; window.BRONNEN=BRONNEN; window.getAppState=()=>state;
 window.filterNews=filterNews; window.refreshNews=refreshNews;
 
-// ===== v226.2 LIVE SYNC + NOTIFICATIE (ongewijzigd) =====
+// ===== v226.2 LIVE SYNC + NOTIFICATIE =====
 (function(){
   const SYNC_ENABLED = true;
   const SYNC_INTERVAL_MS = 30000;
@@ -1055,9 +1094,11 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
   let lastRemoteUpdated = parseInt(localStorage.getItem('ommen_last_sync')||'0', 10);
   let isSyncing = false;
   let notifPermissionAsked = false;
+
   function getAuthHeaders(){
     return authToken ? {'Authorization': 'Bearer '+authToken, 'Content-Type':'application/json'} : {'Content-Type':'application/json'};
   }
+
   async function checkLogin(){
     if(!authToken) return null;
     try{
@@ -1068,6 +1109,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       return currentUser;
     }catch{ return null; }
   }
+
   window.loginOmmen = async function(email, password){
     const r = await fetch(WORKER+'/auth/login', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password})});
     const j = await r.json();
@@ -1081,6 +1123,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     ensureNotificationPermission();
     return j;
   };
+
   window.registerOmmen = async function(email, password){
     const r = await fetch(WORKER+'/auth/register', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password})});
     const j = await r.json();
@@ -1094,6 +1137,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     ensureNotificationPermission();
     return j;
   };
+
   window.logoutOmmen = function(){
     if(authToken) fetch(WORKER+'/auth/logout', {method:'POST', headers: getAuthHeaders(), body: JSON.stringify({token: authToken})}).catch(()=>{});
     authToken = null;
@@ -1104,6 +1148,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     stopLiveSync();
     updateAuthUI();
   };
+
   async function ensureNotificationPermission(){
     if(!('Notification' in window)) return;
     if(Notification.permission === 'default' && !notifPermissionAsked){
@@ -1111,6 +1156,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       try{ await Notification.requestPermission(); }catch{}
     }
   }
+
   function showSyncNotification(isBackground){
     try{
       if(navigator.serviceWorker && navigator.serviceWorker.controller){
@@ -1121,6 +1167,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
         });
       }
     }catch{}
+
     if(!isBackground){
       const toast = document.createElement('div');
       toast.textContent = '✓ Filters gesynchroniseerd';
@@ -1130,55 +1177,91 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       setTimeout(()=>{ toast.style.opacity='0'; setTimeout(()=>toast.remove(), 400); }, 3000);
     }
   }
+
   let pendingSave = false;
   async function saveToCloud(){
     if(!authToken || !SYNC_ENABLED) return;
     if(isSyncing){
       pendingSave = true;
+      console.log('[sync] save queued, isSyncing true');
       return;
     }
     try{
       isSyncing = true;
+      console.log('[sync] saving state to cloud, items:', Object.keys(state).length);
       const r = await fetch(WORKER+'/sync/save', {method:'POST', headers: getAuthHeaders(), body: JSON.stringify({state})});
       const j = await r.json().catch(()=>({}));
+      console.log('[sync] save response', j);
       if(r.ok && (j.ok || j.updated)){
         const updated = j.updated || Date.now();
         lastRemoteUpdated = updated;
         localStorage.setItem('ommen_last_sync', String(updated));
+        console.log('[sync] saved ok, updated:', updated);
+      } else {
+        console.warn('[sync] save failed', j);
       }
     }catch(e){ console.log('Sync save fail', e.message); }
     finally{ 
       isSyncing = false; 
       if(pendingSave){
         pendingSave = false;
+        console.log('[sync] processing queued save');
         setTimeout(()=>saveToCloud(), 300);
       }
     }
   }
+
   async function loadFromCloud(force=false){
-    if(!authToken) return false;
-    if(isSyncing && !force) return false;
+    if(!authToken){
+      console.log('[sync] load skipped, no authToken');
+      return false;
+    }
+    if(isSyncing && !force){
+      console.log('[sync] load skipped, isSyncing true and not force');
+      return false;
+    }
     let didUpdate = false;
     try{
       if(!force) isSyncing = true;
+      console.log('[sync] loading from cloud, force=', force, 'lastRemote=', lastRemoteUpdated);
       const r = await fetch(WORKER+'/sync/load', {headers: getAuthHeaders()});
-      if(!r.ok) return false;
+      console.log('[sync] load status', r.status);
+      if(!r.ok){
+        const errTxt = await r.text().catch(()=>'' );
+        console.warn('[sync] load failed status', r.status, errTxt);
+        return false;
+      }
       const data = await r.json();
-      if(!data.state) return false;
+      console.log('[sync] load data', {hasState: !!data.state, updated: data.updated, keys: data.state?Object.keys(data.state).length:0});
+      if(!data.state){
+        console.log('[sync] no remote state');
+        return false;
+      }
       const remoteUpdated = data.updated || 0;
       if(!force && remoteUpdated && remoteUpdated <= lastRemoteUpdated && lastRemoteUpdated!==0){
+        console.log('[sync] remote not newer, skipping', remoteUpdated, '<=', lastRemoteUpdated);
+        // Still check if local differs though
         const localStr = JSON.stringify(state);
         const remoteStr = JSON.stringify(data.state);
-        if(localStr === remoteStr) return false;
+        if(localStr === remoteStr){
+          return false;
+        }
+        // If different but remote older, still apply? No, keep local wins
+        // But for debugging, log
+        console.log('[sync] local differs but remote older, keeping local');
         return false;
       }
       const localStr = JSON.stringify(state);
       const remoteStr = JSON.stringify(data.state);
+      console.log('[sync] compare', {localLen: localStr.length, remoteLen: remoteStr.length, equal: localStr===remoteStr});
       if(localStr === remoteStr){
         if(remoteUpdated) { lastRemoteUpdated = remoteUpdated; localStorage.setItem('ommen_last_sync', String(remoteUpdated)); }
+        console.log('[sync] states equal, no update needed');
         return false;
       }
+      console.log('[sync] applying remote state');
       state = data.state;
+      // Ensure all bronnen exist
       try{ BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true, vandaag:false, scope:'gemeente'}; }); }catch{}
       localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state));
       lastRemoteUpdated = remoteUpdated || Date.now();
@@ -1192,11 +1275,16 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       updateAuthUI();
       didUpdate = true;
       const isBg = document.visibilityState !== 'visible';
-      if(!force) showSyncNotification(isBg);
-    }catch(e){ console.log('Sync load fail', e.message); }
+      if(!force){
+        showSyncNotification(isBg);
+      } else {
+        console.log('[sync] force load applied');
+      }
+    }catch(e){ console.log('Sync load fail', e.message, e.stack); }
     finally{ isSyncing = false; }
     return didUpdate;
   }
+
   let liveInterval = null;
   function startLiveSync(){
     stopLiveSync();
@@ -1206,6 +1294,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
   function stopLiveSync(){
     if(liveInterval){ clearInterval(liveInterval); liveInterval=null; }
   }
+
   function updateAuthUI(){
     const btn = document.getElementById('user-icon-btn');
     const oldSlot = document.getElementById('auth-slot');
@@ -1223,7 +1312,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
         const box = document.createElement('div');
         box.style.cssText='background:white;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.2);color:#111';
         const emailSafe = (currentUser.email || currentUser.user?.email || '').replace(/</g,'&lt;');
-        box.innerHTML = `<h3 style="margin:0 0 8px;font-size:18px">Ingelogd als</h3>
+        box.innerHTML = `<h[2-3] style="margin:0 0 8px;font-size:18px">Ingelogd als</h[2-3]>
           <p style="margin:0 0 16px;color:#374151;font-size:13px;word-break:break-all">${emailSafe}<br><span style="font-size:11px;color:#059669;font-weight:700">● live sync elke 30 sec</span></p>
           <div style="display:flex;gap:8px"><button id="btn-sync-now" style="flex:1;padding:10px;background:#0b5bd3;color:white;border:0;border-radius:8px;font-weight:600;cursor:pointer">Sync nu</button><button id="btn-logout-now" style="flex:1;padding:10px;background:#fee2e2;color:#991b1b;border:0;border-radius:8px;font-weight:600;cursor:pointer">Uitloggen</button></div>
           <button id="btn-close-acc" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:0;color:#666;cursor:pointer">Sluiten</button>`;
@@ -1240,6 +1329,19 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
             const ok = await loadFromCloud(true);
             btn.textContent='✓ Gesynced!';
             btn.style.background='#16a34a';
+            // Toast bevestiging
+            try{
+              let toast=document.getElementById('ommen-toast');
+              if(!toast){
+                toast=document.createElement('div');
+                toast.id='ommen-toast';
+                toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#16a34a;color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:10000;font-weight:600;font-size:14px;';
+                document.body.appendChild(toast);
+              }
+              toast.textContent='✓ Filters gesynchroniseerd om '+new Date().toLocaleTimeString();
+              toast.style.display='block';
+              setTimeout(()=>{ if(toast) toast.style.display='none'; }, 3000);
+            }catch{}
             setTimeout(()=>{ overlay.remove(); }, 1200);
           }catch(e){
             btn.textContent='Fout: '+e.message;
@@ -1256,6 +1358,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       btn.onclick = openLoginModal;
     }
   }
+
   function openLoginModal(){
     const old = document.getElementById('login-modal'); if(old) old.remove();
     const overlay = document.createElement('div');
@@ -1288,6 +1391,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     overlay.appendChild(box);
     document.body.appendChild(overlay);
   }
+
   if(typeof saveState === 'function'){
     const origSave = saveState;
     let saveTimeout = null;
@@ -1298,11 +1402,13 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       try{ if(typeof updateHeaderCount==='function') updateHeaderCount(); }catch{}
       try{ if(window.updatePushBell) window.updatePushBell(); }catch{}
       if(authToken){
+        // debounce cloud save 500ms
         if(saveTimeout) clearTimeout(saveTimeout);
         saveTimeout = setTimeout(()=>{ saveToCloud(); }, 500);
       }
     };
   }
+
   document.addEventListener('DOMContentLoaded', function(){
     setTimeout(async function(){
       const oldAuthSlot = document.getElementById('auth-slot');
@@ -1322,6 +1428,8 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
     }, 800);
   });
 })();
+
+// ===== v227 FILTER BRIDGE VOOR SERVICE WORKER v231 =====
 (function(){
   function getSelectedSourcesForSW(){
     try{
@@ -1336,8 +1444,10 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       return selected;
     }catch(e){ return []; }
   }
+
   window.pushFiltersToSW = function(){
     const sources = getSelectedSourcesForSW();
+    // 1. Naar Service Worker
     try{
       if(navigator.serviceWorker && navigator.serviceWorker.controller){
         navigator.serviceWorker.controller.postMessage({type:'SET_FILTERS', sources: sources});
@@ -1346,6 +1456,7 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
         if(reg.active) reg.active.postMessage({type:'SET_FILTERS', sources: sources});
       }).catch(()=>{});
     }catch(e){}
+    // 2. Naar IndexedDB voor offline fallback
     try{
       const req = indexedDB.open('nieuws-ommen', 1);
       req.onupgradeneeded = (e)=>{
@@ -1363,7 +1474,10 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
         }catch(err){}
       };
     }catch(e){}
+    console.log('[v227] Filters naar SW gepusht:', sources);
   };
+
+  // Service Worker vraagt om filters (GET_FILTERS)
   if('serviceWorker' in navigator){
     navigator.serviceWorker.addEventListener('message', event=>{
       if(event.data && event.data.type === 'GET_FILTERS'){
@@ -1374,9 +1488,13 @@ window.filterNews=filterNews; window.refreshNews=refreshNews;
       }
     });
   }
+
+  // Bij load ook meteen pushen
   document.addEventListener('DOMContentLoaded', ()=>{
     setTimeout(()=>{ try{ window.pushFiltersToSW(); }catch(e){} }, 1500);
   });
+
+  // Bij visibility change (terugkomen in app) ook pushen
   document.addEventListener('visibilitychange', ()=>{
     if(document.visibilityState === 'visible'){
       try{ window.pushFiltersToSW(); }catch(e){}
