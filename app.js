@@ -1,4 +1,4 @@
-// app.js v299 - FORCE CLEAR + DEBUG LOGS
+// app.js v303 - v299 + alleen Alles aan/uit mobiel fix - geen extra fetches
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -28,12 +28,12 @@ const BRON_URLS = {
 (function(){
   try{
     const v = localStorage.getItem('ommen_app_version');
-    if(v!=='299'){
+    if(v!=='303'){
       console.log('[v299] clearing old Oost caches, old version', v);
       localStorage.removeItem('ommen_oost_detail_cache');
       localStorage.removeItem('ommen_oost_poll');
       localStorage.removeItem('ommen_source_cache_v1');
-      localStorage.setItem('ommen_app_version','299');
+      localStorage.setItem('ommen_app_version','303');
     }
   }catch(e){}
 })();
@@ -222,22 +222,30 @@ function resetFilters(){ BRONNEN.forEach(b=>state[b.id]={aan:true,vandaag:false,
 function setupFilterHeader(){
   const fh = document.getElementById('filter-header'); if(!fh) return;
   const btnAll = document.getElementById('btn-all');
-  if(btnAll){
-    btnAll.addEventListener('click', (e)=>{
-      e.stopPropagation(); e.preventDefault();
+  if(btnAll && !btnAll.dataset.fixed){
+    btnAll.dataset.fixed='1';
+    // v303 - alleen knop fix, geen andere functionaliteit geraakt
+    const toggleAll = (e)=>{
+      if(e){ e.stopPropagation(); if(e.preventDefault) e.preventDefault(); }
       const allOn = Object.values(state).every(s=>s.aan);
-      console.log('[v299] Alles aan/uit clicked, allOn=', allOn);
       BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true,vandaag:false,scope:'gemeente'}; state[b.id].aan = !allOn; });
       saveState(); renderFilters(); filterNews(); updateSourceLeds();
+    };
+    btnAll.addEventListener('click', toggleAll, {passive:false});
+    btnAll.addEventListener('touchend', (e)=>{ toggleAll(e); }, {passive:false});
+    btnAll.style.touchAction='manipulation';
+  }
+  if(!fh.dataset.headerFixed){
+    fh.dataset.headerFixed='1';
+    fh.addEventListener('click', (e)=>{
+      if(e.target.closest('#bell-slot') || e.target.closest('#push-bell-btn')) return;
+      if(e.target.id==='btn-all' || e.target.closest('#btn-all')) return;
+      const p = document.getElementById('source-panel');
+      if(p.classList.contains('open')) closePanel(); else openPanel();
     });
   }
-  fh.addEventListener('click', (e)=>{
-    if(e.target.closest('#bell-slot') || e.target.closest('#push-bell-btn')) return;
-    if(e.target.id==='btn-all' || e.target.closest('#btn-all')) return;
-    const p = document.getElementById('source-panel');
-    if(p.classList.contains('open')) closePanel(); else openPanel();
-  });
 }
+
 const WORKER = 'https://ommen-push-v2.leeuw008.workers.dev';
 const SOURCE_CACHE_TTL = 1000 * 60 * 5;
 const SOURCE_CACHE_STALE = 1000 * 60 * 60;
