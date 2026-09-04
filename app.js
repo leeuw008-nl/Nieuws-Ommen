@@ -1,4 +1,6 @@
-// app.js v303 - v299 + alleen Alles aan/uit mobiel fix - geen extra fetches
+// app.js v304 - FIX voor 1000 KV puts / 1.91k requests - v303 basis + polling fix
+// FIX: geen polling elke 30 sec meer, alleen bij openen en bij wijziging
+
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -24,16 +26,15 @@ const BRON_URLS = {
   'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/', fallback:'https://www.vechtdalcentraal.nl/'},
   'Nieuwsbrief': {url:'https://ommen-push-v2.leeuw008.workers.dev/newsletter/feed', homepage:'https://nieuwommen.leeuw008.nl/', type:'nieuwsbrief'},
 };
-// FORCE CLEAR OLD CACHES v299
+// FORCE CLEAR OLD CACHES v304
 (function(){
   try{
     const v = localStorage.getItem('ommen_app_version');
-    if(v!=='303'){
-      console.log('[v299] clearing old Oost caches, old version', v);
+    if(v!=='304'){
+      console.log('[v304] clearing old caches, fixing polling, old version', v);
       localStorage.removeItem('ommen_oost_detail_cache');
       localStorage.removeItem('ommen_oost_poll');
-      localStorage.removeItem('ommen_source_cache_v1');
-      localStorage.setItem('ommen_app_version','303');
+      localStorage.setItem('ommen_app_version','304');
     }
   }catch(e){}
 })();
@@ -139,7 +140,6 @@ function extractOostDescription(html){
     if(txt.toLowerCase().includes('cookie')) continue;
     candidates.push(txt);
   }
-  console.log('[v299] description candidates', candidates.slice(0,3).map(c=>c.slice(0,80)));
   for(const c of candidates){ if(!isGeneric(c)) return c; }
   if(candidates.length >= 2 && isGeneric(candidates[0])){
     for(let i=1;i<candidates.length;i++){ if(!isGeneric(candidates[i])) return candidates[i]; }
@@ -153,29 +153,25 @@ async function enrichOostWithDetail(arts){
   arts.forEach(a=>{
     const cached=cache[a.link];
     if(cached && (now - cached.ts) < CACHE_TTL && cached.desc){
-      console.log('[v299] cache hit for', a.title.slice(0,30), cached.desc.slice(0,50));
       a.description = cached.desc;
       if(cached.iso){ const cd=new Date(cached.iso); if(!isNaN(cd.getTime())) a.pubDate = cd; }
       a._needsEnrich = false;
     }
   });
   const need = arts.filter(a=>a._needsEnrich).slice(0,10);
-  if(need.length===0){ console.log('[v299] no enrich needed'); return arts; }
-  console.log('[v299] enriching', need.length, 'artikelen');
+  if(need.length===0){ return arts; }
   await Promise.allSettled(need.map(async (a)=>{
     try{
-      console.log('[v299] fetching detail', a.link);
       const html = await fetchViaWorker(a.link);
       let desc = extractOostDescription(html);
       let realDate = extractOostDate(html);
-      console.log('[v299] detail result for', a.title.slice(0,30), 'date', realDate, 'desc', desc ? desc.slice(0,80) : 'NO DESC');
       if(realDate && !isNaN(realDate.getTime())){ a.pubDate = realDate; }
       if(desc){
         if(desc.length > 220) desc = desc.slice(0,217)+' [...]'; else desc = desc + ' [...]';
         a.description = desc;
         cache[a.link]={desc, iso: a.pubDate ? a.pubDate.toISOString() : null, ts:now};
       } else { a.description = ''; cache[a.link]={desc:'', iso: a.pubDate ? a.pubDate.toISOString() : null, ts:now}; }
-    }catch(e){ console.log('[v299] enrich fail', a.link, e.message); if(!a.pubDate) a.pubDate = new Date(); a.description = ''; }
+    }catch(e){ if(!a.pubDate) a.pubDate = new Date(); a.description = ''; }
     finally { a._needsEnrich = false; }
   }));
   setOostDetailCache(cache);
@@ -224,7 +220,6 @@ function setupFilterHeader(){
   const btnAll = document.getElementById('btn-all');
   if(btnAll && !btnAll.dataset.fixed){
     btnAll.dataset.fixed='1';
-    // v303 - alleen knop fix, geen andere functionaliteit geraakt
     const toggleAll = (e)=>{
       if(e){ e.stopPropagation(); if(e.preventDefault) e.preventDefault(); }
       const allOn = Object.values(state).every(s=>s.aan);
@@ -322,7 +317,6 @@ async function loadOneSource(b){
     else if(cfg.type==='oost'){ 
       const html=await fetchViaWorker(cfg.url); 
       let overview=parseOostFull(html);
-      console.log('[v299] overview before enrich', overview.length, overview.map(o=>o.title.slice(0,40)));
       if(overview.length){ const tempArts=overview.map(a=>({...a, source:b.name, id:b.id, isFallback:false, pubDate:a.pubDate||new Date(), description:a.description||''})); allArticles = allArticles.filter(x=>x.id!==b.id).concat(tempArts); loadedSources.add(b.id); updateHeaderCount(); renderArticles(); updateSourceLeds(); }
       overview = await enrichOostWithDetail(overview);
       arts=overview;
@@ -380,12 +374,16 @@ async function refreshNews(){
   try{ for(const b of BRONNEN){ const cfg=BRON_URLS[b.id]; const cachedData=getCachedSource(cfg.url) || getStaleSource(cfg.url); if(cachedData){ try{ let arts=[]; if(cfg.type==='gemeente') arts=parseGemeenteOverview(cachedData); else if(b.id==='Nieuwsbrief'){ arts=[]; } else if(cfg.type==='oost') arts=parseOostFull(cachedData); else if(b.id==='RTV Vechtdal'){ try{ arts=parseRTVVechtdalFull(cachedData); }catch{} if(arts.length===0) arts=parseRSSFull(cachedData,b.id); } else if(b.id==='Vechtdal Centraal'){ if(cachedData.includes('<rss')||cachedData.includes('<item')) arts=parseRSSFull(cachedData,b.id); else arts=parseVechtdalCentraalFallback(cachedData); } else arts=parseRSSFull(cachedData,b.id); if(arts.length>0){ initialArts.push(...arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}))); hasStale=true; } }catch(e){} } } }catch(e){}
   if(hasStale && initialArts.length>0){ allArticles=initialArts; loadedSources=new Set(BRONNEN.map(b=>b.id)); updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds(); } else { if(c) c.innerHTML='<div class="article">Bezig met laden... (9 bronnen) - eerste keer iets langer, daarna <1 sec</div>'; allArticles=[]; loadedSources=new Set(); updateHeaderCount(); }
   const loadWithTimeout = async (b) => { try { const timeout = new Promise((_,rej)=> setTimeout(()=>rej(new Error('timeout '+b.id)), 8000)); const arts = await Promise.race([loadOneSource(b), timeout]); return {b, arts}; } catch(e){ if(hasStale) return {b, arts:[]}; return {b, arts:[{title:b.name, link:BRON_URLS[b.id].homepage, pubDate:new Date(0), description:'Bron tijdelijk offline - '+e.message.slice(0,80)+' [...]', source:b.name, id:b.id, isFallback:true}]}; } };
-  const results = await Promise.allSettled(BRONNEN.map(b=>loadWithTimeout(b))); const freshArts=[]; results.forEach(r=>{ if(r.status==='fulfilled'){ const {b, arts}=r.value; if(arts.length>0) freshArts.push(...arts); loadedSources.add(b.id); } }); if(freshArts.length>0) allArticles=freshArts; updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds(); console.log('refreshNews klaar v299', allArticles.length);
+  const results = await Promise.allSettled(BRONNEN.map(b=>loadWithTimeout(b))); const freshArts=[]; results.forEach(r=>{ if(r.status==='fulfilled'){ const {b, arts}=r.value; if(arts.length>0) freshArts.push(...arts); loadedSources.add(b.id); } }); if(freshArts.length>0) allArticles=freshArts; updateHeaderCount(); renderArticles(); renderFilters(); updateSourceLeds(); console.log('refreshNews klaar v304', allArticles.length);
 }
 document.addEventListener('DOMContentLoaded', ()=>{ loadState(); renderFilters(); saveState(); restorePanelState(); setupFilterHeader(); document.getElementById('search-input')?.addEventListener('input', filterNews); setTimeout(()=>refreshNews(), 200); });
 window.closePanel=closePanel; window.resetFilters=resetFilters; window.BRONNEN=BRONNEN; window.getAppState=()=>state; window.filterNews=filterNews; window.refreshNews=refreshNews;
+
+// v304 FIX - GEEN polling meer elke 30 sec
 (function(){
-  const SYNC_ENABLED = true; const SYNC_INTERVAL_MS = 30000; let currentUser = null; let authToken = localStorage.getItem('ommen_auth_token') || null; let lastRemoteUpdated = parseInt(localStorage.getItem('ommen_last_sync')||'0', 10); let isSyncing = false; let notifPermissionAsked = false;
+  const SYNC_ENABLED = true; 
+  const SYNC_INTERVAL_MS = 0; // 0 = GEEN automatische polling meer! Alleen bij zichtbaar worden en bij opslaan
+  let currentUser = null; let authToken = localStorage.getItem('ommen_auth_token') || null; let lastRemoteUpdated = parseInt(localStorage.getItem('ommen_last_sync')||'0', 10); let isSyncing = false; let notifPermissionAsked = false;
   function getAuthHeaders(){ return authToken ? {'Authorization': 'Bearer '+authToken, 'Content-Type':'application/json'} : {'Content-Type':'application/json'}; }
   async function checkLogin(){ if(!authToken) return null; try{ const r = await fetch(WORKER+'/auth/me', {headers: getAuthHeaders()}); if(!r.ok){ return null; } const u = await r.json(); currentUser = u.user || u; return currentUser; }catch{ return null; } }
   window.loginOmmen = async function(email, password){ const r = await fetch(WORKER+'/auth/login', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password})}); const j = await r.json(); if(!r.ok) throw new Error(j.error||'Login mislukt'); authToken = j.token; localStorage.setItem('ommen_auth_token', authToken); currentUser = {id:j.id||j.user?.id, email:j.email||j.user?.email}; await loadFromCloud(true); updateAuthUI(); startLiveSync(); ensureNotificationPermission(); return j; };
@@ -394,15 +392,118 @@ window.closePanel=closePanel; window.resetFilters=resetFilters; window.BRONNEN=B
   async function ensureNotificationPermission(){ if(!('Notification' in window)) return; if(Notification.permission === 'default' && !notifPermissionAsked){ notifPermissionAsked = true; try{ await Notification.requestPermission(); }catch{} } }
   function showSyncNotification(isBackground){ try{ if(navigator.serviceWorker && navigator.serviceWorker.controller){ navigator.serviceWorker.controller.postMessage({type: 'SYNC_UPDATED'}); } else if(navigator.serviceWorker && navigator.serviceWorker.ready){ navigator.serviceWorker.ready.then(reg => { if(reg.active) reg.active.postMessage({type: 'SYNC_UPDATED'}); }); } }catch{} if(!isBackground){ const toast = document.createElement('div'); toast.textContent = '✓ Filters gesynchroniseerd'; toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#065f46;color:white;padding:10px 18px;border-radius:999px;font-size:13px;font-weight:600;z-index:99999;box-shadow:0 6px 20px rgba(0,0,0,0.2);opacity:0;transition:opacity 0.3s'; document.body.appendChild(toast); setTimeout(()=>{ toast.style.opacity='1'; }, 50); setTimeout(()=>{ toast.style.opacity='0'; setTimeout(()=>toast.remove(), 400); }, 3000); } }
   let pendingSave = false;
-  async function saveToCloud(){ if(!authToken || !SYNC_ENABLED) return; if(isSyncing){ pendingSave = true; return; } try{ isSyncing = true; const r = await fetch(WORKER+'/sync/save', {method:'POST', headers: getAuthHeaders(), body: JSON.stringify({state})}); const j = await r.json().catch(()=>({})); if(r.ok && (j.ok || j.updated)){ const updated = j.updated || Date.now(); lastRemoteUpdated = updated; localStorage.setItem('ommen_last_sync', String(updated)); } }catch(e){} finally{ isSyncing = false; if(pendingSave){ pendingSave = false; setTimeout(()=>saveToCloud(), 300); } } }
-  async function loadFromCloud(force=false){ if(!authToken) return false; if(isSyncing && !force) return false; let didUpdate = false; try{ if(!force) isSyncing = true; const r = await fetch(WORKER+'/sync/load', {headers: getAuthHeaders()}); if(!r.ok) return false; const data = await r.json(); if(!data.state) return false; const remoteUpdated = data.updated || 0; if(!force && remoteUpdated && remoteUpdated <= lastRemoteUpdated && lastRemoteUpdated!==0){ const localStr = JSON.stringify(state); const remoteStr = JSON.stringify(data.state); if(localStr === remoteStr) return false; return false; } const localStr = JSON.stringify(state); const remoteStr = JSON.stringify(data.state); if(localStr === remoteStr){ if(remoteUpdated) { lastRemoteUpdated = remoteUpdated; localStorage.setItem('ommen_last_sync', String(remoteUpdated)); } return false; } state = data.state; try{ BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true, vandaag:false, scope:'gemeente'}; }); }catch{} localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state)); lastRemoteUpdated = remoteUpdated || Date.now(); localStorage.setItem('ommen_last_sync', String(lastRemoteUpdated)); if(typeof renderFilters==='function'){ renderFilters(); } if(typeof filterNews==='function'){ filterNews(); } if(typeof updateHiddenCompat==='function'){ updateHiddenCompat(); } if(typeof updateHeaderCount==='function'){ updateHeaderCount(); } if(window.updatePushBell) try{ window.updatePushBell(); }catch{} try{ if(window.pushFiltersToSW) window.pushFiltersToSW(); }catch{} updateAuthUI(); didUpdate = true; const isBg = document.visibilityState !== 'visible'; if(!force) showSyncNotification(isBg); }catch(e){} finally{ isSyncing = false; } return didUpdate; }
-  let liveInterval = null; function startLiveSync(){ stopLiveSync(); if(!authToken) return; liveInterval = setInterval(()=>{ loadFromCloud(false); }, SYNC_INTERVAL_MS); } function stopLiveSync(){ if(liveInterval){ clearInterval(liveInterval); liveInterval=null; } }
+  let lastSavedStateStr = localStorage.getItem('nieuwsommen_bronnen_v2') || '';
+  async function saveToCloud(){ 
+    if(!authToken || !SYNC_ENABLED) return; 
+    const currentStr = JSON.stringify(state);
+    if(currentStr === lastSavedStateStr){ console.log('[v304] skip save - geen wijziging'); return; } // FIX: geen put als niks veranderd
+    if(isSyncing){ pendingSave = true; return; } 
+    try{ 
+      isSyncing = true; 
+      console.log('[v304] saveToCloud - state changed, putting');
+      const r = await fetch(WORKER+'/sync/save', {method:'POST', headers: getAuthHeaders(), body: JSON.stringify({state})}); 
+      const j = await r.json().catch(()=>({})); 
+      if(r.ok && (j.ok || j.updated)){ 
+        const updated = j.updated || Date.now(); 
+        lastRemoteUpdated = updated; 
+        localStorage.setItem('ommen_last_sync', String(updated)); 
+        lastSavedStateStr = currentStr;
+      } 
+    }catch(e){ console.log('[v304] save fail', e.message);} 
+    finally{ 
+      isSyncing = false; 
+      if(pendingSave){ pendingSave = false; setTimeout(()=>saveToCloud(), 300); } 
+    } 
+  }
+  async function loadFromCloud(force=false){ 
+    if(!authToken) return false; 
+    if(isSyncing && !force) return false; 
+    let didUpdate = false; 
+    try{ 
+      if(!force) isSyncing = true; 
+      const r = await fetch(WORKER+'/sync/load', {headers: getAuthHeaders()}); 
+      if(!r.ok) return false; 
+      const data = await r.json(); 
+      if(!data.state) return false; 
+      const remoteUpdated = data.updated || 0; 
+      // FIX: alleen updaten als remote echt nieuwer is
+      if(!force && remoteUpdated && remoteUpdated <= lastRemoteUpdated && lastRemoteUpdated!==0){ return false; } 
+      const localStr = JSON.stringify(state); 
+      const remoteStr = JSON.stringify(data.state); 
+      if(localStr === remoteStr){ 
+        if(remoteUpdated) { lastRemoteUpdated = remoteUpdated; localStorage.setItem('ommen_last_sync', String(remoteUpdated)); lastSavedStateStr = localStr; } 
+        return false; 
+      } 
+      state = data.state; 
+      try{ BRONNEN.forEach(b=>{ if(!state[b.id]) state[b.id]={aan:true, vandaag:false, scope:'gemeente'}; }); }catch{} 
+      localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state)); 
+      lastRemoteUpdated = remoteUpdated || Date.now(); 
+      localStorage.setItem('ommen_last_sync', String(lastRemoteUpdated)); 
+      lastSavedStateStr = JSON.stringify(state);
+      if(typeof renderFilters==='function'){ renderFilters(); } 
+      if(typeof filterNews==='function'){ filterNews(); } 
+      if(typeof updateHiddenCompat==='function'){ updateHiddenCompat(); } 
+      if(typeof updateHeaderCount==='function'){ updateHeaderCount(); } 
+      if(window.updatePushBell) try{ window.updatePushBell(); }catch{} 
+      try{ if(window.pushFiltersToSW) window.pushFiltersToSW(); }catch{} 
+      updateAuthUI(); 
+      didUpdate = true; 
+      const isBg = document.visibilityState !== 'visible'; 
+      if(!force) showSyncNotification(isBg); 
+    }catch(e){} 
+    finally{ isSyncing = false; } 
+    return didUpdate; 
+  }
+  let liveInterval = null; 
+  function startLiveSync(){ 
+    stopLiveSync(); 
+    if(!authToken) return; 
+    // FIX: geen interval meer! Alleen bij visibility change
+    if(SYNC_INTERVAL_MS > 0){
+      liveInterval = setInterval(()=>{ 
+        if(document.visibilityState === 'visible'){
+          loadFromCloud(false); 
+        }
+      }, SYNC_INTERVAL_MS); 
+    } else {
+      console.log('[v304] Live polling UIT - alleen sync bij tab focus');
+    }
+  } 
+  function stopLiveSync(){ if(liveInterval){ clearInterval(liveInterval); liveInterval=null; } }
   function updateAuthUI(){
     const btn = document.getElementById('user-icon-btn'); const oldSlot = document.getElementById('auth-slot'); if(oldSlot) oldSlot.remove(); if(!btn) return;
-    if(currentUser){ btn.classList.add('logged-in'); btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" style="display:block;flex-shrink:0"><path fill-rule="evenodd" d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" clip-rule="evenodd"/></svg>'; btn.title = currentUser.email + ' - ingelogd (● live)'; btn.onclick = function(){ const old = document.getElementById('login-modal'); if(old) old.remove(); const overlay = document.createElement('div'); overlay.id='login-modal'; overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px'; const box = document.createElement('div'); box.style.cssText='background:white;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.2);color:#111'; const emailSafe = (currentUser.email || currentUser.user?.email || '').replace(/</g,'&lt;'); box.innerHTML = `<h3 style="margin:0 0 8px;font-size:18px">Ingelogd als</h3><p style="margin:0 0 16px;color:#374151;font-size:13px;word-break:break-all">${emailSafe}<br><span style="font-size:11px;color:#059669;font-weight:700">● live sync elke 30 sec</span></p><div style="display:flex;gap:8px"><button id="btn-sync-now" style="flex:1;padding:10px;background:#0b5bd3;color:white;border:0;border-radius:8px;font-weight:600;cursor:pointer">Sync nu</button><button id="btn-logout-now" style="flex:1;padding:10px;background:#fee2e2;color:#991b1b;border:0;border-radius:8px;font-weight:600;cursor:pointer">Uitloggen</button></div><button id="btn-close-acc" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:0;color:#666;cursor:pointer">Sluiten</button>`; overlay.appendChild(box); document.body.appendChild(overlay); document.getElementById('btn-close-acc').onclick=()=>overlay.remove(); document.getElementById('btn-logout-now').onclick=()=>{ overlay.remove(); window.logoutOmmen(); }; document.getElementById('btn-sync-now').onclick=async()=>{ const btn=document.getElementById('btn-sync-now'); const origText=btn.textContent; btn.textContent='Bezig...'; btn.disabled=true; try{ await saveToCloud(); await loadFromCloud(true); btn.textContent='✓ Gesynced!'; btn.style.background='#16a34a'; setTimeout(()=>{ overlay.remove(); }, 1200); }catch(e){ btn.textContent='Fout: '+e.message; btn.style.background='#dc2626'; setTimeout(()=>{ btn.textContent=origText; btn.disabled=false; btn.style.background='#0b5bd3'; }, 2500); } }; overlay.onclick=(e)=>{ if(e.target===overlay) overlay.remove(); }; }; } else { btn.classList.remove('logged-in'); btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" style="display:block;flex-shrink:0"><path fill-rule="evenodd" d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" clip-rule="evenodd"/></svg>'; btn.title = 'Inloggen / Account maken'; btn.onclick = openLoginModal; } }
+    if(currentUser){ btn.classList.add('logged-in'); btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" style="display:block;flex-shrink:0"><path fill-rule="evenodd" d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" clip-rule="evenodd"/></svg>'; btn.title = currentUser.email + ' - ingelogd'; btn.onclick = function(){ const old = document.getElementById('login-modal'); if(old) old.remove(); const overlay = document.createElement('div'); overlay.id='login-modal'; overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px'; const box = document.createElement('div'); box.style.cssText='background:white;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.2);color:#111'; const emailSafe = (currentUser.email || currentUser.user?.email || '').replace(/</g,'&lt;'); box.innerHTML = `<h3 style="margin:0 0 8px;font-size:18px">Ingelogd als</h3><p style="margin:0 0 16px;color:#374151;font-size:13px;word-break:break-all">${emailSafe}<br><span style="font-size:11px;color:#059669;font-weight:700">● sync bij focus</span></p><div style="display:flex;gap:8px"><button id="btn-sync-now" style="flex:1;padding:10px;background:#0b5bd3;color:white;border:0;border-radius:8px;font-weight:600;cursor:pointer">Sync nu</button><button id="btn-logout-now" style="flex:1;padding:10px;background:#fee2e2;color:#991b1b;border:0;border-radius:8px;font-weight:600;cursor:pointer">Uitloggen</button></div><button id="btn-close-acc" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:0;color:#666;cursor:pointer">Sluiten</button>`; overlay.appendChild(box); document.body.appendChild(overlay); document.getElementById('btn-close-acc').onclick=()=>overlay.remove(); document.getElementById('btn-logout-now').onclick=()=>{ overlay.remove(); window.logoutOmmen(); }; document.getElementById('btn-sync-now').onclick=async()=>{ const btn=document.getElementById('btn-sync-now'); const origText=btn.textContent; btn.textContent='Bezig...'; btn.disabled=true; try{ await saveToCloud(); await loadFromCloud(true); btn.textContent='✓ Gesynced!'; btn.style.background='#16a34a'; setTimeout(()=>{ overlay.remove(); }, 1200); }catch(e){ btn.textContent='Fout: '+e.message; btn.style.background='#dc2626'; setTimeout(()=>{ btn.textContent=origText; btn.disabled=false; btn.style.background='#0b5bd3'; }, 2500); } }; overlay.onclick=(e)=>{ if(e.target===overlay) overlay.remove(); }; }; } else { btn.classList.remove('logged-in'); btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" style="display:block;flex-shrink:0"><path fill-rule="evenodd" d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" clip-rule="evenodd"/></svg>'; btn.title = 'Inloggen / Account maken'; btn.onclick = openLoginModal; } }
   function openLoginModal(){ const old = document.getElementById('login-modal'); if(old) old.remove(); const overlay = document.createElement('div'); overlay.id='login-modal'; overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px'; const box = document.createElement('div'); box.style.cssText='background:white;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.2)'; const h3 = document.createElement('h3'); h3.textContent='Inloggen voor sync & nieuwsbrief'; h3.style.margin='0 0 8px'; h3.style.fontSize='18px'; const p = document.createElement('p'); p.textContent='Je filters worden live gesynchroniseerd én je ontvangt de nieuwsbrief met belangrijke updates (max 1-2 per maand).'; p.style.cssText='margin:0 0 16px;color:#666;font-size:13px'; const inpEmail = document.createElement('input'); inpEmail.type='email'; inpEmail.placeholder='Email'; inpEmail.id='auth-email'; inpEmail.style.cssText='width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;box-sizing:border-box'; const inpPass = document.createElement('input'); inpPass.type='password'; inpPass.placeholder='Wachtwoord (min 6 tekens)'; inpPass.id='auth-pass'; inpPass.style.cssText='width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:16px;box-sizing:border-box'; const row = document.createElement('div'); row.style.cssText='display:flex;gap:8px'; const btnLogin = document.createElement('button'); btnLogin.textContent='Inloggen'; btnLogin.style.cssText='flex:1;padding:10px;background:#0b5bd3;color:white;border:0;border-radius:8px;font-weight:600;cursor:pointer'; const btnReg = document.createElement('button'); btnReg.textContent='Account maken'; btnReg.style.cssText='flex:1;padding:10px;background:#e8eef8;color:#0b5bd3;border:0;border-radius:8px;font-weight:600;cursor:pointer'; const btnClose = document.createElement('button'); btnClose.textContent='Annuleren'; btnClose.style.cssText='width:100%;margin-top:10px;padding:8px;background:transparent;border:0;color:#666;cursor:pointer'; const errDiv = document.createElement('div'); errDiv.id='auth-error'; errDiv.style.cssText='margin-top:10px;color:#c00;font-size:13px'; btnClose.onclick=function(){ overlay.remove(); }; btnLogin.onclick=async function(){ const email=inpEmail.value.trim(); const pass=inpPass.value; errDiv.textContent='Bezig...'; try{ await window.loginOmmen(email, pass); overlay.remove(); }catch(e){ errDiv.textContent=e.message; } }; btnReg.onclick=async function(){ const email=inpEmail.value.trim(); const pass=inpPass.value; errDiv.textContent='Bezig...'; try{ await window.registerOmmen(email, pass); overlay.remove(); }catch(e){ errDiv.textContent=e.message; } }; row.appendChild(btnLogin); row.appendChild(btnReg); box.appendChild(h3); box.appendChild(p); box.appendChild(inpEmail); box.appendChild(inpPass); box.appendChild(row); box.appendChild(btnClose); box.appendChild(errDiv); overlay.appendChild(box); document.body.appendChild(overlay); }
-  if(typeof saveState === 'function'){ const origSave = saveState; let saveTimeout = null; window.saveState = function(){ try{ origSave(); }catch{} localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state)); try{ if(typeof updateHiddenCompat==='function') updateHiddenCompat(); }catch{} try{ if(typeof updateHeaderCount==='function') updateHeaderCount(); }catch{} try{ if(window.updatePushBell) window.updatePushBell(); }catch{} if(authToken){ if(saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(()=>{ saveToCloud(); }, 500); } }; }
-  document.addEventListener('DOMContentLoaded', function(){ setTimeout(async function(){ const oldAuthSlot = document.getElementById('auth-slot'); if(oldAuthSlot) oldAuthSlot.remove(); await checkLogin(); if(currentUser){ await loadFromCloud(true); startLiveSync(); ensureNotificationPermission(); } updateAuthUI(); document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible' && currentUser){ loadFromCloud(false); } }); }, 800); });
+  if(typeof saveState === 'function'){ 
+    const origSave = saveState; 
+    let saveTimeout = null; 
+    window.saveState = function(){ 
+      try{ origSave(); }catch{} 
+      localStorage.setItem('nieuwsommen_bronnen_v2', JSON.stringify(state)); 
+      try{ if(typeof updateHiddenCompat==='function') updateHiddenCompat(); }catch{} 
+      try{ if(typeof updateHeaderCount==='function') updateHeaderCount(); }catch{} 
+      try{ if(window.updatePushBell) window.updatePushBell(); }catch{} 
+      if(authToken){ 
+        if(saveTimeout) clearTimeout(saveTimeout); 
+        saveTimeout = setTimeout(()=>{ saveToCloud(); }, 1000); // 1000ms debounce ipv 500
+      } 
+    }; 
+  }
+  document.addEventListener('DOMContentLoaded', function(){ 
+    setTimeout(async function(){ 
+      const oldAuthSlot = document.getElementById('auth-slot'); if(oldAuthSlot) oldAuthSlot.remove(); 
+      await checkLogin(); 
+      if(currentUser){ await loadFromCloud(true); startLiveSync(); ensureNotificationPermission(); } 
+      updateAuthUI(); 
+      // FIX: alleen sync bij focus, niet elke 30 sec
+      document.addEventListener('visibilitychange', function(){ 
+        if(document.visibilityState==='visible' && currentUser){ 
+          console.log('[v304] tab visible -> sync once'); 
+          loadFromCloud(false); 
+        } 
+      }); 
+    }, 800); 
+  });
 })();
 (function(){
   function getSelectedSourcesForSW(){ try{ if(typeof state !== 'object') return []; const selected = []; for(const bron of BRONNEN){ const s = state[bron.id]; if(s && s.aan){ selected.push(bron.id); } } return selected; }catch(e){ return []; } }
