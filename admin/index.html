@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin v271 - FIX delete/edit nieuwsbrief + 10e bron</title>
+<title>Admin v306 FINAL FIX #1-8 delete/edit nieuwsbrief + 10e bron</title>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:#f6f7f9;color:#111}
 .sidebar{position:fixed;left:0;top:0;bottom:0;width:270px;background:#111827;color:#fff;padding:20px;overflow:auto}
@@ -36,7 +36,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:10px 12px;border-bottom:
 <div style="margin-top:24px;font-size:11px;color:#9ca3af">Ingelogd als <span id="adminEmail">...</span><br><small id="apiBase"></small><br><br><b>v271 FIX:</b><br>✅ Fix body stream already read<br>✅ Fix onbekende admin route<br>✅ 10e bron Nieuwsbrief<br>✅ Delete/Edit nieuwsbrief (1 put)<br>✅ Volledige tekst leesbaar<br>✅ Echt artikel = omlijnd<br><span id="subs-count-side">laden...</span></div>
 </div>
 <div class="main">
-<div id="login-box" class="card" style="border:2px solid #dc2626"><h3 style="margin-top:0">Admin v271 - FIX nieuwsbrief delete/edit + omlijnd lezen</h3><p style="font-size:13px;color:#166534"><b>v271:</b> Zelfde opmaak/inhoud als v266, maar nu met 🗑️ Verwijderen en ✏️ Wijzigen. 1 KV write per actie (gratis tier safe). Deploy eerst Worker v271!</p><div class="grid" style="grid-template-columns:1fr 1fr"><div><label>Email</label><input id="login-email" class="input" value="leeuw008@gmail.com"></div><div><label>Wachtwoord</label><input id="login-pw" type="password" class="input"></div></div><br><button class="btn btn-ok" onclick="doLogin()">Inloggen v271</button><span id="login-result" style="margin-left:12px;font-size:13px"></span></div>
+<div id="login-box" class="card" style="border:2px solid #dc2626"><h3 style="margin-top:0">Admin v306 FINAL FIX #1-8 nieuwsbrief delete/edit + omlijnd lezen</h3><p style="font-size:13px;color:#166534"><b>v271:</b> Zelfde opmaak/inhoud als v266, maar nu met 🗑️ Verwijderen en ✏️ Wijzigen. 1 KV write per actie (gratis tier safe). Deploy eerst Worker v271!</p><div class="grid" style="grid-template-columns:1fr 1fr"><div><label>Email</label><input id="login-email" class="input" value="leeuw008@gmail.com"></div><div><label>Wachtwoord</label><input id="login-pw" type="password" class="input"></div></div><br><button class="btn btn-ok" onclick="doLogin()">Inloggen v271</button><span id="login-result" style="margin-left:12px;font-size:13px"></span></div>
 
 <div id="tab-overview">
 <div class="alert alert-ok">✅ <b>v271 FIX</b> - Nieuw: <b>delete/edit nieuwsbrief</b> (1 put) + volledige tekst tonen zodat gebruiker hele nieuwsbrief kan lezen. Verder identiek aan v266. 10e bron + omlijnd testen blijft werken.</div>
@@ -204,12 +204,19 @@ window.deleteNewsletterItem = async function(idx, pubDate){
 }
 
 async function sendNewsletterAsRealPush(){
-  const subject=document.getElementById('nl-subject').value; const body=document.getElementById('nl-body').value; const link=document.getElementById('nl-link').value;
+  const subject=document.getElementById('nl-subject').value; const body=document.getElementById('nl-body').value; let link=document.getElementById('nl-link').value;
   if(!subject){ alert('Titel vereist'); return; }
-  document.getElementById('nl-result').innerHTML='Pushen als ECHT artikel (omlijnd) - volledig leesbaar in app...';
+  const echtId = 'echt-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
+  if(!link || link==='https://nieuwommen.leeuw008.nl/' || link==='https://nieuwommen.leeuw008.nl'){
+    link = 'https://nieuwommen.leeuw008.nl/?echt='+encodeURIComponent(echtId)+'&highlight='+encodeURIComponent(echtId);
+  } else if(!link.includes('echt=')){
+    const sep = link.includes('?')?'&':'?';
+    link = link + sep + 'echt='+encodeURIComponent(echtId)+'&highlight='+encodeURIComponent(echtId);
+  }
+  document.getElementById('nl-result').innerHTML='Pushen als ECHT artikel (omlijnd) - met titel + link...';
   try{
-    const res=await api('/api/admin/newsletter/push-real',{method:'POST', body:JSON.stringify({title:subject, link:link, description:body})});
-    document.getElementById('nl-result').innerHTML='<div class=alert-ok>🔔 Verstuurd als ECHT (omlijnd) naar '+res.sent+'/'+res.total+' - gebruikers zien VOLLEDIGE tekst<br>'+JSON.stringify(res.article)+'</div>';
+    const res=await api('/api/admin/newsletter/push-real',{method:'POST', body:JSON.stringify({title:subject, link:link, description:body, echtId:echtId})});
+    document.getElementById('nl-result').innerHTML='<div class=alert-ok>🔔 FIX #8: ECHT omlijnd naar '+res.sent+'/'+res.total+' - titel: '+escapeHtml(subject)+' - link met highlight: '+escapeHtml(link)+'</div>';
   }catch(e){ document.getElementById('nl-result').innerHTML='<div style=color:#dc2626>Fout: '+e.message+'</div>'; }
 }
 
