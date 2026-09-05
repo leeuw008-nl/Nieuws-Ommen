@@ -1,123 +1,91 @@
-// sw.js v301 - FIX omlijnd artikel bij push click + knop naar overzicht
-// Deze file wordt als service worker geregistreerd, vervangt oude sw.js en push.js logic
+// sw.js v305 FINAL - FIX #6 #7 #8 - push met titel + highlight + ECHT omlijnd + guard lege pushes
+const CACHE_NAME = 'ommen-v305-final';
 
-const SW_VERSION = 'v301-omlijnd-fix';
+self.addEventListener('install', event => { self.skipWaiting(); });
+self.addEventListener('activate', event => { event.waitUntil(clients.claim()); });
 
-self.addEventListener('install', event => {
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', event => {
-  event.waitUntil(clients.claim());
-});
-
-// FIX v301: push click moet artikel omlijnd tonen met ?highlight= link + overzicht knop
-self.addEventListener('notificationclick', event => {
-  console.log('[sw v301] notificationclick', event.notification.data);
-  event.notification.close();
-  const data = event.notification.data || {};
-  const link = data.link || data.url || 'https://nieuwommen.leeuw008.nl/';
-  const title = data.title || 'Nieuw artikel';
-  const source = data.source || '';
-  
-  // Maak URL met highlight param zodat app.js weet welk artikel omlijnd moet
-  // We gebruiken #highlight of ?highlight= encoded link
-  const highlightUrl = link.includes('?') 
-    ? link + '&highlight=' + encodeURIComponent(link) + '&fromPush=1&pushTitle=' + encodeURIComponent(title)
-    : link + '?highlight=' + encodeURIComponent(link) + '&fromPush=1&pushTitle=' + encodeURIComponent(title);
-  
-  // Voor interne links (nieuwommen.leeuw008.nl) ga naar homepage met highlight
-  // Voor externe links (destentor etc) ga direct naar artikel maar met highlight param voor terug-knop
-  let targetUrl;
-  if(link.includes('nieuwommen.leeuw008.nl') || link === '/' || link.includes('localhost')){
-    targetUrl = 'https://nieuwommen.leeuw008.nl/?highlight=' + encodeURIComponent(link) + '&fromPush=1&pushTitle=' + encodeURIComponent(title) + '&pushSource=' + encodeURIComponent(source);
-  } else {
-    // Externe bron: open direct artikel met highlight param + fromPush flag voor omlijning
-    // We openen artikel URL met extra params zodat als gebruiker later naar homepage gaat, highlight blijft
-    targetUrl = highlightUrl;
-    // Alternatief: open homepage met highlight naar externe link (beter voor omlijnd in overzicht)
-    // Voor omlijnd in overzicht willen we homepage openen met highlight param:
-    targetUrl = 'https://nieuwommen.leeuw008.nl/?highlight=' + encodeURIComponent(link) + '&fromPush=1&pushTitle=' + encodeURIComponent(title) + '&pushSource=' + encodeURIComponent(source) + '&externalLink=' + encodeURIComponent(link);
+// FIX #6: lege pushes negeren, FIX #7: titel tonen, FIX #8: ECHT rood omlijnd
+self.addEventListener('push', function(event) {
+  console.log('[SW v305] push ontvangen');
+  let data = {};
+  try {
+    if (event.data) { data = event.data.json(); }
+  } catch (e) {
+    try { data = JSON.parse(event.data.text()); } catch (e2) { data = { title: event.data.text(), body: '', url: '' }; }
   }
 
-  console.log('[sw v301] Opening', targetUrl);
+  const hasValidLink = data.url && typeof data.url === 'string' && data.url.startsWith('http') && data.url.length > 10;
+  const hasValidTitle = data.title && typeof data.title === 'string' && data.title.trim().length > 3;
+  const isEcht = data.isEcht || data.type === 'echt' || data.source?.includes('ECHT');
+
+  // #6 FIX: geen link en geen echtId = SKIP (nietszeggend bericht)
+  if (!hasValidLink && !data.echtId) {
+    console.log('[SW v305 #6] SKIP lege push zonder link', data);
+    return;
+  }
+
+  const title = (data.title || (isEcht ? 'Belangrijk bericht' : 'Nieuw artikel')).slice(0, 100);
+  const body = (data.body || data.description || '').slice(0, 150);
+
+  // Deep-link: ?highlight= en ?echt= voor omlijnd weergave
+  let appUrl = '/';
+  if (data.echtId) {
+    appUrl = `/?echt=${encodeURIComponent(data.echtId)}&highlight=${encodeURIComponent(data.echtId)}`;
+  } else if (data.url) {
+    appUrl = `/?highlight=${encodeURIComponent(data.url)}`;
+  }
+
+  const options = {
+    body: body || (isEcht ? 'Tik om belangrijk bericht te lezen' : 'Nieuw artikel beschikbaar'),
+    icon: data.icon || '/icon-192.png',
+    badge: '/badge.png',
+    data: {
+      url: data.url || appUrl,
+      appUrl: appUrl,
+      echtId: data.echtId || null,
+      isEcht: isEcht,
+      source: data.source || '',
+      title: data.title || ''
+    },
+    tag: data.url || data.echtId || title, // voorkomt dubbele notificaties
+    renotify: false,
+    requireInteraction: isEcht, // ECHT blijft staan tot geklikt
+    vibrate: isEcht ? [300, 100, 300, 100, 300] : [200, 100, 200]
+  };
+
+  console.log('[SW v305] Toon push', title, data.url || data.echtId);
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  const articleUrl = event.notification.data?.url;
+  const appUrl = event.notification.data?.appUrl;
+  const echtId = event.notification.data?.echtId;
+
+  let urlToOpen = '/';
+  if (appUrl) urlToOpen = appUrl;
+  else if (echtId) urlToOpen = `/?echt=${encodeURIComponent(echtId)}&highlight=${encodeURIComponent(echtId)}`;
+  else if (articleUrl) urlToOpen = `/?highlight=${encodeURIComponent(articleUrl)}`;
+
+  console.log('[SW v305] click ->', urlToOpen);
 
   event.waitUntil(
-    clients.matchAll({type: 'window', includeUncontrolled: true}).then(clientList => {
-      // Als er al een venster open is van nieuwommen, focus die en stuur highlight message
-      for(let client of clientList){
-        if(client.url.includes('nieuwommen.leeuw008.nl') && 'focus' in client){
-          client.postMessage({
-            type: 'PUSH_CLICKED',
-            link: link,
-            url: link,
-            title: title,
-            source: source,
-            highlight: link,
-            fromPush: true
-          });
-          return client.focus().then(c => {
-            // Navigeer naar highlight URL
-            return c.navigate(targetUrl);
-          });
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      for (let client of windowClients) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(urlToOpen);
+          return client.focus();
         }
       }
-      // Geen venster open, open nieuwe
-      if(clients.openWindow){
-        return clients.openWindow(targetUrl);
-      }
+      return clients.openWindow(urlToOpen);
     })
   );
 });
 
-self.addEventListener('push', event => {
-  console.log('[sw v301] push received', event.data ? event.data.text() : 'no data');
-  let data = {};
-  try{
-    if(event.data){
-      data = event.data.json();
-    }
-  }catch(e){
-    try{
-      data = JSON.parse(event.data.text());
-    }catch{
-      data = {title: 'Nieuw(s)Ommen', body: event.data.text() || 'Nieuw artikel'};
-    }
-  }
-  
-  const title = data.title || 'Nieuw(s)Ommen';
-  const body = data.body || (data.source ? data.source + ': ' + title : title);
-  const link = data.link || data.url || data.click_action || '/';
-  const source = data.source || '';
-  
-  const options = {
-    body: body,
-    icon: 'https://nieuwommen.leeuw008.nl/icons/icon-192x192.png',
-    badge: '/icons/badge-lion-96x96.png', old_badge: 'https://nieuwommen.leeuw008.nl/icons/icon-192x192.png',
-    data: {
-      link: link,
-      url: link,
-      title: title,
-      source: source,
-      highlight: link,
-      fromPush: true
-    },
-    tag: data.id || link,
-    requireInteraction: false
-  };
-
-  event.waitUntil(
-    self.registration.showNotification(title, options)
-  );
-});
-
-self.addEventListener('message', event => {
-  console.log('[sw v301] message', event.data);
-  if(event.data && event.data.type === 'SET_FILTERS'){
-    // Filters opslaan voor eventuele filtering in push (toekomst)
-    console.log('[sw v301] SET_FILTERS', event.data.sources);
-  }
-  if(event.data && event.data.type === 'SYNC_UPDATED'){
-    console.log('[sw v301] SYNC_UPDATED');
+self.addEventListener('message', function(event) {
+  if (event.data?.type === 'SET_FILTERS') {
+    console.log('[SW v305] SET_FILTERS', event.data.sources);
   }
 });
