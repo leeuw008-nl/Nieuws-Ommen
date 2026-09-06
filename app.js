@@ -1,4 +1,5 @@
-// app.js v305 FINAL - ALLE 8 FIXES
+// app.js v307 FINAL - parsing/ map - 7x LOCKED + 3x FIX (#3 RTV Oost, #9 Gemeente Ommen, #10 Vechtdal Centraal)
+// Elke bron heeft eigen file in parsing/ - zie parsing/README.md - werkende files nooit overschrijven
 // #1 bronselectie bewaren, #2 Alles aan/uit, #3 RTV Oost laatste, #4 RTV Vechtdal datum, #5 NieuwOmmen kleur, #6 lege push guard, #7 push titel+highlight, #8 ECHT omlijnd
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
@@ -25,7 +26,7 @@ const BRON_URLS = {
   'Vechtdal Centraal': {url:'https://www.vechtdalcentraal.nl/feed/', homepage:'https://www.vechtdalcentraal.nl/'},
   'Nieuwsbrief': {url:'https://ommen-push-v2.leeuw008.workers.dev/newsletter/feed', homepage:'https://nieuwommen.leeuw008.nl/', type:'nieuwsbrief'},
 };
-(function(){ try{ const v=localStorage.getItem('ommen_app_version'); if(v!=='305'){ console.log('[v305 FINAL] all 8 fixes'); localStorage.setItem('ommen_app_version','305'); } }catch(e){} })();
+(function(){ try{ const v=localStorage.getItem('ommen_app_version'); if(v!=='307'){ console.log('[v307 parsing/ - 7 LOCKED + 3 FIXED]'); localStorage.setItem('ommen_app_version','307'); } }catch(e){} })();
 
 // FIX #7 + #8 highlight helpers
 function getHighlightUrl(){
@@ -69,7 +70,28 @@ function parseNieuwsbriefECHT(json){
 }
 
 // #3 + #4 caches
-function parseGemeenteOmmenECHT(html){ const items=[]; const seen=new Set(); let re=/<a[^>]+href="(\/actueel\/[^"]+)"[^>]*>[\s\S]{0,400}?<h[2-3][^>]*>([^<]{8,200})<\/h[2-3]>/gi; let m; while((m=re.exec(html))!==null && items.length<12){ let link=m[1]; if(link.startsWith('/')) link='https://www.ommen.nl'+link; if(seen.has(link)) continue; seen.add(link); let title=m[2].trim(); if(title.length>8) items.push({title, link, pubDate:new Date(), description:title+' [...]'}); } return items; }
+// 🔧 FIX v307 - parsing/Gemeente Ommen.js - WAS OFFLINE - NU GEFIXT
+// Zie parsing/Gemeente Ommen.js voor volledige code - hier samengevat
+function parseGemeenteOmmenECHT(html){
+  const items=[]; const seen=new Set();
+  const patterns=[
+    /<a[^>]+href="(\/actueel\/[^"]+)"[^>]*>[\s\S]{0,400}?<h[2-3][^>]*>([^<]{8,200})<\/h[2-3]>/gi,
+    /<article[^>]*>[\s\S]{0,600}?<a[^>]+href="([^"]+)"[^>]*>([^<]{8,200})<\/a>/gi,
+    /<h[2-3][^>]*>\s*<a href="([^"]+)"[^>]*>([^<]{8,200})<\/a>\s*<\/h[2-3]>/gi
+  ];
+  for(const pat of patterns){
+    let m;
+    while((m=pat.exec(html))!==null && items.length<12){
+      let link=m[1]; let title=m[2].replace(/<[^>]*>/g,'').trim();
+      if(link.startsWith('/')) link='https://www.ommen.nl'+link;
+      if(!link.includes('ommen.nl')) continue;
+      if(seen.has(link)) continue; seen.add(link);
+      if(title.length>8) items.push({title, link, pubDate:new Date(), description:title+' [...]'});
+    }
+    if(items.length>=3) break;
+  }
+  return items;
+}
 function getVechtdalCache(){try{return JSON.parse(localStorage.getItem('ommen_vechtdal_poll')||'{}');}catch{return {};}}
 function setVechtdalCache(c){try{localStorage.setItem('ommen_vechtdal_poll',JSON.stringify(c));}catch{}}
 function getVechtdalDetailCache(){try{return JSON.parse(localStorage.getItem('ommen_vechtdal_detail_cache')||'{}');}catch{return {};}}
@@ -77,7 +99,30 @@ function setVechtdalDetailCache(c){try{localStorage.setItem('ommen_vechtdal_deta
 function getOostDetailCache(){try{return JSON.parse(localStorage.getItem('ommen_oost_detail_cache')||'{}');}catch{return {};}}
 function setOostDetailCache(c){try{localStorage.setItem('ommen_oost_detail_cache', JSON.stringify(c));}catch{}}
 
-function parseVechtdalCentraalECHT(html){ const items=[]; const seen=new Set(); let re=/<h[2-3] class="entry-title[^>]*>\s*<a href="([^"]+)"[^>]*>([^<]+)<\/a>/gi; let m; while((m=re.exec(html))!==null && items.length<25){ let link=m[1]; if(link.startsWith('/')) link='https://www.vechtdalcentraal.nl'+link; if(seen.has(link)) continue; seen.add(link); const title=m[2].replace(/&#8217;/g,"'").replace(/&amp;/g,"&").trim(); if(title.length>4) items.push({title, link, pubDate:new Date(), description:title+' [...]'}); } return items; }
+// 🔧 FIX v307 - parsing/Vechtdal Centraal.js - WAS OFFLINE - NU GEFIXT
+function parseVechtdalCentraalECHT(html){
+  const items=[]; const seen=new Set();
+  if(html.includes('<item')){
+    const rssItems=[...html.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)].slice(0,10);
+    for(const it of rssItems){
+      const inner=it[1]||it[0];
+      const t=(inner.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i)||[])[1]||'';
+      let l=(inner.match(/<link[^>]*>([\s\S]*?)<\/link>/i)||[])[1]||'';
+      if(!l || l.includes('<')){ const hm=inner.match(/<link[^>]+href=["']([^"']+)["']/i); if(hm) l=hm[1]; }
+      l=l.replace(/<!\[CDATA\[|\]\]>/g,'').trim();
+      if(l && t && l.startsWith('http') && !seen.has(l)){ seen.add(l); items.push({title:t.replace(/<[^>]*>/g,'').trim().slice(0,120), link:l, pubDate:new Date(), description:t.slice(0,120)+' [...]'}); }
+    }
+    if(items.length>0) return items;
+  }
+  let re=/<h[2-3] class="entry-title[^>]*>\s*<a href="([^"]+)"[^>]*>([^<]+)<\/a>/gi; let m;
+  while((m=re.exec(html))!==null && items.length<25){
+    let link=m[1]; if(link.startsWith('/')) link='https://www.vechtdalcentraal.nl'+link;
+    if(seen.has(link)) continue; seen.add(link);
+    const title=m[2].replace(/&#8217;/g,"'").replace(/&amp;/g,"&").trim();
+    if(title.length>4) items.push({title, link, pubDate:new Date(), description:title+' [...]'});
+  }
+  return items;
+}
 
 // #4 RTV Vechtdal parse
 function parseRTVVechtdalECHT(html){
