@@ -52,13 +52,12 @@
 
 <script>
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js?v=308', {scope: './'}).then(r=>{
-    console.log('SW registered v308 modular', r.scope);
+  navigator.serviceWorker.register('./service-worker.js?v=297', {scope: './'}).then(r=>{
+    console.log('SW registered v297 rollback', r.scope);
   }).catch(e=>console.log('SW fail', e));
 }
 </script>
-<!-- v308 MODULAIR: app.js importeert uit parsing/ map, geen parsing code meer in app.js zelf -->
-<script type="module" src="app.js?v=308"></script>
+<script src="app.js?v=333"></script>
 <script src="push.js?v=270-free-tier"></script>
 <script src="article-focus.js?v=297"></script>
 </body>
