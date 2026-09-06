@@ -1,23 +1,20 @@
 // 🔒 LOCKED v304 - WERKT - NIET WIJZIGEN
-// Bron: De Stentor - RSS https://www.destentor.nl/ommen/rss.xml
+// Bron: Natuurlijk Ommen - https://www.natuurlijkommen.nl/feed/
 // Status: WERKT
-// Laatst getest: v304
-export function parseDeStentor(xml, bronId){
-  const max=25;
+export function parseNatuurlijkOmmen(xml, bronId){
+  const max=10;
   let items=[...xml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)];
-  if(items.length===0) items=[...xml.matchAll(/<entry[^>]*>([\s\S]*?)<\/entry>/gi)];
   items=items.slice(0,max);
   return items.map(m=>{
-    const it=m[0]||m[1];
+    const it=m[1]||m[0];
     let title=(it.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i)||[])[1]||'';
     title=title.replace(/<[^>]*>/g,'').trim();
     let link=(it.match(/<link[^>]*>([\s\S]*?)<\/link>/i)||[])[1]||'';
     if(!link||link.includes('<')){ const hm=it.match(/<link[^>]+href=["']([^"']+)["']/i); if(hm) link=hm[1]; }
     link=link.replace(/<!\[CDATA\[|\]\]>/g,'').trim();
-    let pub=(it.match(/<(pubDate|published|updated)[^>]*>([\s\S]*?)<\/(pubDate|published|updated)>/i)||[])[2]||'';
+    let pub=(it.match(/<(pubDate|published)[^>]*>([\s\S]*?)<\/(pubDate|published)>/i)||[])[2]||'';
     let desc=(it.match(/<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i)||[])[1]||'';
-    desc=desc.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
-    if(desc.length>180) desc=desc.slice(0,177)+' [...]'; else if(desc) desc=desc+' [...]';
-    return {title, link, pubDate:pub?new Date(pub):new Date(), description:desc, source:'De Stentor', id:bronId};
+    desc=desc.replace(/<[^>]*>/g,' ').slice(0,180)+' [...]';
+    return {title, link, pubDate:pub?new Date(pub):new Date(), description:desc, source:'Natuurlijk Ommen', id:bronId};
   }).filter(x=>x.link && x.title);
 }
