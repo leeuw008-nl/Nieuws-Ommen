@@ -100,7 +100,38 @@ function saveState(){ try{ localStorage.setItem('nieuwsommen_bronnen_v2', JSON.s
 function updateHeaderCount(){ const el=document.getElementById('bron-count'); if(!el) return; const aan=Object.values(state).filter(s=>s.aan).length; el.textContent=aan+' v/d '+BRONNEN.length+' bronnen'; }
 function renderFilters(){ const container=document.getElementById('bron-filters'); if(!container) return; container.innerHTML=''; BRONNEN.forEach(b=>{ const s=state[b.id]||{aan:true, vandaag:false, scope:'gemeente'}; const isLoaded=loadedSources.has(b.id); const count = allArticles.filter(a=>a.id===b.id && !a.isFallback).length; const total = allArticles.filter(a=>a.id===b.id).length; const div=document.createElement('div'); div.className='bron-filter'; div.innerHTML='<div class="bron-info"><span class="bron-led '+(isLoaded?'led-green':total>0?'led-orange':'led-red')+'"></span><div><strong>'+b.name+'</strong><small>'+b.sub+'</small></div><span class="bron-count">'+count+' / '+total+'</span></div><div class="bron-toggles"><label class="toggle"><input type="checkbox" '+(s.vandaag?'checked':'')+' onchange="state[\''+b.id+'\'].vandaag=this.checked; saveState(); filterNews();"><span>MEER</span></label><label class="toggle"><input type="checkbox" '+(s.scope==='regio'?'checked':'')+' onchange="state[\''+b.id+'\'].scope=this.checked?\'regio\':\'gemeente\'; saveState(); filterNews();"><span>GEMEENTE</span></label><label class="toggle toggle-aan"><input type="checkbox" '+(s.aan?'checked':'')+' onchange="state[\''+b.id+'\'].aan=this.checked; saveState(); filterNews();"><span>AAN</span></label></div>'; container.appendChild(div); }); }
 function filterNews(){ renderArticles(); }
-function renderArticles(){ const container=document.getElementById('news-container'); if(!container) return; let filtered=[...allArticles]; filtered=filtered.filter(a=>{ const s=state[a.id]; return s && s.aan; }); filtered=filtered.filter(a=>{ const s=state[a.id]; if(!s) return true; if(s.vandaag) return true; return isToday(a.pubDate) || a.isFallback; }); const searchInput=document.getElementById('search-input'); const q=(searchInput?.value||'').toLowerCase(); if(q){ filtered=filtered.filter(a=> (a.title+' '+a.description+' '+a.source).toLowerCase().includes(q)); } filtered.sort((a,b)=>{ return b.pubDate - a.pubDate; }); container.innerHTML=''; if(filtered.length===0){ container.innerHTML='<div class="no-results">Geen artikelen gevonden.</div>'; return; } filtered.forEach(a=>{ const div=document.createElement('div'); div.className='article'+(a.isFallback?' fallback':''); const dateStr = a.pubDate && a.pubDate.getTime()!==0 ? a.pubDate.toLocaleDateString('nl-NL',{day:'2-digit', month:'short'}) : ''; div.innerHTML='<div class="article-header"><span class="source-badge">'+a.source+'</span><span class="date">'+dateStr+'</span></div><h3><a href="'+a.link+'" target="_blank">'+a.title+'</a></h3><p>'+(a.description||'')+'</p>'; container.appendChild(div); }); const statusEl=document.getElementById('status'); if(statusEl) statusEl.textContent = filtered.length+' artikelen - '+loadedSources.size+' v/d '+BRONNEN.length+' bronnen'; }
+
+function renderArticles(){
+  const container=document.getElementById('news-container'); if(!container) return;
+  let filtered=[...allArticles];
+  filtered=filtered.filter(a=>{ const s=state[a.id]; return s && s.aan; });
+  filtered=filtered.filter(a=>{
+    const s=state[a.id]; if(!s) return true;
+    if(s.vandaag) return true;
+    return isToday(a.pubDate) || a.isFallback || a.isEcht;
+  });
+  const searchInput=document.getElementById('search-input'); const q=(searchInput?.value||'').toLowerCase();
+  if(q){ filtered=filtered.filter(a=> (a.title+' '+a.description+' '+a.source).toLowerCase().includes(q)); }
+  filtered.sort((a,b)=>{
+    if(a.isEcht && !b.isEcht) return -1;
+    if(!a.isEcht && b.isEcht) return 1;
+    return b.pubDate - a.pubDate;
+  });
+  const highlightUrl=getHighlightUrl(); const echtId=getEchtId();
+  container.innerHTML='';
+  if(filtered.length===0){ container.innerHTML='<div class="no-results">Geen artikelen gevonden.</div>'; return; }
+  filtered.forEach(a=>{
+    const isHighlighted = (highlightUrl && a.link===highlightUrl) || (echtId && a.echtId===echtId);
+    const div=document.createElement('div'); div.className='article'+(a.isFallback?' fallback':'')+(a.isEcht?' echt':'')+(isHighlighted?' highlighted':'');
+    if(isHighlighted) div.id='highlighted-article';
+    const dateStr = a.pubDate && a.pubDate.getTime()!==0 ? a.pubDate.toLocaleDateString('nl-NL',{day:'2-digit', month:'short', year:'numeric'}) : '';
+    // FIX: spatie tussen bron en datum terug
+    div.innerHTML='<div class="article-meta"><span class="source">'+a.source+'</span> <span class="date">'+dateStr+'</span></div><h3 class="article-title"><a href="'+a.link+'" target="_blank" rel="noopener">'+a.title+'</a></h3><p class="article-desc">'+(a.description||'')+'</p>';
+    container.appendChild(div);
+  });
+  const statusEl=document.getElementById('status'); if(statusEl) statusEl.textContent = filtered.length+' artikelen - '+loadedSources.size+' v/d '+BRONNEN.length+' bronnen';
+}
+
 function updateSourceLeds(){ renderFilters(); }
 function closePanel(){ const p=document.getElementById('filter-panel'); if(p) p.classList.remove('open'); }
 function resetFilters(){ BRONNEN.forEach(b=>{ state[b.id]={aan:true, vandaag:false, scope:'gemeente'}; }); saveState(); renderFilters(); filterNews(); }
