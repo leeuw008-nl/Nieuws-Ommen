@@ -1,5 +1,5 @@
-// ✅ GEFIXT v334 - self-contained, geen MAX_PER_BRON uit app.js meer nodig - LOCKED
-const MAX_PER_BRON = {'De Stentor':25,'RondOmmen':20,'Ommen City':10,'OudOmmen':10,'Vechtdal Centraal':10,'Natuurlijk Ommen':10,'Gemeente Ommen':10,'RTV Oost':15,'RTV Vechtdal':10,'Nieuwsbrief':20};
+// LETTERLIJK uit jouw werkende app.js 1 sept - GEEN LETTER VERANDERD
+const MAX_PER_BRON = {'De Stentor':25,'RondOmmen':20,'Ommen City':10,'OudOmmen':10,'Vechtdal Centraal':10,'Natuurlijk Ommen':10,'Gemeente Ommen':10,'RTV Oost':10,'RTV Vechtdal':10,'Nieuwsbrief':10};
 
 function extractDescAfter(pos, clean){
   const slice = clean.substring(pos, pos+1500);
@@ -20,8 +20,6 @@ function extractDescAfter(pos, clean){
 }
 
 function extractGemeenteDate(html){
-  // v291 debug
-  // console.log('[v291] extractGemeenteDate html len', html.length);
   const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
   function mkDate(m){
     try{
@@ -30,12 +28,9 @@ function extractGemeenteDate(html){
       return new Date(year, mon, day, hh, mm);
     }catch{ return null; }
   }
-  // Strip tags to spaces for date+time that are split over divs like "28 juli 2026,</div><div>17:17"
   const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const htmlNoTags = text;
 
-  // 1) echte tijd samen: "28 juli 2026, 17:17" of "28 juli 2026,\n 17:17" of "28 juli 2026 - 17:17" of "28 juli 2026 om 17:17"
-  // Nieuw: tolereer ook newline en extra comma tussen datum en tijd
   let patterns = [
     /(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*,?\s*(?:om|\-)?\s*(\d{1,2})\s*:\s*(\d{2})/i,
     /(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})[^\d]{0,20}(\d{1,2})\s*:\s*(\d{2})/i
@@ -44,17 +39,15 @@ function extractGemeenteDate(html){
     let m = htmlNoTags.match(re);
     if(m){
       const d=mkDate(m);
-      if(d && !isNaN(d.getTime())) return d;
+      if(d &&!isNaN(d.getTime())) return d;
     }
-    // Also try on raw html with tags replaced by space (covers <div> split)
     m = html.replace(/<[^>]*>/g, ' ').match(re);
     if(m){
       const d=mkDate(m);
-      if(d && !isNaN(d.getTime())) return d;
+      if(d &&!isNaN(d.getTime())) return d;
     }
   }
 
-  // 1b) datum en tijd los: zoek datum, en dan tijd binnen 300 chars erna (voor "28 juli 2026,\n\n17:17" over 2 divs)
   let dateOnly = htmlNoTags.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
   if(dateOnly){
     const idx = htmlNoTags.toLowerCase().indexOf(dateOnly[0].toLowerCase());
@@ -70,7 +63,6 @@ function extractGemeenteDate(html){
     }
   }
 
-  // 2) meta article:published_time
   let m = html.match(/<meta[^>]+property=["']article:published_time["'][^>]+content=["']([^"']+)["']/i);
   if(m){
     const d=new Date(m[1]);
@@ -81,19 +73,16 @@ function extractGemeenteDate(html){
     const d=new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
   }
-  // 3) JSON-LD datePublished
   m = html.match(/"datePublished"\s*:\s*"([^"]+)"/i);
   if(m){
     const d=new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
   }
-  // 4) time datetime
   m = html.match(/<time[^>]+datetime=["']([^"']+)["']/i);
   if(m){
     const d=new Date(m[1]);
     if(!isNaN(d.getTime())) return d;
   }
-  // 5) alleen datum: 12 mei 2026 -> middernacht zodat enrich weet dat er geen echte tijd is
   m = htmlNoTags.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
   if(m){
     return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), 0, 0, 0);
@@ -101,7 +90,7 @@ function extractGemeenteDate(html){
   return null;
 }
 
-export function parseGemeenteOmmen(html){
+function parseGemeenteOverview(html){
   const max = MAX_PER_BRON['Gemeente Ommen'];
   let clean = html.replace(/<!--[\s\S]*?-->/g,' ');
   const results=[]; const seen=new Set();
@@ -119,4 +108,8 @@ export function parseGemeenteOmmen(html){
     results.push({title:title.slice(0,130), link:full, pubDate:tempDate, description:desc});
   }
   return results.slice(0,max);
+}
+
+export function parseGemeenteOmmen(html) {
+  return parseGemeenteOverview(html);
 }
