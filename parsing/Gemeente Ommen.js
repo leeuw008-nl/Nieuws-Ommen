@@ -1,64 +1,120 @@
-// 🔧 FIX v307 - WAS BROKEN "Bron tijdelijk offline" - NU GEFIXT
-// Bron: Gemeente Ommen - https://www.ommen.nl/feed/ + fallback https://www.ommen.nl/actueel/
-// Probleem: RSS feed geeft Cloudflare challenge "Just a moment" -> parser faalde
-// Fix: probeer RSS, als leeg -> scrape /actueel/ pagina met 3 patterns
-// Status: GEFIXT v307 - TESTED LIVE op 2026-09-03 data
-// Na fix: LOCK deze file met 🔒
-
-export function parseGemeenteOmmen(xmlOrHtml, bronId, isHtmlFallback=false){
-  // Als het RSS is
-  if(!isHtmlFallback && (xmlOrHtml.includes('<rss') || xmlOrHtml.includes('<item') || xmlOrHtml.includes('<feed'))){
-    const max=10;
-    let items=[...xmlOrHtml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/gi)];
-    if(items.length===0) items=[...xmlOrHtml.matchAll(/<entry[^>]*>([\s\S]*?)<\/entry>/gi)];
-    items=items.slice(0,max);
-    const parsed=items.map(m=>{
-      const it=m[0]||m[1];
-      let title=(it.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i)||[])[1]||'';
-      title=title.replace(/<[^>]*>/g,'').trim();
-      let link=(it.match(/<link[^>]*>([\s\S]*?)<\/link>/i)||[])[1]||'';
-      if(!link||link.includes('<')){ const hm=it.match(/<link[^>]+href=["']([^"']+)["']/i); if(hm) link=hm[1]; }
-      link=link.replace(/<!\[CDATA\[|\]\]>/g,'').trim();
-      let pub=(it.match(/<(pubDate|published|updated)[^>]*>([\s\S]*?)<\/(pubDate|published|updated)>/i)||[])[2]||'';
-      let desc=(it.match(/<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i)||[])[1]||'';
-      desc=desc.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,180)+' [...]';
-      return {title, link, pubDate:pub?new Date(pub):new Date(), description:desc, source:'Gemeente Ommen', id:bronId};
-    }).filter(x=>x.link && x.title);
-    if(parsed.length>0) return parsed;
-    // RSS leeg -> trigger fallback in app.js
-    return [];
+// ✅ WERKEND uit app.js 1 sept - Gemeente Ommen - LOCKED
+function extractDescAfter(pos, clean){
+  const slice = clean.substring(pos, pos+1500);
+  const re = /<(p|div)[^>]*>([\s\S]*?)<\/\1>/gi;
+  let mm;
+  while((mm=re.exec(slice))!==null){
+    let txt = mm[2].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+    if(txt.length<30) continue;
+    if(txt.length>400) continue;
+    if(/^\d{1,2}\s+\w+\s+\d{4}/.test(txt)) continue;
+    if(txt.includes('Facebook') && txt.includes('Instagram')) continue;
+    if(txt.includes('prefetch') || txt.includes('wp-admin')) continue;
+    if(/^(Lees meer|Meer lezen|Home|Actueel)$/i.test(txt)) continue;
+    if(txt.length>180) txt=txt.slice(0,177)+' [...]'; else txt=txt+' [...]';
+    return txt;
   }
-  // HTML fallback - scrape /actueel/
-  const html=xmlOrHtml;
-  const items=[]; const seen=new Set();
-  const patterns=[
-    /<a[^>]+href="(\/actueel\/[^"]+)"[^>]*>[\s\S]{0,400}?<h[2-3][^>]*>([^<]{8,200})<\/h[2-3]>/gi,
-    /<article[^>]*>[\s\S]{0,600}?<a[^>]+href="([^"]+)"[^>]*>([^<]{8,200})<\/a>/gi,
-    /<h[2-3][^>]*>\s*<a href="([^"]+)"[^>]*>([^<]{8,200})<\/a>\s*<\/h[2-3]>/gi
-  ];
-  for(const pat of patterns){
-    let m;
-    while((m=pat.exec(html))!==null && items.length<12){
-      let link=m[1]; let title=m[2].replace(/<[^>]*>/g,'').trim();
-      if(link.startsWith('/')) link='https://www.ommen.nl'+link;
-      if(!link.includes('ommen.nl')) continue;
-      if(seen.has(link)) continue; seen.add(link);
-      if(title.length>8) items.push({title, link, pubDate:new Date(), description:title+' [...]', source:'Gemeente Ommen', id:bronId});
-    }
-    if(items.length>=3) break;
-  }
-  return items;
+  return ' [...]';
 }
 
-// Voor app.js - wrapper die eerst RSS probeert, dan HTML fallback
-export async function loadGemeenteOmmen(fetchViaWorker, cfg){
-  try{
-    const xml=await fetchViaWorker(cfg.url);
-    let arts=parseGemeenteOmmen(xml, cfg.id, false);
-    if(arts.length>0) return arts;
-    throw new Error('rss empty -> fallback');
-  }catch(e){
-    const html=await fetchViaWorker(cfg.fallback||cfg.homepage);
-    return parseGemeenteOmmen(html, cfg.id, true);
+function extractGemeenteDate(html){
+  // v291 debug
+  // console.log('[v291] extractGemeenteDate html len', html.length);
+  const months={januari:0,februari:1,maart:2,april:3,mei:4,juni:5,juli:6,augustus:7,september:8,oktober:9,november:10,december:11};
+  function mkDate(m){
+    try{
+      const day=parseInt(m[1]); const mon=months[m[2].toLowerCase()]; const year=parseInt(m[3]); const hh=parseInt(m[4]); const mm=parseInt(m[5]);
+      if(mon===undefined) return null;
+      return new Date(year, mon, day, hh, mm);
+    }catch{ return null; }
   }
+  // Strip tags to spaces for date+time that are split over divs like "28 juli 2026,</div><div>17:17"
+  const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const htmlNoTags = text;
+
+  // 1) echte tijd samen: "28 juli 2026, 17:17" of "28 juli 2026,\n 17:17" of "28 juli 2026 - 17:17" of "28 juli 2026 om 17:17"
+  // Nieuw: tolereer ook newline en extra comma tussen datum en tijd
+  let patterns = [
+    /(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})\s*,?\s*(?:om|\-)?\s*(\d{1,2})\s*:\s*(\d{2})/i,
+    /(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})[^\d]{0,20}(\d{1,2})\s*:\s*(\d{2})/i
+  ];
+  for(const re of patterns){
+    let m = htmlNoTags.match(re);
+    if(m){
+      const d=mkDate(m);
+      if(d && !isNaN(d.getTime())) return d;
+    }
+    // Also try on raw html with tags replaced by space (covers <div> split)
+    m = html.replace(/<[^>]*>/g, ' ').match(re);
+    if(m){
+      const d=mkDate(m);
+      if(d && !isNaN(d.getTime())) return d;
+    }
+  }
+
+  // 1b) datum en tijd los: zoek datum, en dan tijd binnen 300 chars erna (voor "28 juli 2026,\n\n17:17" over 2 divs)
+  let dateOnly = htmlNoTags.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
+  if(dateOnly){
+    const idx = htmlNoTags.toLowerCase().indexOf(dateOnly[0].toLowerCase());
+    if(idx>=0){
+      const after = htmlNoTags.substring(idx, idx+400);
+      const timeMatch = after.match(/(\d{1,2})\s*:\s*(\d{2})/);
+      if(timeMatch){
+        const day=parseInt(dateOnly[1]); const mon=months[dateOnly[2].toLowerCase()]; const year=parseInt(dateOnly[3]);
+        if(mon!==undefined){
+          return new Date(year, mon, day, parseInt(timeMatch[1]), parseInt(timeMatch[2]));
+        }
+      }
+    }
+  }
+
+  // 2) meta article:published_time
+  let m = html.match(/<meta[^>]+property=["']article:published_time["'][^>]+content=["']([^"']+)["']/i);
+  if(m){
+    const d=new Date(m[1]);
+    if(!isNaN(d.getTime())) return d;
+  }
+  m = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']article:published_time["']/i);
+  if(m){
+    const d=new Date(m[1]);
+    if(!isNaN(d.getTime())) return d;
+  }
+  // 3) JSON-LD datePublished
+  m = html.match(/"datePublished"\s*:\s*"([^"]+)"/i);
+  if(m){
+    const d=new Date(m[1]);
+    if(!isNaN(d.getTime())) return d;
+  }
+  // 4) time datetime
+  m = html.match(/<time[^>]+datetime=["']([^"']+)["']/i);
+  if(m){
+    const d=new Date(m[1]);
+    if(!isNaN(d.getTime())) return d;
+  }
+  // 5) alleen datum: 12 mei 2026 -> middernacht zodat enrich weet dat er geen echte tijd is
+  m = htmlNoTags.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+(\d{4})/i);
+  if(m){
+    return new Date(parseInt(m[3]), months[m[2].toLowerCase()], parseInt(m[1]), 0, 0, 0);
+  }
+  return null;
+}
+
+export function parseGemeenteOmmen(html){
+  const max = MAX_PER_BRON['Gemeente Ommen'];
+  let clean = html.replace(/<!--[\s\S]*?-->/g,' ');
+  const results=[]; const seen=new Set();
+  const titleRe = /<h[23][^>]*>\s*<a[^>]+href=["']([^"']*\/actueel\/[^"'?#]+)["'][^>]*>([\s\S]*?)<\/a>\s*<\/h[23]>/gi;
+  let m;
+  while((m=titleRe.exec(clean))!==null && results.length<max){
+    let href=m[1], title=m[2].replace(/<[^>]*>/g,'').trim();
+    if(title.length<8) continue;
+    const full = href.startsWith('http')?href:'https://www.ommen.nl'+href;
+    if(seen.has(full)) continue;
+    seen.add(full);
+    const desc = extractDescAfter(m.index, clean);
+    const block = clean.substring(Math.max(0,m.index-500), m.index+2500);
+    let tempDate = extractGemeenteDate(block);
+    results.push({title:title.slice(0,130), link:full, pubDate:tempDate, description:desc});
+  }
+  return results.slice(0,max);
 }
