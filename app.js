@@ -1,6 +1,7 @@
 // app.js v293 - FIX echte tijd 11:27 via allorigins, geen fake 12:47 ipv middernacht teruggeven - LED rechts + telling 10/10 + SYNC RACE FIX + LION BADGE - terug naar vanavond werkend
 // app.js v275 - SYNC RACE FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
 // Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
+import { parseDeStentor } from './parsing/De Stentor.js';
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -910,20 +911,25 @@ async function loadOneSource(b){
       }
     }
     else {
-      try{
-        const xml=await fetchViaWorker(cfg.url);
-        arts=parseRSSFull(xml, b.id);
-        if(arts.length===0 && cfg.fallback){
-          const html2=await fetchViaWorker(cfg.fallback);
-          arts=parseVechtdalCentraalFallback(html2);
-        }
-      }catch(e){
-        if(cfg.fallback){
-          const html2=await fetchViaWorker(cfg.fallback);
-          arts=parseVechtdalCentraalFallback(html2);
-        } else throw e;
-      }
+  try{
+    const xml=await fetchViaWorker(cfg.url);
+    // --- BRON VOOR BRON OVERZETTEN NAAR parsing/ map ---
+    if(b.id==='De Stentor'){
+      arts=parseDeStentor(xml, b.id); // <-- gebruikt nu parsing/De Stentor.js
+    } else {
+      arts=parseRSSFull(xml, b.id); // rest blijft nog oud
     }
+    if(arts.length===0 && cfg.fallback){
+      const html2=await fetchViaWorker(cfg.fallback);
+      arts=parseVechtdalCentraalFallback(html2);
+    }
+  }catch(e){
+    if(cfg.fallback){
+      const html2=await fetchViaWorker(cfg.fallback);
+      arts=parseVechtdalCentraalFallback(html2);
+    } else throw e;
+  }
+}
     if(arts.length===0) throw new Error('empty');
     return arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false}));
   }catch(e){
