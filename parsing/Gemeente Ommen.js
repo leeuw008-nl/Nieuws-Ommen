@@ -1,4 +1,6 @@
-// ✅ WERKEND uit app.js 1 sept - Gemeente Ommen - LOCKED
+// ✅ GEFIXT v334 - self-contained, geen MAX_PER_BRON uit app.js meer nodig - LOCKED
+const MAX_PER_BRON = {'De Stentor':25,'RondOmmen':20,'Ommen City':10,'OudOmmen':10,'Vechtdal Centraal':10,'Natuurlijk Ommen':10,'Gemeente Ommen':10,'RTV Oost':15,'RTV Vechtdal':10,'Nieuwsbrief':20};
+
 function extractDescAfter(pos, clean){
   const slice = clean.substring(pos, pos+1500);
   const re = /<(p|div)[^>]*>([\s\S]*?)<\/\1>/gi;

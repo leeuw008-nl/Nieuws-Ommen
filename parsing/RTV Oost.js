@@ -1,4 +1,11 @@
-// ✅ WERKEND uit app.js 1 sept - RTV Oost met echte publishedAt - LOCKED
+// ✅ GEFIXT v334 - self-contained met echte publishedAt - LOCKED
+const MAX_PER_BRON = {'De Stentor':25,'RondOmmen':20,'Ommen City':10,'OudOmmen':10,'Vechtdal Centraal':10,'Natuurlijk Ommen':10,'Gemeente Ommen':10,'RTV Oost':15,'RTV Vechtdal':10,'Nieuwsbrief':20};
+
+function getOostPollCache(){
+  try{ return JSON.parse(localStorage.getItem('oost_poll_cache')||'{}'); }catch{ return {}; }
+}
+function setOostPollCache(c){ localStorage.setItem('oost_poll_cache', JSON.stringify(c)); }
+
 export function parseRTVOost(html){
   const items=[]; let m;
   console.log('[RTV Oost vechtdal] HTML len', html.length);

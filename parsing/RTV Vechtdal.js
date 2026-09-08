@@ -1,4 +1,11 @@
-// ✅ WERKEND uit app.js 1 sept - RTV Vechtdal - LOCKED
+// ✅ GEFIXT v334 - self-contained, geen app.js helpers meer nodig - LOCKED
+const MAX_PER_BRON = {'De Stentor':25,'RondOmmen':20,'Ommen City':10,'OudOmmen':10,'Vechtdal Centraal':10,'Natuurlijk Ommen':10,'Gemeente Ommen':10,'RTV Oost':15,'RTV Vechtdal':10,'Nieuwsbrief':20};
+
+function getVechtdalCache(){
+  try{ return JSON.parse(localStorage.getItem('vechtdal_poll_cache')||'{}'); }catch{ return {}; }
+}
+function setVechtdalCache(c){ localStorage.setItem('vechtdal_poll_cache', JSON.stringify(c)); }
+
 export function parseRTVVechtdal(html){
   const items=[];
   const now = new Date(); const pollCache=getVechtdalCache(); let dirty=false; const pollingMoment=now;
