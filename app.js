@@ -1,6 +1,29 @@
-// app.js v293 - FIX echte tijd 11:27 via allorigins, geen fake 12:47 ipv middernacht teruggeven - LED rechts + telling 10/10 + SYNC RACE FIX + LION BADGE - terug naar vanavond werkend
-// app.js v275 - SYNC RACE FIX + LION BADGE alle bronnen + focus alleen artikel omlijnd
-// Gebaseerd op v226 + toegevoegd: SW kan filters opvragen voor notificatie filtering
+// app.js v404 - ORIGINEEL UI HERSTELD + parsing/ MODULAIR - bronselectie weer zoals screenshot
+// Origineel UI van 1 sept + 10 aparte parsers uit parsing/ map
+import { parseDeStentor } from './parsing/De Stentor.js';
+import { parseRondOmmen } from './parsing/RondOmmen.js';
+import { parseOmmenCity } from './parsing/Ommen City.js';
+import { parseOudOmmen } from './parsing/OudOmmen.js';
+import { parseNatuurlijkOmmen } from './parsing/Natuurlijk Ommen.js';
+import { parseRTVOost } from './parsing/RTV Oost.js';
+import { parseRTVVechtdal } from './parsing/RTV Vechtdal.js';
+import { parseVechtdalCentraal } from './parsing/Vechtdal Centraal.js';
+import { parseGemeenteOmmen } from './parsing/Gemeente Ommen.js';
+import { parseNieuwsbrief } from './parsing/Nieuwsbrief.js';
+
+const BRON_PARSERS = {
+  'De Stentor': parseDeStentor,
+  'RondOmmen': parseRondOmmen,
+  'Ommen City': parseOmmenCity,
+  'OudOmmen': parseOudOmmen,
+  'Natuurlijk Ommen': parseNatuurlijkOmmen,
+  'RTV Oost': parseRTVOost,
+  'RTV Vechtdal': parseRTVVechtdal,
+  'Vechtdal Centraal': parseVechtdalCentraal,
+  'Gemeente Ommen': parseGemeenteOmmen,
+  'Nieuwsbrief': parseNieuwsbrief
+};
+
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
@@ -824,6 +847,29 @@ function parseRTVVechtdalFull(html){
 }
 async function loadOneSource(b){
   const cfg = BRON_URLS[b.id];
+  // V404: probeer eerst nieuwe modulaire parser uit parsing/ map
+  try{
+    const modParser = BRON_PARSERS[b.id];
+    if(modParser){
+      const rawData = await fetchViaWorker(cfg.url);
+      let arts = [];
+      try{ arts = await modParser(rawData, b.id); }catch(e){ try{ arts = await modParser(rawData); }catch(e2){} }
+      if(arts && arts.length>0){
+        console.log('[v404 modular] '+b.id+' via parsing/'+b.id+'.js OK', arts.length);
+        return arts.map(a=>({...a, source:b.name, id:b.id, isFallback:false, pubDate:a.pubDate||new Date(), description:a.description||(a.title+' [...]')}));
+      }
+      if(cfg.fallback){
+        try{
+          const raw2 = await fetchViaWorker(cfg.fallback);
+          let arts2 = [];
+          try{ arts2 = await modParser(raw2, b.id); }catch{ try{ arts2 = await modParser(raw2); }catch{} }
+          if(arts2 && arts2.length>0) return arts2.map(a=>({...a, source:b.name, id:b.id, isFallback:false, pubDate:a.pubDate||new Date(), description:a.description||''}));
+        }catch{}
+      }
+    }
+  }catch(e){ console.log('modular parser fail', b.id, e.message); }
+  // Fallback naar originele oude logica hieronder
+  const cfgOrig = BRON_URLS[b.id];
   try{
     let arts=[];
     if(cfg.type==='gemeente'){
