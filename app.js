@@ -24,6 +24,22 @@ const BRON_PARSERS = {
   'Nieuwsbrief': parseNieuwsbrief
 };
 
+// Compat aliases voor oude loadOneSource die nog ECHT namen gebruikt
+function parseVechtdalCentraalECHT(html){ try{ return BRON_PARSERS['Vechtdal Centraal'](html); }catch(e){ return []; } }
+function parseRTVVechtdalECHT(html){ try{ return BRON_PARSERS['RTV Vechtdal'](html); }catch(e){ return []; } }
+function parseRTVOostECHT(html){ try{ return BRON_PARSERS['RTV Oost'](html); }catch(e){ return []; } }
+function parseGemeenteOverview(html){ try{ return BRON_PARSERS['Gemeente Ommen'](html); }catch(e){ return []; } }
+function parseOostFull(html){ try{ return BRON_PARSERS['RTV Oost'](html); }catch(e){ return []; } }
+function parseVechtdalCentraalFallback(html){ try{ return BRON_PARSERS['Vechtdal Centraal'](html); }catch(e){ return []; } }
+function parseRTVVechtdalFull(html){ try{ return BRON_PARSERS['RTV Vechtdal'](html); }catch(e){ return []; } }
+function parseNieuwsbriefECHT(json){ try{ return BRON_PARSERS['Nieuwsbrief'](json); }catch(e){ return []; } }
+function parseRSSFull(xml, id){ 
+  const p = BRON_PARSERS[id];
+  if(p){ try{ return p(xml, id); }catch(e){ try{ return p(xml); }catch{} } }
+  return [];
+}
+
+
 const BRONNEN = [
   {id:'De Stentor', name:'De Stentor', sub:'regionaal (Ommen)'},
   {id:'Gemeente Ommen', name:'Gemeente Ommen', sub:'officiële berichten'},
